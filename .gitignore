@@ -1,2 +1,13 @@
 .DS_Store
 /codex-sync*/
+
+# Local research and private data
+.sesshuttle/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+node_modules/
+dist/
+target/
