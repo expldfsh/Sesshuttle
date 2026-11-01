@@ -1,7 +1,12 @@
 {
-  "name": "sesshuttle", "version": "0.1.0-rc.1", "private": true,
+  "name": "sesshuttle",
+  "version": "0.1.0-rc.1",
+  "private": true,
   "description": "Encrypted, user-owned Codex conversation sync",
-  "author": "expldfsh", "license": "MIT", "type": "module", "main": "dist/main.cjs",
+  "author": "expldfsh",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/main.cjs",
   "scripts": {
     "build": "vite build && node scripts/build.mjs",
     "start": "electron .",
@@ -11,12 +16,45 @@
     "package:linux": "npm run build && electron-builder --linux tar.gz --x64 --publish never"
   },
   "build": {
-    "appId": "com.expldfsh.sesshuttle", "productName": "sesshuttle",
-    "directories": {"output": "release"},
-    "files": ["dist/**/*", "package.json"],
-    "asar": true, "npmRebuild": false,
-    "mac": {"category": "public.app-category.developer-tools", "identity": null, "target": "dmg"},
-    "linux": {"category": "Development", "target": "tar.gz", "executableName": "sesshuttle"},
-    "win": {"target": "zip"}
+    "appId": "com.expldfsh.sesshuttle",
+    "productName": "sesshuttle",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "target": "dmg"
+    },
+    "linux": {
+      "category": "Development",
+      "target": "tar.gz",
+      "executableName": "sesshuttle"
+    },
+    "win": {
+      "target": "zip"
+    }
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1161.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
   }
 }
