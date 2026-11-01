@@ -46,6 +46,8 @@ class Lab:
                 break
             if parent.is_symlink():
                 raise SafetyError('Symbolic links are not allowed')
+        if path.is_file() and path.stat().st_nlink != 1:
+            raise SafetyError('Hard-linked files are not allowed in the lab')
         return path
 
     def directory(self, relative: str) -> Path:
@@ -80,5 +82,5 @@ class Lab:
         if local_port is not None:
             if not 1024 <= local_port <= 65535:
                 raise SafetyError('Invalid fixture server port')
-            profile += f'(allow network-outbound (remote ip "127.0.0.1:{local_port}"))'
+            profile += f'(allow network-outbound (remote ip "localhost:{local_port}"))'
         return ['/usr/bin/sandbox-exec', '-p', profile, *arguments]

@@ -59,3 +59,16 @@ class LabSafetyTests(unittest.TestCase):
         self.assertEqual(report['sources'], {'cli': 1})
         self.assertEqual(report['errors'], {'unreadable_or_changed': 2})
         self.assertEqual((folder / 'valid.jsonl').read_text(), original)
+
+    def test_hardlinks_and_special_files_are_rejected(self):
+        from tools.codex_lab.bundle import read_stable
+        lab = Lab.create()
+        original = lab.root / 'original'
+        original.write_text('preserve')
+        os.link(original, lab.root / 'hardlink')
+        with self.assertRaises(SafetyError):
+            lab.checked(lab.root / 'hardlink')
+        fifo = lab.root / 'pipe'
+        os.mkfifo(fifo)
+        with self.assertRaises(SafetyError):
+            read_stable(lab, fifo)

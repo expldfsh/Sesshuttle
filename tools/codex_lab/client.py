@@ -9,6 +9,7 @@ import subprocess
 import time
 
 from .safety import Lab, SafetyError
+from .bundle import exclusive_home
 
 
 class RpcError(RuntimeError):
@@ -29,10 +30,17 @@ class Client:
         args = [str(binary.resolve()), 'app-server', '-c', 'cli_auth_credentials_store="file"',
                 '-c', 'analytics.enabled=false', '-c', 'shell_snapshot=false']
         self.log_path = lab.checked(home / 'app-server.stderr.log')
+        self.lock = exclusive_home(lab, home)
+        self.lock.__enter__()
         self.log = self.log_path.open('ab')
-        self.process = subprocess.Popen(lab.command(args, local_port=local_port),
-            cwd=project, env=lab.environment(home), stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=self.log)
+        try:
+            self.process = subprocess.Popen(lab.command(args, local_port=local_port),
+                cwd=project, env=lab.environment(home), stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=self.log)
+        except BaseException:
+            self.log.close()
+            self.lock.__exit__(None, None, None)
+            raise
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
         self.buffer = b''
@@ -118,6 +126,7 @@ class Client:
             if not self.process.stdin.closed:
                 self.process.stdin.close()
             self.log.close()
+            self.lock.__exit__(None, None, None)
 
     def __enter__(self):
         return self

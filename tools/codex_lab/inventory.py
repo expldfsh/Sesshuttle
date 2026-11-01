@@ -25,7 +25,7 @@ def classify_source(meta: dict) -> str:
 
 
 def read_header(path: Path) -> dict:
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         before = os.fstat(stream.fileno())
         if not stat.S_ISREG(before.st_mode):
