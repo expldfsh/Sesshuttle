@@ -16,14 +16,17 @@ export async function assertCodexClosed(){
 export async function binaryVersion(binary){requireThat(typeof binary==='string'&&path.isAbsolute(binary),'binary_required');
  try{const {stdout}=await exec(binary,['--version'],{timeout:5000,env:{...process.env},maxBuffer:2048});const v=stdout.trim().replace(/^codex-cli /,'');requireThat(KNOWN_VERSIONS.includes(v),'unknown_version',v);return v;}catch(e){if(e instanceof Fault)throw e;throw new Fault('binary_unavailable');}}
 export class NativeClient{
- constructor(binary,home,project,{confine=true}={}){this.next=0;this.waiting=new Map();this.closed=false;
+ constructor(binary,home,project,{confine=true,disabledServers=[]}={}){this.next=0;this.waiting=new Map();this.closed=false;
   const args=['app-server','-c','analytics.enabled=false','-c','cli_auth_credentials_store="file"','-c','mcp_servers={}','-c','hooks={}','-c','features.plugins=false','-c','features.shell_snapshot=false'];
+  for(const event of ['PreModelRequest','PostModelRequest','PreToolUse','PermissionRequest','PostToolUse','PreCompact','PostCompact','SessionStart','SessionEnd','UserPromptSubmit','SubagentStart','SubagentStop','Stop','Interrupt'])args.push('-c',`hooks.${event}=[]`);
+  if(disabledServers.length)args.push('-c','mcp_servers={'+disabledServers.map(server=>JSON.stringify(server)+'={enabled=false,required=false}').join(',')+'}');
+  args.push('-c','otel.exporter="none"','-c','otel.trace_exporter="none"','-c','features.remote_plugin=false');
   let command=binary,all=args;
   if(process.platform==='darwin'&&confine){command='/usr/bin/sandbox-exec';
    const quote=JSON.stringify;const profile=`(version 1)(deny default)(allow process*)(allow sysctl-read)(allow mach-lookup)(allow ipc-posix*)(allow file-read*)${home!==path.join(os.homedir(),'.codex')?'(deny file-read* (subpath '+quote(path.join(os.homedir(),'.codex'))+'))':''}(allow file-write* (subpath ${quote(home)}) (literal "/dev/null"))`;
    all=['-p',profile,binary,...args];
   }
-  const env={PATH:process.env.PATH??'/usr/bin:/bin',CODEX_HOME:home,TMPDIR:home,LANG:process.env.LANG??'en_US.UTF-8',RUST_LOG:'off'};
+  const env={PATH:process.env.PATH??'/usr/bin:/bin',CODEX_HOME:home,TMPDIR:home,LANG:process.env.LANG??'en_US.UTF-8',RUST_LOG:'off',HTTP_PROXY:'http://127.0.0.1:9',HTTPS_PROXY:'http://127.0.0.1:9',ALL_PROXY:'http://127.0.0.1:9',NO_PROXY:''};
   this.process=spawn(command,all,{cwd:project,env,stdio:['pipe','pipe','pipe'],windowsHide:true});
   this.process.stderr.on('data',()=>{});
   this.reader=readline.createInterface({input:this.process.stdout});
@@ -41,9 +44,15 @@ export class NativeClient{
 }
 export async function prepareNative({binary,home,project,files,device}){
  await binaryVersion(binary);home=await canonical(home);project=await canonical(project);
- const client=new NativeClient(binary,home,project);
+ // Read effective target configuration without creating/resuming a thread. Empty
+ // tables merge with user configuration, so every configured server needs an
+ // explicit disabled flag. Hook arrays are explicitly replaced in both clients.
+ let targetConfig;const probe=new NativeClient(binary,home,project);
+ try{await probe.init(home);targetConfig=(await probe.rpc('config/read',{includeLayers:false})).config;}finally{await probe.close();}
+ const client=new NativeClient(binary,home,project,{disabledServers:Object.keys(targetConfig.mcp_servers??{})});
  try{await client.init(home);
-  const targetConfig=(await client.rpc('config/read',{includeLayers:false})).config;
+  const effective=(await client.rpc('config/read',{includeLayers:false})).config;
+  requireThat(Object.values(effective.mcp_servers??{}).every(s=>s.enabled===false)&&Object.values(effective.hooks??{}).every(items=>Array.isArray(items)&&items.length===0),'unsafe_native_config');
   for(const f of files){
    const wasArchived=f.placementArchived??f.archived;await client.rpc('thread/list',{modelProviders:[],archived:wasArchived,limit:100});
    if(wasArchived)await client.rpc('thread/unarchive',{threadId:f.id});
