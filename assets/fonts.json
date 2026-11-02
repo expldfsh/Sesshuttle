@@ -1,0 +1,34 @@
+{
+  "format": 1,
+  "license": "SIL Open Font License 1.1",
+  "fonts": [
+    {
+      "file": "app/renderer/fonts/ComicNeue-Bold.ttf",
+      "family": "Comic Neue",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/comicneue/ComicNeue-Bold.ttf",
+      "sha256": "3e7e5fccfd7e0788f317b43312151c1bd5cf058c9697a8d83eac3939050bd61e",
+      "bytes": 55716
+    },
+    {
+      "file": "app/renderer/fonts/ComicNeue-Regular.ttf",
+      "family": "Comic Neue",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/comicneue/ComicNeue-Regular.ttf",
+      "sha256": "a0ee5a37c8b27c4db0700137d928598b1e23b0089e1546a8961909176b779360",
+      "bytes": 57248
+    },
+    {
+      "file": "app/renderer/fonts/LXGWWenKai-Medium.ttf",
+      "family": "LXGW WenKai",
+      "source": "https://github.com/lxgw/LxgwWenKai/releases/download/v1.530/LXGWWenKai-Medium.ttf",
+      "sha256": "f4b8a34d1f838fe411540cb7c97b1c384ac9738a876c4104500bc42508b2312a",
+      "bytes": 25800076
+    },
+    {
+      "file": "app/renderer/fonts/LXGWWenKai-Regular.ttf",
+      "family": "LXGW WenKai",
+      "source": "https://github.com/lxgw/LxgwWenKai/releases/download/v1.530/LXGWWenKai-Regular.ttf",
+      "sha256": "2d73eea94ad808999d90c0000c239a84a33b09d4bc6ab6c5b8bbf1eda8a7fc8b",
+      "bytes": 25928940
+    }
+  ]
+}

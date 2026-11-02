@@ -29,7 +29,9 @@
       "package.json",
       "!node_modules/**/*",
       "LICENSE",
-      "THIRD_PARTY_NOTICES.txt"
+      "THIRD_PARTY_NOTICES.txt",
+      "assets/font-licenses/**/*",
+      "assets/fonts.json"
     ],
     "asar": true,
     "npmRebuild": false,

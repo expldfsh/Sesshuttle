@@ -111,7 +111,7 @@ if(primaryInstance)app.whenReady().then(async()=>{
  engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);await loadSecrets();
  updateMenu();
  session.defaultSession.setPermissionRequestHandler((_w,_p,callback)=>callback(false));
- window=new BrowserWindow({width:1320,height:860,minWidth:980,minHeight:680,title:'sesshuttle',backgroundColor:'#f5f6f8',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+ window=new BrowserWindow({width:1320,height:860,minWidth:980,minHeight:680,title:'sesshuttle',backgroundColor:'#222436',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');return {ok:true,data:await request(method,args)};}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();engine.cancel();window.webContents.send('sesshuttle:closePending');}});
