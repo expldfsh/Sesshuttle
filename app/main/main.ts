@@ -82,6 +82,8 @@ async function continueEntry({logicalId,entry}:any){requireThat(['desktop','cli'
 async function request(method:string,args:any){switch(method){
  case 'init':return {config:engine.config(),device:state.get('device'),connection:state.get('connection'),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
  case 'saveConfig':return saveConfig(args);
+ case 'detectPaths':{const detected=await discover();const valid=async(p:string,kind:string)=>{try{const s=await fs.stat(p);return kind==='directory'?s.isDirectory():s.isFile();}catch{return false;}};const sourceHomes=[...new Set([...detected.sourceHomes,...(!testRoot&&process.env.CODEX_HOME?[process.env.CODEX_HOME]:[]),...engine.config().sourceHomes])];return {sourceHomes:await Promise.all(sourceHomes.map(async p=>({path:p,available:await valid(p,'directory')}))),targets:await Promise.all(['desktop','cli','ide'].map(async entry=>({entry,...detected.targets[entry],available:await valid(detected.targets[entry].binary,'file'),currentAvailable:await valid(engine.config().targets[entry]?.binary??'','file')}))),projects:await Promise.all((engine.rows??[]).filter((r:any)=>r.kind!=='background').map(async(r:any)=>({projectId:r.projectId,path:r.project,available:await valid(r.project,'directory')})))};}
+
  case 'refresh':return engine.refresh();
  case 'pickDirectory':{const r=await dialog.showOpenDialog(window,{properties:['openDirectory','createDirectory']});return r.canceled?null:r.filePaths[0];}
  case 'pickBinary':{const r=await dialog.showOpenDialog(window,{properties:['openFile']});return r.canceled?null:r.filePaths[0];}
@@ -92,7 +94,8 @@ async function request(method:string,args:any){switch(method){
  case 'exportRecovery':{requireThat(secrets&&engine.vault,'storage_not_connected');const r=await dialog.showSaveDialog(window,{defaultPath:'sesshuttle-recovery.json'});if(r.canceled||!r.filePath)return null;
   await atomic(r.filePath,JSON.stringify({format:1,...state.get('connection'),key:secrets.key},null,2));return {saved:true};}
  case 'preview':return engine.preview(args);
- case 'execute':return engine.execute(args.token);
+ case 'discardPlan':return engine.discardPlan(args.token);
+ case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true});
  case 'cancel':engine.cancel();return {status:'pausing'};
  case 'backups':return {backups:state.keys('backup/').map((k:string)=>state.get(k)),imports:state.keys('import/').map((k:string)=>state.get(k))};
  case 'restore':requireThat(!engine.running,'task_running');engine.running=true;try{return await engine.importer.restore(args.id);}finally{engine.running=false;}
@@ -106,7 +109,7 @@ if(!primaryInstance)app.quit();
 app.on('second-instance',()=>{if(window){if(window.isMinimized())window.restore();window.show();window.focus();}});
 if(primaryInstance)app.whenReady().then(async()=>{
  if(testRoot){await fs.mkdir(testRoot,{recursive:true});requireThat(await canonical(testRoot)===testRoot,'unsafe_path');await fs.mkdir(path.join(testRoot,'codex'),{recursive:true});}
- state=new State(app.getPath('userData'));if(!state.get('config'))state.set('config',await discover());
+ state=new State(app.getPath('userData'));for(const name of ['staging','downloads']){const root=path.join(state.root,name);if(await exists(root))for(const entry of await fs.readdir(root))if(/^[0-9a-f-]{36}$/.test(entry))await fs.rm(path.join(root,entry),{recursive:true,force:true});}if(!state.get('config'))state.set('config',await discover());
  const importer=new Importer(state,(testRoot?{testRoot,processGuard:async()=>{}}:{}) as any);
  for(const k of state.keys('job/')){const j=state.get(k);if(j.status==='running')state.set(k,{...j,status:'interrupted'});}
  for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:'needs_recovery'});}
