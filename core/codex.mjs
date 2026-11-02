@@ -50,23 +50,23 @@ export function parseRollout(raw) {
  return {meta,records,messages,issues:[...new Set(issues)],resources:[...new Set(resources)],busy:active.size>0};
 }
 export async function scan(homes) {
- const rows=[],errors=[],seen=new Map();
+ const rows=[],errors=[],seen=new Map();let previewBytes=0;
  for(const configured of homes){
   try {
    const home=await fs.realpath(configured);
    for(const folder of ['sessions','archived_sessions']) {
     let files;try{files=await walk(path.join(home,folder));}catch(e){errors.push({home,code:e.code??'scan_failed'});continue;}
     for(const file of files.filter(p=>p.endsWith('.jsonl'))){
-     try {const raw=await stableRead(file),parsed=parseRollout(raw),stat=await fs.stat(file);const fingerprint=hash(raw);
+     try {const raw=await stableRead(file),parsed=parseRollout(raw),stat=await fs.stat(file);const fingerprint=hash(raw);requireThat(rows.length<5000,'space_too_large');
        const duplicate=seen.get(parsed.meta.id);
        if(duplicate&&duplicate.hash===fingerprint){duplicate.homes.push(home);continue;}
        const row={id:parsed.meta.id,key:hash(home+'\0'+parsed.meta.id),file,home,homes:[home],hash:fingerprint,
         source:sourceOf(parsed.meta),title:parsed.messages.find(x=>x.role==='user')?.text.slice(0,140)||parsed.meta.id,
-        project:parsed.meta.cwd??'',parent:parsed.meta.parent_thread_id??null,version:parsed.meta.cli_version??'unknown',
+        project:parsed.meta.cwd??'',parent:parsed.meta.parent_thread_id??parsed.meta.source?.subagent?.thread_spawn?.parent_thread_id??null,version:parsed.meta.cli_version??'unknown',
         updatedAt:stat.mtime.toISOString(),bytes:raw.length,archived:folder==='archived_sessions',
         issues:parsed.issues,busy:parsed.busy,messages:parsed.messages.slice(-100),totalMessages:parsed.messages.length};
        if(duplicate){row.issues.push('duplicate_identity');duplicate.issues.push('duplicate_identity');}
-       rows.push(row);seen.set(row.id,row);
+       let rowPreview=0;row.messages=row.messages.filter(m=>{const n=Buffer.byteLength(m.text,'utf8');rowPreview+=n;previewBytes+=n;return rowPreview<=128*1024&&previewBytes<=32*1024*1024;});rows.push(row);seen.set(row.id,row);
      }catch(e){errors.push({file,code:e.code??'invalid_history'});}
     }
    }
@@ -75,10 +75,10 @@ export async function scan(homes) {
  return {rows,errors,checkedAt:new Date().toISOString()};
 }
 export async function capture(row,rows,{normalize=(_r,raw)=>({raw,assets:[]})}={}) {
- const included=new Map(),assets=new Map();
+ const included=new Map(),assets=new Map();let capturedBytes=0;
  const visit=async r=>{if(included.has(r.id))return;requireThat(!r.busy,'busy');
    const actual=await stableRead(r.file);requireThat(hash(actual)===r.hash,'stale_plan');
-   const adjusted=normalize(r,actual),raw=adjusted.raw;const p=parseRollout(raw);requireThat(!p.busy,'busy');
+   const adjusted=normalize(r,actual),raw=adjusted.raw;capturedBytes+=raw.length;requireThat(capturedBytes<=LIMIT&&included.size<200,'file_too_large');const p=parseRollout(raw);requireThat(!p.busy,'busy');
    const issues=[...r.issues];
    for(const resource of p.resources){
     try{let asset=adjusted.assets.find(x=>x.path===resource);if(!asset){
@@ -87,10 +87,10 @@ export async function capture(row,rows,{normalize=(_r,raw)=>({raw,assets:[]})}={
      for(const root of allowed){try{await inside(root,resource);safe=true;break;}catch{}}requireThat(safe,'external_attachment');
      const bytes=await stableRead(resource,8*1024*1024);const ext=imageType(bytes);requireThat(ext,'external_attachment');
      asset={path:resource,hash:hash(bytes),data:bytes.toString('base64'),ext};
-    }assets.set(asset.path,asset);}catch{issues.push('external_attachment');}
+    }if(!assets.has(asset.path)){capturedBytes+=Buffer.byteLength(asset.data,'base64');requireThat(capturedBytes<=LIMIT,'file_too_large');}assets.set(asset.path,asset);}catch(e){if(e.code==='file_too_large')throw e;issues.push('external_attachment');}
    }
    included.set(r.id,{id:r.id,raw:raw.toString('base64'),hash:hash(raw),archived:r.archived,version:r.version,issues:[...new Set(issues)]});
-   if(r.parent){const parent=rows.find(x=>x.id===r.parent);requireThat(parent,'missing_dependency');await visit(parent);}
+   if(r.parent){const parent=rows.find(x=>x.id===r.parent);if(parent)await visit(parent);else included.get(r.id).issues.push('missing_dependency');}
    for(const child of rows.filter(x=>x.parent===r.id))await visit(child);
  };
  await visit(row);
@@ -113,7 +113,7 @@ export function validatePayload(p){
   requireThat(parsed.meta.id===f.id&&parsed.meta.cli_version===f.version,'corrupt_data');seen.add(f.id);
  }
  const resources=new Set();for(const a of p.assets??[]){requireThat(typeof a.path==='string'&&typeof a.data==='string'&&!resources.has(a.path),'corrupt_data');const bytes=Buffer.from(a.data,'base64');total+=bytes.length;requireThat(total<=LIMIT&&hash(bytes)===a.hash&&imageType(bytes)===a.ext,'corrupt_data');resources.add(a.path);}
- requireThat(seen.has(p.logicalId),'corrupt_data');return p;
+ requireThat(seen.has(p.logicalId),'corrupt_data');requireThat(Buffer.byteLength(JSON.stringify(p))<=LIMIT,'file_too_large');return p;
 }
 export function relation(local,remote) {
  if(!local&&!remote)return 'empty';if(!local)return 'remote_only';if(!remote)return 'local_only';

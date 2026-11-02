@@ -38,9 +38,10 @@ export class Engine{
    else if(chosenVersion){requireThat(head?.versions.some(x=>x.id===chosenVersion),'invalid_selection');action='resolve';}
    else if(direction==='upload'&&local)action='upload';
    else if(direction==='download'&&head)action=head.tips.length>1?'conflict':'download';
-   else if(direction==='both'){if(['local_only','local_changes'].includes(row.status))action='upload';else if(['remote_only','remote_changes','synced'].includes(row.status))action='download';else if(row.status==='conflict')action='preserve_conflict';}
-   items.push({id:logical,title:row.title,action,bytes:row.bytes,expectedHash:local?.hash??null,expectedHead:head?.etag??null,
-     version:chosenVersion??head?.tips[0]??null,issues:row.issues,targets:action==='download'||action==='resolve'?targets:[],projectId:row.projectId});
+   else if(direction==='both'){if(['local_only','local_changes'].includes(row.status))action='upload_import';else if(['remote_only','remote_changes','synced'].includes(row.status))action='download';else if(row.status==='conflict')action='preserve_conflict';}
+   let fileCount=1,assetCount=0,bytes=row.bytes,issues=row.issues;try{const payload=['download','resolve'].includes(action)?await this.vault.version(chosenVersion??head.tips[0]):local?await this.snapshot(local):null;if(payload){fileCount=payload.files.length;assetCount=payload.assets?.length??0;bytes=payload.files.reduce((n,f)=>n+Buffer.byteLength(f.raw,'base64'),0)+(payload.assets??[]).reduce((n,a)=>n+Buffer.byteLength(a.data,'base64'),0);issues=payload.issues;}}catch(e){issues=[...issues,e.code??'operation_failed'];}
+   items.push({id:logical,title:row.title,action,bytes,fileCount,assetCount,expectedHash:local?.hash??null,expectedHead:head?.etag??null,
+     version:chosenVersion??head?.tips[0]??null,issues,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId});
   }
   const token=id();const plan={targetSnapshots,token,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString()};this.plans.clear();this.plans.set(token,plan);return plan;
  }
@@ -51,13 +52,17 @@ export class Engine{
    try{if(['skip','busy','conflict'].includes(item.action)){result.status=item.action;continue;}
     const current=await scan(this.config().sourceHomes);const local=current.rows.find(x=>x.id===item.id);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
     const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;
-    if(['upload','preserve_conflict'].includes(item.action)){
-      requireThat(local,'stale_plan');const payload=await this.snapshot(local);requireThat(!payload.issues.length||plan.allowIncomplete,'incomplete_history');
-      const published=await this.vault.publish(payload,this.state.get('device'));result.status=published.conflict?'conflict_preserved':'uploaded';
-    }else{
-      const payload=await this.vault.version(item.version);requireThat(!payload.issues?.length,'incomplete_history');
-      // Explicit branch selection first preserves the current local branch remotely.
-      let resolveEtag=head?.etag;if(item.action==='resolve'&&local)resolveEtag=(await this.vault.publish(await this.snapshot(local),this.state.get('device'))).head.etag;
+    let payload,importVersion=item.version,resolveEtag=head?.etag;
+    if(['upload','upload_import','preserve_conflict'].includes(item.action)){
+      requireThat(local,'stale_plan');payload=await this.snapshot(local);requireThat(!payload.issues.length||plan.allowIncomplete,'incomplete_history');
+      const published=await this.vault.publish(payload,this.state.get('device'));result.cloudStatus='uploaded';
+      if(item.action!=='upload_import'||published.conflict){result.status=published.conflict?'conflict_preserved':'uploaded';continue;}
+      importVersion=published.version;payload=await this.vault.version(importVersion);
+    }else payload=await this.vault.version(importVersion);
+    requireThat(!payload.issues?.length,'incomplete_history');
+    // Explicit branch selection first preserves the current local branch remotely.
+    if(item.action==='resolve'&&local)resolveEtag=(await this.vault.publish(await this.snapshot(local),this.state.get('device'))).head.etag;
+    {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured'};continue;}
        try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',error:publicError(e)};}}
@@ -65,9 +70,9 @@ export class Engine{
        try{const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
         for(const {entry,target}of group){
          // Shared storage is written once; different runtime versions are still checked.
-         try{if(entry!==first.entry&&target.binary!==first.target.binary){await this.importer.processGuard();await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,device:payload.device});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));}
-          result.targets[entry]={status:'verified',version:item.version,home:target.home,project,binary:target.binary,backup:r.backup,checkedAt:new Date().toISOString()};
-         }catch(e){result.targets[entry]={status:'failed',error:publicError(e),backup:r.backup};}
+         let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){await this.importer.processGuard();if(!r.backup)r.backup=(await this.importer.backup(target.home)).id;nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,device:payload.device});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
+          result.targets[entry]={status:'verified',version:importVersion,home:target.home,project,binary:target.binary,backup:r.backup,checkedAt:new Date().toISOString()};
+         }catch(e){result.targets[entry]={status:'failed',error:publicError(e),backup:r.backup};if(nativeStarted){this.state.set('import/'+nativeTask,{status:'needs_recovery',backup:r.backup,home:target.home,error:e.code??'native_error'});for(const prior of Object.values(result.targets))if(prior.home===target.home&&prior.status==='verified')prior.status='imported';for(const remaining of group)result.targets[remaining.entry]??={status:'failed',error:{code:'recovery_required',detail:''},backup:r.backup};break;}}
         }
        }catch(e){for(const {entry}of group)result.targets[entry]??={status:'failed',error:publicError(e)};}
       }

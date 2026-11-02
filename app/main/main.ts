@@ -7,6 +7,13 @@ const exec=promisify(execFile);let window:BrowserWindow;let state:any,engine:any
 const testRoot=process.env.SESSHUTTLE_TEST_ROOT;
 if(testRoot){const canonicalRoot=realpathSync(testRoot);const tempRoots=[realpathSync(os.tmpdir()),realpathSync('/tmp')];requireThat(canonicalRoot===testRoot&&path.basename(testRoot).startsWith('sesshuttle-')&&tempRoots.some(p=>testRoot.startsWith(p+path.sep))&&JSON.parse(readFileSync(path.join(testRoot,'.sesshuttle-test.json'),'utf8')).format===1,'unsafe_path');app.setPath('userData',path.join(testRoot,'app-data'));}
 const renderer=path.join(__dirname,'renderer','index.html');
+function updateMenu(){const zh=state?.get('config')?.language==='zh-CN';const text=(a:string,b:string)=>zh?a:b;
+ Menu.setApplicationMenu(Menu.buildFromTemplate([
+  ...(process.platform==='darwin'?[{label:'sesshuttle',submenu:[{role:'about' as const,label:text('关于 sesshuttle','About sesshuttle')},{type:'separator' as const},{role:'quit' as const,label:text('退出 sesshuttle','Quit sesshuttle')}]}]:[]),
+  {label:text('编辑','Edit'),submenu:[{role:'undo',label:text('撤销','Undo')},{role:'redo',label:text('重做','Redo')},{type:'separator'},{role:'cut',label:text('剪切','Cut')},{role:'copy',label:text('复制','Copy')},{role:'paste',label:text('粘贴','Paste')},{role:'selectAll',label:text('全选','Select all')}]},
+  {label:text('窗口','Window'),submenu:[{role:'minimize',label:text('最小化','Minimize')},{role:'close',label:text('关闭','Close')}]}
+ ]));
+}
 async function discover(){const home=testRoot?path.join(testRoot,'codex'):path.join(os.homedir(),'.codex');const targets:any={desktop:{home,binary:''},cli:{home,binary:''},ide:{home,binary:''}};
  const candidates=process.platform==='darwin'?['/opt/homebrew/bin/codex','/usr/local/bin/codex']:process.platform==='win32'?[]:['/usr/local/bin/codex',path.join(os.homedir(),'.local/bin/codex')];
  for(const p of (process.env.PATH??'').split(path.delimiter).filter(p=>path.isAbsolute(p)))candidates.push(path.join(p,process.platform==='win32'?'codex.exe':'codex'));
@@ -29,15 +36,15 @@ async function loadSecrets(){try{const cfg=state.get('connection');if(!cfg||!awa
  }catch{state.set('credentialError','secure_storage_unavailable');}}
 async function saveConfig(input:any){requireThat(!engine.running,'task_running');requireThat(input&&['zh-CN','en'].includes(input.language)&&Array.isArray(input.sourceHomes)&&input.sourceHomes.length<=20,'invalid_settings');
  const cfg:any={language:input.language,sourceHomes:[],targets:{},bindings:{}};
- for(const p of input.sourceHomes){requireThat(typeof p==='string'&&path.isAbsolute(p),'invalid_path');cfg.sourceHomes.push(p);}
+ for(const p of input.sourceHomes.filter((x:any)=>x!=='')){requireThat(typeof p==='string'&&path.isAbsolute(p),'invalid_path');cfg.sourceHomes.push(p);}
  for(const entry of ['desktop','cli','ide']){const t=input.targets?.[entry]??{};for(const k of ['home','binary'])requireThat(typeof(t[k]??'')==='string'&&(!t[k]||path.isAbsolute(t[k])),'invalid_path');cfg.targets[entry]={home:t.home??'',binary:t.binary??''};}
  for(const [k,v]of Object.entries(input.bindings??{})){requireThat(/^[0-9a-f-]{36}$/i.test(k)&&typeof v==='string'&&path.isAbsolute(v),'invalid_path');cfg.bindings[k]=v;}
  if(testRoot){for(const p of cfg.sourceHomes)await inside(testRoot,path.join(p,'check'));for(const t of Object.values(cfg.targets) as any[])if(t.home)await inside(testRoot,path.join(t.home,'check'));}
- state.set('config',cfg);if(input.deviceName){requireThat(typeof input.deviceName==='string'&&input.deviceName.length<=80,'invalid_settings');state.set('device',{...state.get('device'),name:input.deviceName});}
+ state.set('config',cfg);updateMenu();if(input.deviceName){requireThat(typeof input.deviceName==='string'&&input.deviceName.length<=80,'invalid_settings');state.set('device',{...state.get('device'),name:input.deviceName});}
  return cfg;
 }
 async function connect(input:any){requireThat(!engine.running,'task_running');const cfg={endpoint:String(input.endpoint??'').trim(),bucket:String(input.bucket??'').trim()};
- const credentials={accessKeyId:String(input.accessKeyId??''),secretAccessKey:String(input.secretAccessKey??'')};requireThat(credentials.accessKeyId&&credentials.secretAccessKey,'credentials_required');const store=new R2Store({...cfg,...credentials});
+ const credentials={accessKeyId:String(input.accessKeyId??''),secretAccessKey:String(input.secretAccessKey??'')};requireThat(credentials.accessKeyId&&credentials.secretAccessKey,'credentials_required');const store=new R2Store({...cfg,...credentials},testRoot?{allowLocal:true}:{});
  await store.test();if(input.mode==='test')return {status:'connected'};
  const space=input.mode==='create'?id():(recovery?.space??String(input.space??''));const key=input.mode==='create'?newKey():(recovery?.key??String(input.key??''));parseKey(key);
  const vault=new Vault(store,space,key);if(input.mode==='create')await vault.create();else await vault.open();
@@ -71,7 +78,7 @@ async function continueEntry({logicalId,entry}:any){requireThat(['desktop','cli'
  const error=await shell.openPath(file);requireThat(!error,'open_failed');return {status:'opened'};
 }
 async function request(method:string,args:any){switch(method){
- case 'init':return {config:engine.config(),device:state.get('device'),connection:state.get('connection'),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,jobs:state.keys('job/').slice(-10).map((k:string)=>state.get(k))};
+ case 'init':return {config:engine.config(),device:state.get('device'),connection:state.get('connection'),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
  case 'saveConfig':return saveConfig(args);
  case 'refresh':return engine.refresh();
  case 'pickDirectory':{const r=await dialog.showOpenDialog(window,{properties:['openDirectory','createDirectory']});return r.canceled?null:r.filePaths[0];}
@@ -99,7 +106,7 @@ app.whenReady().then(async()=>{
  for(const k of state.keys('job/')){const j=state.get(k);if(j.status==='running')state.set(k,{...j,status:'interrupted'});}
  for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:'needs_recovery'});}
  engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);await loadSecrets();
- Menu.setApplicationMenu(null);
+ updateMenu();
  session.defaultSession.setPermissionRequestHandler((_w,_p,callback)=>callback(false));
  window=new BrowserWindow({width:1320,height:860,minWidth:980,minHeight:680,title:'sesshuttle',backgroundColor:'#f5f6f8',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});

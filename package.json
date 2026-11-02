@@ -3,7 +3,10 @@
   "version": "0.1.0-rc.1",
   "private": true,
   "description": "Encrypted, user-owned Codex conversation sync",
-  "author": "expldfsh",
+  "author": {
+    "name": "expldfsh",
+    "email": "expldfsh@gmail.com"
+  },
   "license": "MIT",
   "type": "module",
   "main": "dist/main.cjs",
@@ -11,9 +14,9 @@
     "build": "vite build && node scripts/build.mjs",
     "start": "electron .",
     "test": "node --test tests/core/*.test.mjs",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && node scripts/check-locales.mjs",
     "package:mac": "npm run build && electron-builder --mac dmg --arm64 --publish never",
-    "package:linux": "npm run build && electron-builder --linux tar.gz --x64 --publish never"
+    "package:linux": "npm run build && electron-builder --linux deb tar.gz --x64 --publish never"
   },
   "build": {
     "appId": "com.expldfsh.sesshuttle",
@@ -23,7 +26,8 @@
     },
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*"
     ],
     "asar": true,
     "npmRebuild": false,
@@ -34,12 +38,21 @@
     },
     "linux": {
       "category": "Development",
-      "target": "tar.gz",
+      "target": [
+        "deb",
+        "tar.gz"
+      ],
       "executableName": "sesshuttle"
     },
     "win": {
       "target": "zip"
-    }
+    },
+    "icon": "assets/icon.png",
+    "artifactName": "sesshuttle-${version}-${os}-${arch}.${ext}",
+    "electronLanguages": [
+      "en-US",
+      "zh-CN"
+    ]
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",
@@ -48,6 +61,7 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -57,5 +71,6 @@
     "esbuild": "0.28.2",
     "typescript": "7.0.2",
     "vite": "8.3.5"
-  }
+  },
+  "homepage": "https://github.com/expldfsh/Sesshuttle"
 }
