@@ -45,8 +45,8 @@ export async function prepareNative({binary,home,project,files,device}){
  try{await client.init(home);
   const targetConfig=(await client.rpc('config/read',{includeLayers:false})).config;
   for(const f of files){
-   await client.rpc('thread/list',{modelProviders:[],archived:f.archived,limit:100});
-   if(f.archived)await client.rpc('thread/unarchive',{threadId:f.id});
+   const wasArchived=f.placementArchived??f.archived;await client.rpc('thread/list',{modelProviders:[],archived:wasArchived,limit:100});
+   if(wasArchived)await client.rpc('thread/unarchive',{threadId:f.id});
    const r=await client.rpc('thread/resume',{threadId:f.id,cwd:project,runtimeWorkspaceRoots:[project],modelProvider:targetConfig.model_provider??'openai',...(targetConfig.model?{model:targetConfig.model}:{}),sandbox:'read-only',approvalPolicy:'on-request',excludeTurns:true});
    requireThat(r.cwd===project&&r.sandbox?.type==='readOnly','native_verification_failed');
    await client.rpc('thread/settings/update',{threadId:f.id,cwd:project,approvalPolicy:'on-request',sandboxPolicy:{type:'readOnly',networkAccess:false}});

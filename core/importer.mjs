@@ -32,16 +32,16 @@ export class Importer {
   validatePayload(payload);requireThat(payload.files.every(f=>KNOWN_VERSIONS.includes(f.version)),'unknown_version');
   requireThat(!payload.issues?.length,'incomplete_history');const home=await this.guard(target.home);const project=await canonical(target.project);const runtime=await binaryVersion(target.binary);
   requireThat(!this.state.keys('import/').some(k=>{const t=this.state.get(k);return t.home===home&&['prepared','validating','needs_recovery'].includes(t.status); }),'recovery_required');
-  const current=await scan([home]);requireThat(current.errors.length===0,'scan_incomplete');const writes=[],moves=[];let allVerified=true;
+  const current=await scan([home]);requireThat(current.errors.length===0,'scan_incomplete');const writes=[],nativeFiles=[];let allVerified=true;
   for(const f of payload.files){const original=Buffer.from(f.raw,'base64'),parsed=parseRollout(original);requireThat(parsed.issues.length===0&&!parsed.busy,'incomplete_history');requireThat(parsed.resources.every(p=>(payload.assets??[]).some(a=>a.path===p)),'incomplete_history');
-   const found=current.rows.filter(r=>r.id===f.id);requireThat(found.length<=1,'duplicate_identity');const old=found[0];
+   const found=current.rows.filter(r=>r.id===f.id);requireThat(found.length<=1,'duplicate_identity');const old=found[0];nativeFiles.push({...f,placementArchived:old?.archived??f.archived});
    if(expectedHashes[f.id]!==undefined)requireThat((old?.hash??null)===expectedHashes[f.id],'stale_plan');
    const receipt=this.state.get(receiptKey(home,f.id));const existing=old?normalized(this.state,old,await stableRead(old.file)).raw:null;
    if(existing?.equals(original)&&old.archived===f.archived){allVerified&&=!!receipt&&receipt.hash===old.hash&&receipt.project===project&&receipt.binary===target.binary&&receipt.runtime===runtime;continue;}
    allVerified=false;if(old&&!replace)requireThat(original.subarray(0,existing.length).equals(existing),'conflict');
    const date=new Date(parsed.meta.timestamp);requireThat(Number.isFinite(date.getTime()),'invalid_history');const iso=date.toISOString();const name=`rollout-${iso.slice(0,19).replaceAll(':','-')}-${f.id}.jsonl`;
-   const file=old&&old.archived===f.archived?old.file:path.join(home,f.archived?'archived_sessions':'sessions',...(f.archived?[]:iso.slice(0,10).split('-')),name);
-   await inside(home,file);if(old&&old.file!==file)moves.push(old.file);writes.push({file,raw:mapResources(original,payload.assets??[],home),created:!old||old.file!==file,id:f.id});
+   const file=old?.file??path.join(home,f.archived?'archived_sessions':'sessions',...(f.archived?[]:iso.slice(0,10).split('-')),name);
+   await inside(home,file);writes.push({file,raw:mapResources(original,payload.assets??[],home),created:!old,id:f.id});
   }
   if(allVerified)return {status:'verified',backup:null,unchanged:true,runtime};
   for(const asset of payload.assets??[]){const file=await inside(home,path.join(home,'sesshuttle_assets',asset.hash+'.'+asset.ext));if(await exists(file)){requireThat(hash(await stableRead(file))===asset.hash,'corrupt_data');}else writes.push({file,raw:Buffer.from(asset.data,'base64'),created:true});}
@@ -51,9 +51,8 @@ export class Importer {
    await this.processGuard();const fresh=await scan([home]);requireThat(fresh.errors.length===0&&fresh.rows.length===current.rows.length,'stale_plan');
    for(const old of current.rows){const now=fresh.rows.find(x=>x.file===old.file);requireThat(now?.hash===old.hash,'stale_plan');}
    for(const w of writes){await inside(home,w.file);if(w.created)requireThat(!await exists(w.file),'stale_plan');await atomic(w.file,w.raw);}
-   for(const old of moves){const dest=path.join(this.state.root,'recovered',taskId,path.basename(old));await fs.mkdir(path.dirname(dest),{recursive:true});await fs.rename(old,dest);}
    this.state.set('import/'+taskId,{status:'validating',backup:backup.id,home});
-   await this.native({binary:target.binary,home,project,files:payload.files,device:payload.device});await this.record(payload,home,project,target.binary,runtime);
+   await this.native({binary:target.binary,home,project,files:nativeFiles,device:payload.device});await this.record(payload,home,project,target.binary,runtime);
    this.state.set('import/'+taskId,{status:'verified',backup:backup.id,home});return {status:'verified',backup:backup.id,runtime};
   }catch(e){this.state.set('import/'+taskId,{status:'needs_recovery',backup:backup.id,home,error:e.code??'operation_failed'});throw new Fault('import_needs_recovery',backup.id);}
  }

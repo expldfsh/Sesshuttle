@@ -99,7 +99,10 @@ async function request(method:string,args:any){switch(method){
  case 'diagnostics':return {version:app.getVersion(),platform:process.platform,arch:process.arch,scanErrors:engine.local.errors.map((e:any)=>({code:e.code})),jobs:state.keys('job/').slice(-10).map((k:string)=>{const j=state.get(k);return {startedAt:j.startedAt,status:j.status,items:j.items.map((i:any)=>({action:i.action,status:i.status,error:i.error?.code}))};})};
  default:throw new Fault('invalid_action');
 }}
-app.whenReady().then(async()=>{
+const primaryInstance=app.requestSingleInstanceLock();
+if(!primaryInstance)app.quit();
+app.on('second-instance',()=>{if(window){if(window.isMinimized())window.restore();window.show();window.focus();}});
+if(primaryInstance)app.whenReady().then(async()=>{
  if(testRoot){await fs.mkdir(testRoot,{recursive:true});requireThat(await canonical(testRoot)===testRoot,'unsafe_path');await fs.mkdir(path.join(testRoot,'codex'),{recursive:true});}
  state=new State(app.getPath('userData'));if(!state.get('config'))state.set('config',await discover());
  const importer=new Importer(state,(testRoot?{testRoot,processGuard:async()=>{}}:{}) as any);
@@ -113,5 +116,5 @@ app.whenReady().then(async()=>{
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');return {ok:true,data:await request(method,args)};}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();engine.cancel();window.webContents.send('sesshuttle:closePending');}});
  await window.loadFile(renderer);
-});
+}).catch(error=>{dialog.showErrorBox('sesshuttle',publicError(error).code);app.quit();});
 app.on('window-all-closed',()=>app.quit());app.on('will-quit',()=>{try{state?.close();}catch{}});

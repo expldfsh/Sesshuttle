@@ -1,0 +1,6 @@
+import fs from 'node:fs/promises';import path from 'node:path';
+const pkg=JSON.parse(await fs.readFile('package.json','utf8'));const visited=new Set(),blocks=[];
+async function collect(name,from=process.cwd()){let dir=from,root;while(true){const candidate=path.join(dir,'node_modules',name);try{await fs.access(path.join(candidate,'package.json'));root=candidate;break;}catch{}const parent=path.dirname(dir);if(parent===dir)throw Error('Dependency not found: '+name);dir=parent;}
+ const p=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8')),key=p.name+'@'+p.version;if(visited.has(key))return;visited.add(key);const files=(await fs.readdir(root)).filter(f=>/^(LICENSE|LICENCE|NOTICE)(\.|$)/i.test(f));for(const file of files)blocks.push(key+' — '+file+'\n\n'+await fs.readFile(path.join(root,file),'utf8'));for(const dep of Object.keys(p.dependencies??{}))await collect(dep,root);
+}
+for(const name of Object.keys(pkg.dependencies))await collect(name);await fs.writeFile('THIRD_PARTY_NOTICES.txt','Third-party notices for bundled JavaScript dependencies. Electron and Chromium notices are distributed with the runtime.\n\n'+blocks.join('\n\n'+'='.repeat(72)+'\n\n'));console.log(`${visited.size} dependency packages inventoried`);
