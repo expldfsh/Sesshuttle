@@ -1,3 +1,4 @@
+import {scanHistory} from './scanner.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { hash, stableRead, walk, Fault, requireThat, exists, inside, LIMIT } from './util.mjs';
@@ -49,31 +50,7 @@ export function parseRollout(raw) {
  if(!KNOWN_VERSIONS.includes(meta.cli_version))issues.push('unknown_version');
  return {meta,records,messages,issues:[...new Set(issues)],resources:[...new Set(resources)],busy:active.size>0};
 }
-export async function scan(homes) {
- const rows=[],errors=[],seen=new Map();let previewBytes=0;
- for(const configured of homes){
-  try {
-   const home=await fs.realpath(configured);
-   for(const folder of ['sessions','archived_sessions']) {
-    let files;try{files=await walk(path.join(home,folder));}catch(e){errors.push({home,code:e.code??'scan_failed'});continue;}
-    for(const file of files.filter(p=>p.endsWith('.jsonl'))){
-     try {const raw=await stableRead(file),parsed=parseRollout(raw),stat=await fs.stat(file);const fingerprint=hash(raw);requireThat(rows.length<5000,'space_too_large');
-       const duplicate=seen.get(parsed.meta.id);
-       if(duplicate&&duplicate.hash===fingerprint){duplicate.homes.push(home);continue;}
-       const row={id:parsed.meta.id,key:hash(home+'\0'+parsed.meta.id),file,home,homes:[home],hash:fingerprint,
-        source:sourceOf(parsed.meta),title:parsed.messages.find(x=>x.role==='user')?.text.slice(0,140)||parsed.meta.id,
-        project:parsed.meta.cwd??'',parent:parsed.meta.parent_thread_id??parsed.meta.source?.subagent?.thread_spawn?.parent_thread_id??null,version:parsed.meta.cli_version??'unknown',
-        updatedAt:stat.mtime.toISOString(),bytes:raw.length,archived:folder==='archived_sessions',
-        issues:parsed.issues,busy:parsed.busy,messages:parsed.messages.slice(-100),totalMessages:parsed.messages.length};
-       if(duplicate){row.issues.push('duplicate_identity');duplicate.issues.push('duplicate_identity');}
-       let rowPreview=0;row.messages=row.messages.filter(m=>{const n=Buffer.byteLength(m.text,'utf8');rowPreview+=n;previewBytes+=n;return rowPreview<=128*1024&&previewBytes<=32*1024*1024;});rows.push(row);seen.set(row.id,row);
-     }catch(e){errors.push({file,code:e.code??'invalid_history'});}
-    }
-   }
-  }catch(e){errors.push({home:configured,code:e.code??'scan_failed'});}
- }
- return {rows,errors,checkedAt:new Date().toISOString()};
-}
+export async function scan(homes) {return scanHistory(homes,{sourceOf,parseRollout,knownVersions:KNOWN_VERSIONS});}
 export async function capture(row,rows,{normalize=(_r,raw)=>({raw,assets:[]})}={}) {
  const included=new Map(),assets=new Map();let capturedBytes=0;
  const visit=async r=>{if(included.has(r.id))return;requireThat(!r.busy,'busy');

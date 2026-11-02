@@ -1,0 +1,26 @@
+import fs from 'node:fs/promises';import path from 'node:path';
+import {hash,walk,requireThat,exists,inside} from './util.mjs';
+import {digestFile,records} from './stream.mjs';
+import {openCatalog,databaseSummary,indexNames,nativeMeta,displayName} from './catalog.mjs';
+const digestCache=new Map();
+async function fileDigest(file){const s=await fs.stat(file);const key=file+'\0'+s.size+'\0'+s.mtimeMs+'\0'+s.ctimeMs;if(digestCache.has(key))return digestCache.get(key);const d=await digestFile(file);if(digestCache.size>5000)digestCache.clear();digestCache.set(key,d);return d;}
+export async function scanHistory(homes,{sourceOf,parseRollout,knownVersions}){
+ const rows=[],errors=[],seen=new Map();
+ for(const configured of homes){let catalog;try{const home=await fs.realpath(configured);catalog=await openCatalog(home);let names=new Map();try{names=await indexNames(home);}catch(e){errors.push({home,code:e.code??'invalid_history'});}
+ const indexed=new Map(catalog.threads.map(t=>[t.id,t])),files=new Set();for(const dir of ['sessions','archived_sessions'])try{for(const f of await walk(path.join(home,dir)))if(f.endsWith('.jsonl'))files.add(f);}catch(e){errors.push({home,code:e.code??'scan_failed'});}
+ for(const thread of indexed.values())if(thread.rollout_path&&await exists(thread.rollout_path)){try{await inside(home,thread.rollout_path);files.add(thread.rollout_path);}catch(e){errors.push({home,code:e.code});}}
+ const found=new Set();
+ async function add(thread,file){let meta=thread?nativeMeta(thread):null,summary=thread?databaseSummary(catalog,thread.id):null,raw=null,parsed=null,issue=null;
+  try{if(file){raw=await fileDigest(file);if(!meta){let first=true;const messages=[];let busy=false;for await(const record of records(file)){if(first){requireThat(record.type==='session_meta','invalid_history');meta=record.payload;first=false;}const p=record.payload;if(record.type==='event_msg'){if(['task_started','turn_started'].includes(p?.type))busy=true;if(['task_complete','turn_complete','turn_aborted'].includes(p?.type))busy=false;}if(record.type==='event_msg'&&['user_message','agent_message'].includes(p?.type))messages.push({role:p.type==='user_message'?'user':'assistant',text:String(p.message??'').slice(0,12000)});else if(record.type==='event_msg'&&p?.item){const item=p.item,t=item.type?.toLowerCase();if(['usermessage','agentmessage'].includes(t))messages.push({role:t==='usermessage'?'user':'assistant',text:String(item.text??item.content?.map(x=>x.text??'').join('\n')??'').slice(0,12000)});}if(messages.length>30)messages.shift();}requireThat(meta,'invalid_history');parsed={messages,busy};}}}catch(e){issue=e.code??'invalid_history';errors.push({file,home,code:issue});}
+  if(!meta)return;requireThat(/^[0-9a-f-]{36}$/i.test(meta.id),'invalid_history');found.add(meta.id);const source=sourceOf(meta),parent=meta.parent_thread_id??null;const messages=summary?.messages.length?summary.messages:parsed?.messages??[];let previewBytes=0;const filtered=messages.filter(m=>(previewBytes+=Buffer.byteLength(m.text))<128*1024);
+  const row={id:meta.id,key:hash(home+'\0'+meta.id),home,homes:[home],file:file??null,hash:hash(JSON.stringify([raw?.hash??null,summary?.hash??null])),rawHash:raw?.hash??null,dbHash:summary?.hash??null,database:!!thread,source,kind:source==='subagent'?'background':'main',parent,agent:thread?.agent_nickname??meta.source?.subagent?.other??meta.source?.subagent?.thread_spawn?.agent_nickname??'',title:displayName(thread,names.get(meta.id))||messages.find(x=>x.role==='user')?.text.slice(0,140)||meta.id,project:meta.cwd??'',version:meta.cli_version??'unknown',updatedAt:thread?new Date(thread.updated_at_ms??thread.updated_at*1000).toISOString():(await fs.stat(file)).mtime.toISOString(),bytes:(raw?.bytes??0)+(summary?.bytes??0),fileBytes:raw?.bytes??0,databaseBytes:summary?.bytes??0,archived:thread?!!thread.archived:file?.includes('/archived_sessions/')??false,issues:[...(issue?[issue]:[]),...(!knownVersions.includes(meta.cli_version)?['unknown_version']:[]),...(!file&&!summary?.count?['history_unavailable']:[])],busy:summary?.busy??parsed?.busy??false,messages:filtered,totalMessages:summary?.count??messages.length};
+  // Legacy callers use the raw fingerprint; v2 includes both physical and database data.
+  if(!thread&&raw)row.hash=raw.hash;
+  const old=seen.get(row.id);if(old){if(old.hash===row.hash){old.homes.push(home);return;}old.issues.push('duplicate_identity');row.issues.push('duplicate_identity');errors.push({home,code:'duplicate_identity'});}rows.push(row);seen.set(row.id,row);requireThat(rows.length<=20000,'space_too_large');
+ }
+ for(const file of files){try{let tid;const match=path.basename(file).match(/([0-9a-f-]{36})\.jsonl$/i);if(match)tid=match[1];if(!tid){for await(const r of records(file)){tid=r.payload?.id;break;}}await add(indexed.get(tid),file);}catch(e){errors.push({file,code:e.code??'invalid_history'});}}
+ for(const thread of indexed.values())if(!found.has(thread.id))await add(thread,null);
+ }catch(e){errors.push({home:configured,code:e.code??'scan_failed'});}finally{catalog?.close();}}
+ for(const row of rows)row.parentTitle=rows.find(x=>x.id===row.parent)?.title??null;
+ return {rows,errors,checkedAt:new Date().toISOString()};
+}
