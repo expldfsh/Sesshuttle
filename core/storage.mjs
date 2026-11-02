@@ -25,6 +25,7 @@ export class R2Store {
   return {body:Buffer.concat(parts),etag:r.ETag};
  }
  async put(key,body,etag){const r=await this.call(new PutObjectCommand({Bucket:this.bucket,Key:key,Body:body,ContentType:'application/octet-stream',...(etag===null?{IfNoneMatch:'*'}:etag?{IfMatch:etag}:{})}));requireThat(r,'storage_unavailable');return r.ETag;}
+ async inventory(prefix){let cursor;const entries=[],seen=new Set();do{const r=await this.call(new ListObjectsV2Command({Bucket:this.bucket,Prefix:prefix,ContinuationToken:cursor}));requireThat(r,'storage_unavailable');for(const x of r.Contents??[])entries.push({key:x.Key,bytes:x.Size});requireThat(entries.length<=200000,'space_too_large');cursor=r.IsTruncated?r.NextContinuationToken:null;requireThat(!r.IsTruncated||cursor&&!seen.has(cursor),'corrupt_data');if(cursor)seen.add(cursor);}while(cursor);return entries;}
  async list(prefix){let cursor;const keys=[],seen=new Set();do{const r=await this.call(new ListObjectsV2Command({Bucket:this.bucket,Prefix:prefix,ContinuationToken:cursor}));requireThat(r,'storage_unavailable');
   keys.push(...(r.Contents??[]).map(x=>x.Key));requireThat(keys.length<=20000,'space_too_large');cursor=r.IsTruncated?r.NextContinuationToken:null;requireThat(!r.IsTruncated||cursor&&!seen.has(cursor),'corrupt_data');if(cursor)seen.add(cursor);
  }while(cursor);return keys;}
@@ -41,5 +42,6 @@ export class MemoryStore {
  async put(k,body,etag){const old=this.objects.get(k);if(etag===null&&old||etag&&old?.etag!==etag)throw new Fault('concurrent_update');
   const next={body:Buffer.from(body),etag:'"'+hash(body)+'"'};this.objects.set(k,next);return next.etag;}
  async list(prefix){return [...this.objects.keys()].filter(k=>k.startsWith(prefix));}
+ async inventory(prefix){return [...this.objects].filter(([k])=>k.startsWith(prefix)).map(([key,v])=>({key,bytes:v.body.length}));}
  async test(){return {read:true,write:true};}
 }

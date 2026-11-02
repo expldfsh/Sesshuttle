@@ -2,7 +2,7 @@ import {scanHistory} from './scanner.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { hash, stableRead, walk, Fault, requireThat, exists, inside, LIMIT } from './util.mjs';
-export const KNOWN_VERSIONS=['0.164.0','0.164.0-alpha.11.1','0.166.0-alpha.5.1'];
+export const KNOWN_VERSIONS=['0.166.0','0.164.0','0.164.0-alpha.11.1','0.166.0-alpha.5.1'];
 export function sourceOf(meta){
  if(typeof meta.source==='object'&&meta.source?.subagent) return 'subagent';
  if(['codex_work_desktop','codex_desktop'].includes(meta.originator))return 'desktop';

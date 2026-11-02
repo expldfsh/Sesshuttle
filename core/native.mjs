@@ -54,6 +54,7 @@ export async function prepareNative({binary,home,project,files,device}){
   const effective=(await client.rpc('config/read',{includeLayers:false})).config;
   requireThat(Object.values(effective.mcp_servers??{}).every(s=>s.enabled===false)&&Object.values(effective.hooks??{}).every(items=>Array.isArray(items)&&items.length===0),'unsafe_native_config');
   for(const f of files){
+   if(f.artifacts&&!f.artifacts.some(a=>a.kind==='rollout'))continue; // database-only dependencies remain preserved; never claim native continuation
    const wasArchived=f.placementArchived??f.archived;await client.rpc('thread/list',{modelProviders:[],archived:wasArchived,limit:100});
    if(wasArchived)await client.rpc('thread/unarchive',{threadId:f.id});
    const r=await client.rpc('thread/resume',{threadId:f.id,cwd:project,runtimeWorkspaceRoots:[project],modelProvider:targetConfig.model_provider??'openai',...(targetConfig.model?{model:targetConfig.model}:{}),sandbox:'read-only',approvalPolicy:'on-request',excludeTurns:true});
