@@ -14,11 +14,12 @@ export function* databaseRecords(catalog,tid){for(const [kind,tables] of Object.
  for(const row of db.prepare(`SELECT * FROM "${table}" WHERE ${where}${pk.length?' ORDER BY '+pk.join(','):''}`).iterate(...args))yield {kind,table,row};
 }}}
 export function encodeRecord(record){return Buffer.from(JSON.stringify(record)+'\n');}
-export function databaseSummary(catalog,tid){const digest=createHash('sha256');let bytes=0,count=0,busy=false;const messages=[];
+export function databaseSummary(catalog,tid){const digest=createHash('sha256');let bytes=0,count=0,turnCount=0,busy=false;const messages=[];
  for(const r of databaseRecords(catalog,tid)){const b=encodeRecord(r);digest.update(b);bytes+=b.length;
+  if(r.table==='thread_turns')turnCount++;
   if(r.table==='thread_turns'&&['inProgress','in_progress','running'].includes(r.row.status))busy=true;
   if(r.table==='thread_items'){count++;try{const item=JSON.parse(r.row.item_json);const type=item.type?.toLowerCase();if(['usermessage','agentmessage','commandexecution'].includes(type)){const text=item.text??item.aggregatedOutput??item.aggregated_output??item.content?.map(x=>x.text??'').join('\n')??'';messages.push({role:type==='usermessage'?'user':type==='agentmessage'?'assistant':'tool',text:String(text).slice(0,12000)});if(messages.length>30)messages.shift();}}catch{}}
- }return {hash:digest.digest('hex'),bytes,count,busy,messages};}
+ }return {hash:digest.digest('hex'),bytes,count,turnCount,busy,messages};}
 export async function indexNames(home){const result=new Map(),file=path.join(home,'session_index.jsonl');if(await exists(file)){const {records}=await import('./stream.mjs');for await(const r of records(file))if(r.id&&typeof r.thread_name==='string')result.set(r.id,r.thread_name);}return result;}
 export function nativeMeta(thread){let source=thread.source;try{source=JSON.parse(source);}catch{}return {id:thread.id,source,originator:thread.originator,cli_version:thread.cli_version,cwd:thread.cwd,timestamp:new Date((thread.created_at_ms??thread.created_at*1000)||0).toISOString(),parent_thread_id:thread.attached_thread_parent_id??source?.subagent?.thread_spawn?.parent_thread_id,agent_nickname:thread.agent_nickname,agent_role:thread.agent_role};}
 export function displayName(thread,fallback){return (thread?.name?.trim()||fallback||thread?.title?.split('\n').find(x=>x.trim())||thread?.id)?.slice(0,200);}

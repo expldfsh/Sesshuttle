@@ -67,7 +67,7 @@ export async function prepareNative({binary,home,project,files,device}){
    let cursor=null,count=0,seen=new Set();do{const p=await client.rpc('thread/turns/list',{threadId:f.id,limit:50,itemsView:'full',cursor});count+=p.data.length;cursor=p.nextCursor;
     requireThat(!cursor||!seen.has(cursor),'native_verification_failed');if(cursor)seen.add(cursor);requireThat(seen.size<10000,'space_too_large');
    }while(cursor);
-   requireThat(count>0,'native_verification_failed');
+   requireThat(count>=(f.turnCount??1),'native_verification_failed');
   }
   return {status:'verified',cwd:project};
  }finally{await client.close();}

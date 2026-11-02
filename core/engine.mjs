@@ -21,7 +21,7 @@ export class Engine{
    if(local?.busy)status='busy';else if(head?.tips.length>1)status='conflict';else if(local&&head&&!this.cloudError){const base=this.state.get(this.baselineKey(local));status=base?(base.signature===this.signature(local)?(head.tips.includes(base.version)?'synced':'remote_changes'):(head.tips.includes(base.version)?'local_changes':'conflict')):'conflict';}
    const association=local?this.association(local):{projectId:head?.projectId};
    rows.push({id:logical,title:local?.title??head.title,source:local?local.source:head.source,project:local?.project??head.project,projectId:association.projectId,
-    continuation:local?.continuation??head?.continuation??true,kind:local?.kind??head?.kind??(head?.source==='subagent'?'background':'main'),parent:local?.parent??head?.parent,parentTitle:local?.parentTitle,agent:local?.agent??head?.agent,fileBytes:local?.fileBytes,databaseBytes:local?.databaseBytes,updatedAt:local?.updatedAt,cloudUpdatedAt:head?.versions.at(-1)?.at,device:head?.device,bytes:local?.bytes??head.bytes,archived:local?.archived??head?.archived??false,
+    continuation:local?.continuation??head?.continuation??true,kind:local?.kind??head?.kind??(head?.source==='subagent'?'background':'main'),parent:local?.parent??head?.parent,parentTitle:local?.parentTitle,agent:local?.agent??head?.agent,compressed:local?.compressed,historyBytes:local?.historyBytes,fileBytes:local?.fileBytes,databaseBytes:local?.databaseBytes,updatedAt:local?.updatedAt,cloudUpdatedAt:head?.versions.at(-1)?.at,device:head?.device,bytes:local?.bytes??head.bytes,archived:local?.archived??head?.archived??false,
     issues:local?.issues??head?.issues??[],status,local:!!local,remote:!!head,version:local?.version,
     messages:local?.messages??head?.messages??[],totalMessages:local?.totalMessages??0,
     versions:head?.versions??[],tips:head?.tips??[],targets:Object.fromEntries(Object.entries(this.state.get('entries/'+this.scope()+'/'+logical,{})).map(([entry,value])=>[entry,{...value,syncStatus:head?.tips.includes(value.version)?'synced':'remote_changes'}]))});
@@ -56,12 +56,13 @@ export class Engine{
   const inventory=await this.vault.inventory();const uploads=items.flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const estimated=await this.vault.estimate(uploads,inventory);
   // Reserve a conservative upper bound for encrypted manifests and replacement heads.
   // Chunks have their exact encrypted size; metadata reserve avoids a false exact quota promise.
-  const metadataReserve=uploads.reduce((n,p)=>n+2*Buffer.byteLength(JSON.stringify(p))+2*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
+  const metadataReserve=uploads.reduce((n,p)=>n+4*Buffer.byteLength(JSON.stringify(p))+4*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
   const uploadBytes=estimated.bytes+metadataReserve,uploadLimitBytes=Math.floor(uploadLimitMiB*1024*1024);
   const plan={stage,targetSnapshots,token,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString(),cloudBytes:inventory.bytes,chunkUploadBytes:estimated.bytes,metadataReserve,uploadBytes,uploadLimitBytes,overLimit:uploadBytes>uploadLimitBytes,largeUpload:uploadBytes>100*1024*1024||uploads.some(p=>bundleBytes(p)>100*1024*1024)};this.plans.set(token,plan);
   return {...plan,stage:undefined,items:items.map(({payload,preserve,...x})=>x)};
 
  }
+ async discardPlan(token){const plan=this.plans.get(token);if(plan){this.plans.delete(token);await fs.rm(plan.stage,{recursive:true,force:true});}}
  cancel(){this.cancelled=true;}
  async execute(token,{confirmLarge=false}={}){const plan=this.plans.get(token);requireThat(plan&&plan.space===this.scope()&&plan.configHash===hash(JSON.stringify(this.config())),'stale_plan');requireThat(!this.running,'task_running');requireThat(!plan.overLimit,'upload_limit');requireThat(!plan.largeUpload||confirmLarge,'large_upload_confirmation');this.plans.delete(token);this.running=true;this.cancelled=false;this.vault.writeBudget={remaining:plan.uploadBytes};
   const job={id:id(),startedAt:new Date().toISOString(),status:'running',items:[]};this.state.set('job/'+job.id,job);
