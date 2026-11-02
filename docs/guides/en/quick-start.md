@@ -1,11 +1,11 @@
 # Install and connect your R2 storage
 
-sesshuttle 0.1.0-rc.1 is an installation acceptance candidate. Mac isolated checks are complete; real R2, Linux, and native Codex UI acceptance are still pending. See [compatibility](../../compatibility/rc1.md).
+sesshuttle 0.1.0-rc.2 is an installation acceptance candidate. Mac isolated checks are complete; real R2, Linux, and native Codex UI acceptance are still pending. See [compatibility](../../compatibility/rc2.md).
 
 ## Install
 
 - **Apple Silicon Mac:** open the DMG and drag sesshuttle into Applications. This local candidate has no Developer ID notarization. If macOS blocks it, verify its origin and use the system’s Privacy & Security prompts; do not disable global protection.
-- **Debian/Ubuntu x86_64:** install the `.deb` with your software installer, or run `sudo apt install ./sesshuttle-0.1.0-rc.1-linux-amd64.deb` from its folder. Launch sesshuttle from the application menu.
+- **Debian/Ubuntu x86_64:** install the `.deb` with your software installer, or run `sudo apt install ./sesshuttle-0.1.0-rc.2-linux-amd64.deb` from its folder. Launch sesshuttle from the application menu.
 - **Other Linux distributions:** extract `.tar.gz` and run `sesshuttle` inside the folder. A desktop session and Electron system dependencies are required. Linux runtime acceptance is pending. Report startup errors without using `--no-sandbox` or weakening system protection.
 
 Comic Neue and LXGW WenKai are bundled, including their regular and emphasis weights. They work offline without installing fonts on the device.
@@ -53,3 +53,9 @@ Unknown versions, missing resources, wrong keys, storage errors, and unreadable 
 Use a dedicated test project with different paths on each machine. Create a conversation with an early random marker, several messages, a harmless tool result, and a small image. Upload on Mac, import on Linux, and verify it in native Codex. Check the early marker and run `pwd` plus a read of a Linux-only test file. Add a round on Linux, sync back, and repeat on Mac. Also check repeated imports, multiple destinations, independent branches, backup recovery, wrong keys, English/Chinese switching, and keyring behavior after restarting.
 
 Record the OS, architecture, Codex entry/version, failing step, expected/actual behavior, and error code. These real-device checks remain pending until performed; simulated storage and Mac runtime tests do not replace them.
+
+## rc.2 history and capacity
+
+Both plain JSONL and Zstandard JSONL histories are recognized, together with native SQLite titles and messages. Main chats and background agents have separate views. Local database sizes are logical record bytes, not shared database page allocations. Auto-detect in Settings or Projects & entries shows paths without overwriting manual choices; explicitly use a result and save. Project bindings refer to local code folders and are not needed for upload-only backup.
+
+Preview stages encrypted chunks locally without uploading history. Check added cloud storage and metadata reserve; the default per-plan upload limit is 500 MiB. Large source data or uploads over 100 MiB require an extra confirmation. Existing versions and incomplete uploads are retained. Both devices should use rc.2; existing R2 settings and recovery files remain valid. Do not recreate the sync space when upgrading.
