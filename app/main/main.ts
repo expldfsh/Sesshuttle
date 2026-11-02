@@ -1,8 +1,9 @@
-import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu } from 'electron';
+import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
 import { pathToFileURL } from 'node:url';import { execFile,spawn } from 'node:child_process';import { promisify } from 'node:util';
 import { State } from '../../core/state.mjs';import { Engine } from '../../core/engine.mjs';import { R2Store } from '../../core/storage.mjs';import { Vault } from '../../core/vault.mjs';
 import { newKey,parseKey } from '../../core/crypto.mjs';import { Fault,requireThat,publicError,id,atomic,exists,canonical,inside } from '../../core/util.mjs';import { Importer } from '../../core/importer.mjs';
+import {getTheme,DEFAULT_THEME_ID} from '../shared/themes';
 const exec=promisify(execFile);let window:BrowserWindow;let state:any,engine:any;let secrets:any=null;let recovery:any=null;
 const testRoot=process.env.SESSHUTTLE_TEST_ROOT;
 if(testRoot){const canonicalRoot=realpathSync(testRoot);const tempRoots=[realpathSync(os.tmpdir()),realpathSync('/tmp')];requireThat(canonicalRoot===testRoot&&path.basename(testRoot).startsWith('sesshuttle-')&&tempRoots.some(p=>testRoot.startsWith(p+path.sep))&&JSON.parse(readFileSync(path.join(testRoot,'.sesshuttle-test.json'),'utf8')).format===1,'unsafe_path');app.setPath('userData',path.join(testRoot,'app-data'));}
@@ -14,6 +15,7 @@ function updateMenu(){const zh=state?.get('config')?.language==='zh-CN';const te
   {label:text('窗口','Window'),submenu:[{role:'minimize',label:text('最小化','Minimize')},{role:'close',label:text('关闭','Close')}]}
  ]));
 }
+function updateTheme(){const theme=getTheme(state?.get('config')?.theme);nativeTheme.themeSource=theme.colorScheme;window?.setBackgroundColor(theme.colors.bg);}
 async function discover(){const home=testRoot?path.join(testRoot,'codex'):path.join(os.homedir(),'.codex');const targets:any={desktop:{home,binary:''},cli:{home,binary:''},ide:{home,binary:''}};
  const candidates=process.platform==='darwin'?['/opt/homebrew/bin/codex','/usr/local/bin/codex']:process.platform==='win32'?[]:['/usr/local/bin/codex',path.join(os.homedir(),'.local/bin/codex')];
  for(const p of (process.env.PATH??'').split(path.delimiter).filter(p=>path.isAbsolute(p)))candidates.push(path.join(p,process.platform==='win32'?'codex.exe':'codex'));
@@ -22,7 +24,7 @@ async function discover(){const home=testRoot?path.join(testRoot,'codex'):path.j
  try{const extensions=path.join(os.homedir(),'.vscode/extensions');const folders=(await fs.readdir(extensions)).filter(x=>x.startsWith('openai.chatgpt-')).sort().reverse();
   for(const folder of folders){const sub=process.platform==='darwin'?'macos-aarch64':process.platform==='win32'?'windows-x86_64':'linux-x86_64';const bin=path.join(extensions,folder,'bin',sub,process.platform==='win32'?'codex.exe':'codex');if(await exists(bin)){targets.ide.binary=bin;break;}}
  }catch{}
- return {language:app.getLocale().startsWith('zh')?'zh-CN':'en',sourceHomes:[home],targets,bindings:{}};
+ return {theme:DEFAULT_THEME_ID,language:app.getLocale().startsWith('zh')?'zh-CN':'en',sourceHomes:[home],targets,bindings:{}};
 }
 async function saveSecrets(value:any){requireThat(!testRoot,'test_mode');requireThat(await safeStorage.isAsyncEncryptionAvailable(),'secure_storage_unavailable');
  if(process.platform==='linux')requireThat(safeStorage.getSelectedStorageBackend()!=='basic_text','secure_storage_unavailable');
@@ -35,12 +37,12 @@ async function loadSecrets(){try{const cfg=state.get('connection');if(!cfg||!awa
  secrets={credentials:value.credentials,key:value.key};engine.vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key);
  }catch{state.set('credentialError','secure_storage_unavailable');}}
 async function saveConfig(input:any){requireThat(!engine.running,'task_running');requireThat(input&&['zh-CN','en'].includes(input.language)&&Array.isArray(input.sourceHomes)&&input.sourceHomes.length<=20,'invalid_settings');
- const cfg:any={language:input.language,sourceHomes:[],targets:{},bindings:{}};
+ const cfg:any={theme:getTheme(input.theme).id,language:input.language,sourceHomes:[],targets:{},bindings:{}};
  for(const p of input.sourceHomes.filter((x:any)=>x!=='')){requireThat(typeof p==='string'&&path.isAbsolute(p),'invalid_path');cfg.sourceHomes.push(p);}
  for(const entry of ['desktop','cli','ide']){const t=input.targets?.[entry]??{};for(const k of ['home','binary'])requireThat(typeof(t[k]??'')==='string'&&(!t[k]||path.isAbsolute(t[k])),'invalid_path');cfg.targets[entry]={home:t.home??'',binary:t.binary??''};}
  for(const [k,v]of Object.entries(input.bindings??{})){requireThat(/^[0-9a-f-]{36}$/i.test(k)&&typeof v==='string'&&path.isAbsolute(v),'invalid_path');cfg.bindings[k]=v;}
  if(testRoot){for(const p of cfg.sourceHomes)await inside(testRoot,path.join(p,'check'));for(const t of Object.values(cfg.targets) as any[])if(t.home)await inside(testRoot,path.join(t.home,'check'));}
- state.set('config',cfg);updateMenu();if(input.deviceName){requireThat(typeof input.deviceName==='string'&&input.deviceName.length<=80,'invalid_settings');state.set('device',{...state.get('device'),name:input.deviceName});}
+ state.set('config',cfg);updateMenu();updateTheme();if(input.deviceName){requireThat(typeof input.deviceName==='string'&&input.deviceName.length<=80,'invalid_settings');state.set('device',{...state.get('device'),name:input.deviceName});}
  return cfg;
 }
 async function connect(input:any){requireThat(!engine.running,'task_running');const cfg={endpoint:String(input.endpoint??'').trim(),bucket:String(input.bucket??'').trim()};
@@ -109,9 +111,9 @@ if(primaryInstance)app.whenReady().then(async()=>{
  for(const k of state.keys('job/')){const j=state.get(k);if(j.status==='running')state.set(k,{...j,status:'interrupted'});}
  for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:'needs_recovery'});}
  engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);await loadSecrets();
- updateMenu();
+ updateMenu();updateTheme();
  session.defaultSession.setPermissionRequestHandler((_w,_p,callback)=>callback(false));
- window=new BrowserWindow({width:1320,height:860,minWidth:980,minHeight:680,title:'sesshuttle',backgroundColor:'#222436',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+ window=new BrowserWindow({width:1320,height:860,minWidth:980,minHeight:680,title:'sesshuttle',backgroundColor:getTheme(state.get('config')?.theme).colors.bg,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');return {ok:true,data:await request(method,args)};}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();engine.cancel();window.webContents.send('sesshuttle:closePending');}});
