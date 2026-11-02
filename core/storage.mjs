@@ -3,7 +3,7 @@ import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Fault, requireThat, hash, id, LIMIT } from './util.mjs';
 export class R2Store {
  constructor(config,{allowLocal=false}={}){
-  const url=new URL(config.endpoint);
+  let url;try{url=new URL(config.endpoint);}catch{throw new Fault('invalid_endpoint');}
   requireThat(allowLocal?(url.hostname==='127.0.0.1'):(url.protocol==='https:'&&/^[a-z0-9]+(?:\.[a-z]+)?\.r2\.cloudflarestorage\.com$/.test(url.hostname)),'invalid_endpoint');
   requireThat(!url.username&&!url.password&&!url.search&&!url.hash&&(url.pathname==='/'||url.pathname===''),'invalid_endpoint');
   requireThat(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(config.bucket),'invalid_bucket');
@@ -25,8 +25,8 @@ export class R2Store {
   return {body:Buffer.concat(parts),etag:r.ETag};
  }
  async put(key,body,etag){const r=await this.call(new PutObjectCommand({Bucket:this.bucket,Key:key,Body:body,ContentType:'application/octet-stream',...(etag===null?{IfNoneMatch:'*'}:etag?{IfMatch:etag}:{})}));requireThat(r,'storage_unavailable');return r.ETag;}
- async list(prefix){let cursor;const keys=[];do{const r=await this.call(new ListObjectsV2Command({Bucket:this.bucket,Prefix:prefix,ContinuationToken:cursor}));requireThat(r,'storage_unavailable');
-  keys.push(...(r.Contents??[]).map(x=>x.Key));requireThat(keys.length<=20000,'space_too_large');cursor=r.IsTruncated?r.NextContinuationToken:null;
+ async list(prefix){let cursor;const keys=[],seen=new Set();do{const r=await this.call(new ListObjectsV2Command({Bucket:this.bucket,Prefix:prefix,ContinuationToken:cursor}));requireThat(r,'storage_unavailable');
+  keys.push(...(r.Contents??[]).map(x=>x.Key));requireThat(keys.length<=20000,'space_too_large');cursor=r.IsTruncated?r.NextContinuationToken:null;requireThat(!r.IsTruncated||cursor&&!seen.has(cursor),'corrupt_data');if(cursor)seen.add(cursor);
  }while(cursor);return keys;}
  async test(){await this.list('sesshuttle/probe/');const key='sesshuttle/probe/'+id();const data=Buffer.from(id());
   try{await this.put(key,data,null);}catch(e){throw new Fault(e.code==='storage_permission'?'storage_write_permission':e.code);}

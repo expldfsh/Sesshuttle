@@ -1,0 +1,18 @@
+import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import assert from 'node:assert/strict';
+import { State } from '../core/state.mjs';import { Engine } from '../core/engine.mjs';import { Importer } from '../core/importer.mjs';import { MemoryStore } from '../core/storage.mjs';import { Vault } from '../core/vault.mjs';import { newKey } from '../core/crypto.mjs';import { id } from '../core/util.mjs';
+const [sourceFile,binary]=process.argv.slice(2);assert.ok(sourceFile&&binary,'Provide a synthetic rollout and a Codex binary');
+const raw=await fs.readFile(sourceFile);assert.equal(JSON.parse(raw.toString().split('\n')[0]).payload.originator,'sesshuttle_lab');
+const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'sesshuttle-product-')));const a=path.join(root,'a'),b=path.join(root,'b'),project=path.join(root,'project 中文');await fs.mkdir(path.join(a,'sessions/2026/11/01'),{recursive:true});await fs.mkdir(b);await fs.mkdir(project);await fs.writeFile(path.join(a,'sessions/2026/11/01',path.basename(sourceFile)),raw);
+const sa=new State(path.join(root,'state-a')),sb=new State(path.join(root,'state-b'));const store=new MemoryStore(),space=id(),key=newKey();const va=new Vault(store,space,key),vb=new Vault(store,space,key);await va.create();
+sa.set('config',{sourceHomes:[a],targets:{},bindings:{}});sb.set('config',{sourceHomes:[b],targets:Object.fromEntries(['desktop','cli','ide'].map(x=>[x,{home:b,binary}])),bindings:{}});
+const ea=new Engine(sa,{vault:va}),eb=new Engine(sb,{vault:vb,importer:new Importer(sb,{testRoot:root,processGuard:async()=>{}})});
+let snapshot=await ea.refresh();assert.equal(snapshot.rows.length,1);const tid=snapshot.rows[0].id;
+let plan=await ea.preview({ids:[tid],direction:'upload',targets:[]});let job=await ea.execute(plan.token);assert.equal(job.items[0].status,'uploaded');
+snapshot=await eb.refresh();assert.equal(snapshot.rows[0].status,'remote_only');const projectId=snapshot.rows[0].projectId;sb.set('config',{...sb.get('config'),bindings:{[projectId]:project}});
+plan=await eb.preview({ids:[tid],direction:'download',targets:['desktop','cli','ide']});job=await eb.execute(plan.token);
+console.log(JSON.stringify({root,job},null,2));assert.equal(job.items[0].status,'downloaded');assert.equal(sb.keys('backup/').length,1,'shared home must only be backed up/written once');
+assert.ok(['desktop','cli','ide'].every(x=>job.items[0].targets[x].status==='verified'));
+snapshot=await eb.refresh();assert.equal(snapshot.rows.length,1);assert.equal(snapshot.rows[0].status,'synced','import metadata must not create a sync branch');
+plan=await eb.preview({ids:[tid],direction:'download',targets:['desktop','cli','ide']});job=await eb.execute(plan.token);assert.equal(job.items[0].status,'downloaded');assert.equal(sb.keys('backup/').length,1,'repeated import must not write again');
+const backups=sb.keys('backup/').map(k=>sb.get(k));await eb.importer.restore(backups[0].id);snapshot=await eb.refresh();assert.equal(snapshot.rows[0].local,false);console.log('PASS product encrypted upload → three shared entries → native verification → restore');
+sa.close();sb.close();

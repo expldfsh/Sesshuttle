@@ -16,11 +16,16 @@ export class Vault {
   const r=await this.store.get(this.prefix+key);requireThat(r,'missing_remote_object');const payload=unseal(r.body,this.key,this.space,key);
   requireThat(hash(JSON.stringify(payload))===version,'corrupt_data');validatePayload(payload);return payload;
  }
+ async choose(logical,version,expectedEtag){
+  const head=await this.head(logical);requireThat(head?.versions.some(x=>x.id===version),'invalid_selection');
+  requireThat(head.etag===expectedEtag,'concurrent_update');const next={...head,tips:[version],resolvedAt:new Date().toISOString()};delete next.etag;
+  await this.store.put(this.prefix+'heads/'+logical,seal(next,this.key,this.space,'heads/'+logical),head.etag);return next;
+ }
  async publish(payload,device){validatePayload(payload);
   for(let attempt=0;attempt<4;attempt++){
    const head=await this.head(payload.logicalId);const tips=head?.tips??[];const parents=[],remaining=[];
    for(const tip of tips){const old=await this.version(tip);const r=relation(payload,old);
-    if(r==='synced')return {version:tip,head,unchanged:true};
+    if(r==='synced'||r==='remote_changes')return {version:tip,head,unchanged:true};
     if(r==='local_changes')parents.push(tip);else remaining.push(tip);
    }
    const versionPayload={...payload,parents,device,uploadedAt:new Date().toISOString()};
