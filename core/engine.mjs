@@ -1,3 +1,4 @@
+import {repairDownload} from './attachment-repair.mjs';
 import {attachmentReview,assertAttachmentAcceptance} from './attachment-policy.mjs';
 import {attachmentUnchanged,inspectAttachment} from './attachments.mjs';
 import {captureBundle,relatedRows,bundleBytes,bundleIdentity} from './bundle.mjs';
@@ -8,7 +9,7 @@ import { id,hash,requireThat,publicError,Fault,canonical } from './util.mjs';
 async function verifyAttachments(payload,rows,approved){
  for(const f of payload.files)for(const a of f.attachmentReport??[]){
   if(a.status==='included')requireThat(await attachmentUnchanged(a),'stale_plan');
-  if(['missing','approval_required'].includes(a.status)){const row=rows.find(r=>r.id===f.id);requireThat(row,'stale_plan');const now=await inspectAttachment(row,a.path,approved);requireThat(now.status===a.status&&now.stamp===a.stamp&&now.resolved===a.resolved,'stale_plan');}
+  if(['missing','approval_required','unreadable_image'].includes(a.status)){const row=rows.find(r=>r.id===f.id);requireThat(row,'stale_plan');const now=await inspectAttachment(row,a.path,approved);requireThat(now.status===a.status&&now.stamp===a.stamp&&now.resolved===a.resolved,'stale_plan');}
  }
 }
 export class Engine{
@@ -37,12 +38,13 @@ export class Engine{
   this.rows=rows.sort((a,b)=>(b.updatedAt??b.cloudUpdatedAt??'').localeCompare(a.updatedAt??a.cloudUpdatedAt??''));
   return {rows:this.rows,errors:this.local.errors,cloudError:this.cloudError,checkedAt:this.local.checkedAt,remoteCheckedAt:this.state.get('cache/'+this.scope())?.checkedAt};
  }
- async preview({ids,direction,targets,allowIncomplete=false,chosenVersion=null,uploadLimitMiB=500,includeDescendants=false,approvedAttachments=[]}){
+ async preview({ids,direction,targets,allowIncomplete=false,chosenVersion=null,uploadLimitMiB=500,includeDescendants=false,approvedAttachments=[],replacements={}}){
   requireThat(!this.running,'task_running');requireThat(this.vault,'storage_not_connected');requireThat(!this.cloudError,'cloud_check_failed');
   requireThat(Array.isArray(ids)&&ids.length>0&&ids.length<=2000&&ids.every(x=>this.rows.some(r=>r.id===x)),'invalid_selection');
   requireThat(['upload','download','both'].includes(direction),'invalid_selection');allowIncomplete=allowIncomplete&&direction==='upload'&&!chosenVersion;requireThat(Array.isArray(targets)&&targets.every(x=>['desktop','cli','ide'].includes(x)),'invalid_selection');
   requireThat(direction==='upload'||targets.length>0,'target_required');
-  requireThat(typeof includeDescendants==='boolean'&&Array.isArray(approvedAttachments)&&approvedAttachments.length<=10000&&approvedAttachments.every(k=>/^[0-9a-f]{64}$/.test(k)),'invalid_selection');const selection={includeDescendants,approvedAttachments};
+  requireThat(typeof includeDescendants==='boolean'&&Array.isArray(approvedAttachments)&&approvedAttachments.length<=10000&&approvedAttachments.every(k=>/^[0-9a-f]{64}$/.test(k)),'invalid_selection');requireThat(replacements&&typeof replacements==='object'&&Object.entries(replacements).every(([k,p])=>/^[0-9a-f]{64}$/.test(k)&&typeof p==='string'&&path.isAbsolute(p)),'invalid_selection');
+  const selection={includeDescendants,approvedAttachments,replacements};
   requireThat(Number.isFinite(uploadLimitMiB)&&uploadLimitMiB>=1&&uploadLimitMiB<=1048576,'invalid_settings');
   for(const old of this.plans.values())if(old.stage)await fs.rm(old.stage,{recursive:true,force:true});this.plans.clear();this.vault.staged=new Map();const token=id(),stage=path.join(this.state.root,'staging',token);await fs.mkdir(stage,{recursive:true,mode:0o700});
   const targetSnapshots={};
@@ -56,6 +58,7 @@ export class Engine{
    else if(direction==='both'){if(['local_only','local_changes'].includes(row.status))action='upload_import';else if(['remote_only','remote_changes','synced'].includes(row.status))action='download';else if(row.status==='conflict')action='preserve_conflict';}
    let fileCount=1,assetCount=0,bytes=row.bytes,issues=row.issues,payload=null,preserve=null;
    try{payload=['download','resolve'].includes(action)?await this.vault.version(chosenVersion??head.tips[0]):!['skip','busy','conflict'].includes(action)&&local?await this.snapshot(local,stage,selection):null;
+    if(payload && ['download','resolve'].includes(action))payload=await repairDownload(payload,replacements,this.vault,stage);
     if(action==='resolve'&&local)preserve=await this.snapshot(local,stage,selection);
     if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
@@ -76,32 +79,41 @@ export class Engine{
  async discardPlan(token){const plan=this.plans.get(token);if(plan){this.plans.delete(token);await fs.rm(plan.stage,{recursive:true,force:true});}}
  cancel(){this.cancelled=true;}
  async execute(token,{confirmLarge=false,acceptedMissingAttachments=[]}={}){const plan=this.plans.get(token);requireThat(plan&&plan.space===this.scope()&&plan.configHash===hash(JSON.stringify(this.config())),'stale_plan');requireThat(!this.running,'task_running');requireThat(!plan.overLimit,'upload_limit');requireThat(!plan.largeUpload||confirmLarge,'large_upload_confirmation');const eligible=plan.items.flatMap(i=>i.attachmentReview.optional);requireThat(Array.isArray(acceptedMissingAttachments)&&acceptedMissingAttachments.every(k=>typeof k==='string'&&eligible.some(a=>a.key===k)),'invalid_selection');this.plans.delete(token);this.running=true;this.cancelled=false;this.vault.writeBudget={remaining:plan.uploadBytes};
-  const job={id:id(),startedAt:new Date().toISOString(),status:'running',items:[]};this.state.set('job/'+job.id,job);
-  try{for(const item of plan.items){if(this.cancelled){job.status='paused';break;}const result={id:item.id,title:item.title,action:item.action,status:'running',targets:{}};job.items.push(result);this.onProgress({...job});
+  const job={id:id(),total:plan.items.length,startedAt:new Date().toISOString(),status:'running',items:[]};this.state.set('job/'+job.id,job);
+  try{for(const item of plan.items){if(this.cancelled){job.status='paused';break;}const result={id:item.id,title:item.title,action:item.action,status:'running',targets:{}};job.items.push(result);
+   const step=(stage)=>{job.progress={index:job.items.length,total:plan.items.length,title:item.title,stage,bytes:0};this.onProgress({...job});};
+   step('stageCheck');
+   let lastEvent=0;
+   const advance=n=>{job.progress.bytes+=n;if(Date.now()-lastEvent>150){lastEvent=Date.now();this.onProgress({...job});}};
+   this.vault.onBytes=advance;
    try{if(['skip','busy','conflict','blocked'].includes(item.action)){result.status=item.action;continue;}
     const current=await scan(this.config().sourceHomes);const local=current.rows.find(x=>x.id===item.id);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
     const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;requireThat((local?this.signature(local,plan.selection):null)===item.expectedSignature,'stale_plan');
     let payload,importVersion=item.version,resolveEtag=head?.etag;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
       requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);if(!plan.allowIncomplete)assertAttachmentAcceptance(payload,acceptedMissingAttachments);
-      const published=await this.vault.publish(payload,this.state.get('device'));this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';
+      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'));this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';
       if(item.action!=='upload_import'||published.conflict){result.status=published.conflict?'conflict_preserved':'uploaded';continue;}
       importVersion=published.version;payload=await this.vault.version(importVersion);
-    }else payload=await this.vault.version(importVersion);
+    }else {
+      // The immutable version was authenticated at preview and head/etag rechecked above.
+      payload=item.payload;
+      for(const f of payload.files)for(const a of f.attachmentReport??[])if(a.replacementPath&&plan.selection.replacements[a.key])requireThat(await attachmentUnchanged(a),'stale_plan');
+    }
     assertAttachmentAcceptance(payload,acceptedMissingAttachments);
     requireThat(payload.continuation!==false,'missing_rollout');
     // Explicit branch selection first preserves the current local branch remotely.
     if(item.action==='resolve'&&local){assertAttachmentAcceptance(item.preserve,acceptedMissingAttachments);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'))).head.etag;}
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
-      const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured'};continue;}
-       try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',error:publicError(e)};}}
+      const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured',error:{code:target?.binary?'entry_home_missing':'entry_binary_missing'}};continue;}
+       try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project,onStage:step,nativeProjectId:cfg.nativeBindings?.[payload.projectId??item.projectId]?.[target.home]??null}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',error:publicError(e)};}}
       for(const group of grouped.values()){
-       try{const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',vault:this.vault,acceptedMissingAttachments,expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
+       try{const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',vault:{readChunk:async digest=>{const chunk=plan.selection.replacements&&Object.keys(plan.selection.replacements).length?await this.vault.readForImport(digest):await this.vault.readChunk(digest);advance(chunk.length);return chunk;}},acceptedMissingAttachments,expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
         for(const {entry,target}of group){
          // Shared storage is written once; different runtime versions are still checked.
-         let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){await this.importer.processGuard();if(!r.backup)r.backup=(await this.importer.backup(target.home)).id;nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,device:payload.device});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
-          result.targets[entry]={status:'verified',omittedAttachments:r.omittedAttachments??[],version:importVersion,home:target.home,project,binary:target.binary,backup:r.backup,checkedAt:new Date().toISOString()};
+         let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){step('stageVerify');await this.importer.processGuard();if(!r.backup)r.backup=(await this.importer.backup(target.home)).id;nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
+          result.targets[entry]={status:'verified',nativeProjectId:target.nativeProjectId,omittedAttachments:r.omittedAttachments??[],version:importVersion,home:target.home,project,binary:target.binary,backup:r.backup,checkedAt:new Date().toISOString()};
          }catch(e){result.targets[entry]={status:'failed',error:publicError(e),backup:r.backup};if(nativeStarted){this.state.set('import/'+nativeTask,{status:'needs_recovery',backup:r.backup,home:target.home,error:e.code??'native_error'});for(const prior of Object.values(result.targets))if(prior.home===target.home&&prior.status==='verified')prior.status='imported';for(const remaining of group)result.targets[remaining.entry]??={status:'failed',error:{code:'recovery_required',detail:''},backup:r.backup};break;}}
         }
        }catch(e){for(const {entry}of group)result.targets[entry]??={status:'failed',error:publicError(e)};}
@@ -115,7 +127,7 @@ export class Engine{
    finally{this.state.set('job/'+job.id,job);this.onProgress({...job});}
   }
   if(job.status==='running')job.status=job.items.some(x=>['failed','partial','conflict','busy','blocked','conflict_preserved'].includes(x.status))?'attention':'completed';
-  }finally{this.vault.writeBudget=null;await fs.rm(plan.stage,{recursive:true,force:true}).catch(()=>{});this.running=false;job.finishedAt=new Date().toISOString();this.state.set('job/'+job.id,job);this.onProgress({...job});}
+  }finally{this.vault.writeBudget=null;this.vault.onBytes=null;delete job.progress;await fs.rm(plan.stage,{recursive:true,force:true}).catch(()=>{});this.running=false;job.finishedAt=new Date().toISOString();this.state.set('job/'+job.id,job);this.onProgress({...job});}
   return job;
  }
 }

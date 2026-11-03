@@ -7,9 +7,16 @@ import { hash, requireThat, Fault, id } from './util.mjs';
 import { validatePayload, relation } from './codex.mjs';
 export class Vault {
  constructor(store,space,key){requireThat(/^[0-9a-f-]{36}$/i.test(space),'invalid_space');parseKey(key);this.store=store;this.space=space;this.key=key;this.prefix='sesshuttle/v1/'+space+'/';}
- async put(key,body,etag){if(this.writeBudget){requireThat(body.length<=this.writeBudget.remaining,'upload_limit');this.writeBudget.remaining-=body.length;}return this.store.put(key,body,etag);}
+ async put(key,body,etag){if(this.writeBudget){requireThat(body.length<=this.writeBudget.remaining,'upload_limit');this.writeBudget.remaining-=body.length;}const result=await this.store.put(key,body,etag);this.onBytes?.(body.length);return result;}
  async stageChunk(digest,data,stage){const object='blobs/'+digest;const file=path.join(stage,digest);this.staged??=new Map();if(this.staged.has(digest)&&await exists(this.staged.get(digest)))return;
   const sealed=seal({data:data.toString('base64')},this.key,this.space,object);const disk=await fs.statfs(stage);requireThat(disk.bavail*disk.bsize>sealed.length+256*1024*1024,'disk_space');await atomic(file,sealed);this.staged.set(digest,file);
+ }
+ async readForImport(digest){
+  const staged=this.staged?.get(digest);
+  if(!staged)return this.readChunk(digest);
+  const body=await fs.readFile(staged);
+  const plain=Buffer.from(unseal(body,this.key,this.space,'blobs/'+digest).data,'base64');
+  requireThat(hash(plain)===digest,'corrupt_data');return plain;
  }
  async readChunk(digest){requireThat(/^[0-9a-f]{64}$/.test(digest),'corrupt_data');const object='blobs/'+digest;const r=await this.store.get(this.prefix+object);requireThat(r,'missing_remote_object');const x=unseal(r.body,this.key,this.space,object);requireThat(typeof x.data==='string','corrupt_data');const b=Buffer.from(x.data,'base64');requireThat(b.length<=4*1024*1024&&hash(b)===digest,'corrupt_data');return b;}
  async inventory(){const objects=await this.store.inventory(this.prefix);return {objects:new Map(objects.map(x=>[x.key,x.bytes])),bytes:objects.reduce((n,x)=>n+x.bytes,0)};}

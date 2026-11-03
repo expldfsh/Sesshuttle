@@ -25,7 +25,7 @@ export async function captureBundle(row,rows,vault,stage,options={}){const selec
  // Read only explicit attachment fields, never arbitrary paths in message text.
  const found=await referencesFor(r,catalogs.get(r.home));const issues=[...r.issues,...found.issues],attachmentReport=[];
  if((r.dependencies??[r.parent].filter(Boolean)).some(dep=>!rows.some(x=>x.id===dep&&x.file)))issues.push('missing_dependency');
- for(const resource of found.resources){const report=await inspectAttachment(r,resource,options.approvedAttachments??[]);attachmentReport.push(report);
+ for(const resource of found.resources){const replacement=options.replacements?.[hash(r.id+'\0'+resource)];const report=await inspectAttachment(r,resource,options.approvedAttachments??[],replacement);if(replacement)requireThat(report.status==='included','replacement_invalid');attachmentReport.push(report);
   if(report.status==='included'){requireThat(await attachmentUnchanged(report),'stale_plan');const a=await packStream(readBlocks(report.resolved),'asset',vault,stage,{path:resource});requireThat(await attachmentUnchanged(report),'stale_plan');artifacts.push(a);report.hash=a.hash;}
   else issues.push(attachmentIssue(report.status));
  }

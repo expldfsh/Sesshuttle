@@ -1,3 +1,7 @@
+import {credentialHealth,persistConnection,retrieveConnection} from './credentials';
+import {detectEnvironment,liveLinuxTargets} from '../../core/discovery.mjs';
+import {localProjects} from '../../core/local-projects.mjs';
+import {binaryVersion} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
@@ -8,6 +12,7 @@ import {getTheme,DEFAULT_THEME_ID} from '../shared/themes';
 const exec=promisify(execFile);let window:BrowserWindow;let state:any,engine:any,trash:any;let secrets:any=null;let recovery:any=null;
 const testRoot=process.env.SESSHUTTLE_TEST_ROOT;
 if(testRoot){const canonicalRoot=realpathSync(testRoot);const tempRoots=[realpathSync(os.tmpdir()),realpathSync('/tmp')];requireThat(canonicalRoot===testRoot&&path.basename(testRoot).startsWith('sesshuttle-')&&tempRoots.some(p=>testRoot.startsWith(p+path.sep))&&JSON.parse(readFileSync(path.join(testRoot,'.sesshuttle-test.json'),'utf8')).format===1,'unsafe_path');app.setPath('userData',path.join(testRoot,'app-data'));}
+const attachmentPicks = new Set<string>();
 const renderer=path.join(__dirname,'renderer','index.html');
 function updateMenu(){const zh=state?.get('config')?.language==='zh-CN';const text=(a:string,b:string)=>zh?a:b;
  Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -17,31 +22,55 @@ function updateMenu(){const zh=state?.get('config')?.language==='zh-CN';const te
  ]));
 }
 function updateTheme(){const theme=getTheme(state?.get('config')?.theme);nativeTheme.themeSource=theme.colorScheme;window?.setBackgroundColor(theme.colors.bg);}
-async function discover(){const home=testRoot?path.join(testRoot,'codex'):path.join(os.homedir(),'.codex');const targets:any={desktop:{home,binary:''},cli:{home,binary:''},ide:{home,binary:''}};
- const candidates=process.platform==='darwin'?['/opt/homebrew/bin/codex','/usr/local/bin/codex']:process.platform==='win32'?[]:['/usr/local/bin/codex',path.join(os.homedir(),'.local/bin/codex')];
- for(const p of (process.env.PATH??'').split(path.delimiter).filter(p=>path.isAbsolute(p)))candidates.push(path.join(p,process.platform==='win32'?'codex.exe':'codex'));
- for(const p of candidates)if(await exists(p)){targets.cli.binary=p;break;}
- if(process.platform==='darwin')for(const p of ['/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex','/Applications/Codex.app/Contents/Resources/codex'])if(await exists(p)){targets.desktop.binary=p;break;}
- try{const extensions=path.join(os.homedir(),'.vscode/extensions');const folders=(await fs.readdir(extensions)).filter(x=>x.startsWith('openai.chatgpt-')).sort().reverse();
-  for(const folder of folders){const sub=process.platform==='darwin'?'macos-aarch64':process.platform==='win32'?'windows-x86_64':'linux-x86_64';const bin=path.join(extensions,folder,'bin',sub,process.platform==='win32'?'codex.exe':'codex');if(await exists(bin)){targets.ide.binary=bin;break;}}
- }catch{}
- return {theme:DEFAULT_THEME_ID,language:app.getLocale().startsWith('zh')?'zh-CN':'en',sourceHomes:[home],targets,bindings:{}};
+async function discover(){
+ const home=testRoot?path.join(testRoot,'codex'):path.join(os.homedir(),'.codex');
+ return {theme:DEFAULT_THEME_ID,language:app.getLocale().startsWith('zh')?'zh-CN':'en',sourceHomes:[home],targets:Object.fromEntries(['desktop','cli','ide'].map(entry=>[entry,{home,binary:''}])),bindings:{},nativeBindings:{}};
 }
-async function saveSecrets(value:any){requireThat(!testRoot,'test_mode');requireThat(await safeStorage.isAsyncEncryptionAvailable(),'secure_storage_unavailable');
- if(process.platform==='linux')requireThat(safeStorage.getSelectedStorageBackend()!=='basic_text','secure_storage_unavailable');
- const encrypted=await safeStorage.encryptStringAsync(JSON.stringify({...value,connection:state.get('connection')}));
- await atomic(path.join(state.root,'connection-secret.bin'),encrypted);
+async function loadSecrets(){
+ try{
+  const value=await retrieveConnection(state);
+  if(!value)return;
+  secrets=value;const cfg=state.get('connection');
+  engine.vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key);
+  state.set('credentialError',null);
+ }catch{state.set('credentialError','credential_restore_failed');}
 }
-async function loadSecrets(){try{const cfg=state.get('connection');if(!cfg||!await exists(path.join(state.root,'connection-secret.bin')))return;
- const value=JSON.parse((await safeStorage.decryptStringAsync(await fs.readFile(path.join(state.root,'connection-secret.bin')))).result);
- requireThat(JSON.stringify(value.connection)===JSON.stringify(cfg),'secure_storage_unavailable');
- secrets={credentials:value.credentials,key:value.key};engine.vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key);
- }catch{state.set('credentialError','secure_storage_unavailable');}}
+async function saveCurrentCredentials(){
+ requireThat(secrets&&engine.vault,'storage_not_connected');
+ try{await persistConnection(state,secrets,testRoot);state.set('credentialError',null);return {warning:null};}
+ catch(e:any){const warning=['credential_write_failed','credential_test_memory','credential_service_unavailable'].includes(e.code)?e.code:'credential_write_failed';state.set('credentialError',warning);return {warning};}
+}
+async function destinationInfo(targets:any){
+ const output:any={};
+ for(const entry of ['desktop','cli','ide']){
+  const target=targets?.[entry]??{};const {home,binary}=target;
+  const checked:any={home,binary,projects:[],supported:false};
+  if(!binary)checked.error='entry_binary_missing';
+  else if(!home)checked.error='entry_home_missing';
+  else try{
+   if(testRoot)await inside(testRoot,path.join(home,'probe'));
+   requireThat((await fs.stat(home).catch(()=>null))?.isDirectory(),'entry_home_missing');
+   checked.runtime=await binaryVersion(binary);
+   Object.assign(checked,await localProjects(await canonical(home)));
+   checked.supported=checked.supported&&checked.runtime.startsWith('0.166.0');
+  }catch(e:any){checked.error=e.code==='ENOENT'?'entry_home_missing':publicError(e).code;}
+  output[entry]=checked;
+ }
+ return output;
+}
 async function saveConfig(input:any){requireThat(!engine.running,'task_running');requireThat(input&&['zh-CN','en'].includes(input.language)&&Array.isArray(input.sourceHomes)&&input.sourceHomes.length<=20,'invalid_settings');
- const cfg:any={theme:getTheme(input.theme).id,language:input.language,sourceHomes:[],targets:{},bindings:{}};
+ const cfg:any={theme:getTheme(input.theme).id,language:input.language,sourceHomes:[],targets:{},bindings:{},nativeBindings:{}};
  for(const p of input.sourceHomes.filter((x:any)=>x!=='')){requireThat(typeof p==='string'&&path.isAbsolute(p),'invalid_path');cfg.sourceHomes.push(p);}
  for(const entry of ['desktop','cli','ide']){const t=input.targets?.[entry]??{};for(const k of ['home','binary'])requireThat(typeof(t[k]??'')==='string'&&(!t[k]||path.isAbsolute(t[k])),'invalid_path');cfg.targets[entry]={home:t.home??'',binary:t.binary??''};}
  for(const [k,v]of Object.entries(input.bindings??{})){requireThat(/^[0-9a-f-]{36}$/i.test(k)&&typeof v==='string'&&path.isAbsolute(v),'invalid_path');cfg.bindings[k]=v;}
+ for(const [source, homes] of Object.entries(input.nativeBindings??{}) as [string,any][]){
+  requireThat(/^[0-9a-f-]{36}$/i.test(source)&&homes&&typeof homes==='object','invalid_settings');
+  cfg.nativeBindings[source]={};
+  for(const [home,projectId] of Object.entries(homes)){
+   requireThat(path.isAbsolute(home)&&typeof projectId==='string'&&projectId.length<=256,'invalid_settings');
+   cfg.nativeBindings[source][home]=projectId;
+  }
+ }
  if(testRoot){for(const p of cfg.sourceHomes)await inside(testRoot,path.join(p,'check'));for(const t of Object.values(cfg.targets) as any[])if(t.home)await inside(testRoot,path.join(t.home,'check'));}
  state.set('config',cfg);updateMenu();updateTheme();if(input.deviceName){requireThat(typeof input.deviceName==='string'&&input.deviceName.length<=80,'invalid_settings');state.set('device',{...state.get('device'),name:input.deviceName});}
  return cfg;
@@ -54,7 +83,7 @@ async function connect(input:any){requireThat(!engine.running,'task_running');co
  // If secure persistence is unavailable, keep the successful connection in memory
  // and return an explicit warning; never write plaintext credentials.
  secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space});recovery=null;
- let warning=null;try{await saveSecrets(secrets);state.set('credentialError',null);}catch(e){warning='secure_storage_unavailable';state.set('credentialError',warning);}
+ const {warning}=await saveCurrentCredentials();
  return {status:'connected',space,warning};
 }
 async function projectInfo(project:string){await canonical(project);try{
@@ -64,7 +93,17 @@ async function projectInfo(project:string){await canonical(project);try{
 async function continueEntry({logicalId,entry}:any){requireThat(['desktop','cli','ide'].includes(entry),'invalid_selection');const record=state.get('entries/'+engine.scope()+'/'+logicalId,{})[entry];requireThat(record&&record.status==='verified','not_verified');await canonical(record.project);
  const cfg=engine.config(),target=cfg.targets[entry];requireThat(target?.home===record.home&&target.binary===record.binary&&cfg.bindings[state.get('association/'+logicalId)?.projectId]===record.project,'stale_plan');
  // Open the native entry without submitting a prompt or executing a historical command.
- if(entry==='desktop'||entry==='ide')requireThat(await canonical(record.home)===await canonical(path.join(os.homedir(),'.codex')),'custom_home_launcher');
+ if(entry==='desktop'||entry==='ide'){
+   const home=await canonical(record.home);
+   if(process.platform==='linux'){
+     const live=(await liveLinuxTargets()).filter(c=>c.entry===entry && c.evidence==='liveDatabase');
+     const matching=live.filter(c=>c.home===home);
+     requireThat(live.length ? matching.length===live.length : home===path.join(os.homedir(),'.codex'),'custom_home_launcher');
+     const scheme=entry==='desktop'?'codex':'vscode';
+     const handler=await exec('xdg-mime',['query','default','x-scheme-handler/'+scheme],{timeout:3000}).then(v=>v.stdout.trim(),()=>'');
+     requireThat(!!handler,'no_protocol_handler');
+   }else requireThat(home===await canonical(path.join(os.homedir(),'.codex')),'custom_home_launcher');
+ }
  if(entry==='desktop'){await shell.openExternal('codex://threads/'+encodeURIComponent(logicalId));return {status:'opened'};}
  if(entry==='ide'){await shell.openExternal('vscode://openai.chatgpt/local/'+encodeURIComponent(logicalId));return {status:'opened'};}
  // A launcher script contains only individually quoted paths and a UUID. The user
@@ -88,18 +127,26 @@ function connectionForSettings(connection:any, activeSecrets:any){
 async function request(method:string,args:any){switch(method){
  case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
  case 'saveConfig':return saveConfig(args);
- case 'detectPaths':{const detected=await discover();const valid=async(p:string,kind:string)=>{try{const s=await fs.stat(p);return kind==='directory'?s.isDirectory():s.isFile();}catch{return false;}};const sourceHomes=[...new Set([...detected.sourceHomes,...(!testRoot&&process.env.CODEX_HOME?[process.env.CODEX_HOME]:[]),...engine.config().sourceHomes])];return {sourceHomes:await Promise.all(sourceHomes.map(async p=>({path:p,available:await valid(p,'directory')}))),targets:await Promise.all(['desktop','cli','ide'].map(async entry=>({entry,...detected.targets[entry],available:await valid(detected.targets[entry].binary,'file'),currentAvailable:await valid(engine.config().targets[entry]?.binary??'','file')}))),projects:await Promise.all((engine.rows??[]).filter((r:any)=>r.kind!=='background').map(async(r:any)=>({projectId:r.projectId,path:r.project,available:await valid(r.project,'directory')})))};}
-
+ case 'detectPaths':return detectEnvironment({config:engine.config(),testRoot} as any);
+ case 'destinationInfo':return destinationInfo(args.targets??engine.config().targets);
+ case 'credentialHealth':return credentialHealth();
+ case 'retryCredentialSave':return saveCurrentCredentials();
  case 'refresh':return engine.refresh();
  case 'pickDirectory':{const r=await dialog.showOpenDialog(window,{properties:['openDirectory','createDirectory']});return r.canceled?null:r.filePaths[0];}
  case 'pickBinary':{const r=await dialog.showOpenDialog(window,{properties:['openFile']});return r.canceled?null:r.filePaths[0];}
+ case 'pickImage':{
+  const r=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'Images',extensions:['png','jpg','jpeg','gif','webp']}]});
+  if(r.canceled)return null;attachmentPicks.add(r.filePaths[0]);return r.filePaths[0];
+ }
  case 'connect':return connect(args);
  case 'disconnect':requireThat(!engine.running,'task_running');engine.vault=null;secrets=null;state.set('connection',null);return {status:'disconnected'};
  case 'importRecovery':{const r=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'sesshuttle',extensions:['json']}]});if(r.canceled)return null;
   const stat=await fs.stat(r.filePaths[0]);requireThat(stat.size<16384,'invalid_key');const x=JSON.parse(await fs.readFile(r.filePaths[0],'utf8'));requireThat(x.format===1&&typeof x.space==='string','invalid_key');parseKey(x.key);recovery=x;return {space:x.space,endpoint:x.endpoint,bucket:x.bucket};}
  case 'exportRecovery':{requireThat(secrets&&engine.vault,'storage_not_connected');const r=await dialog.showSaveDialog(window,{defaultPath:'sesshuttle-recovery.json'});if(r.canceled||!r.filePath)return null;
   await atomic(r.filePath,JSON.stringify({format:1,...state.get('connection'),key:secrets.key},null,2));return {saved:true};}
- case 'preview':return engine.preview(args);
+ case 'preview':
+  requireThat(Object.values(args.replacements??{}).every(p=>typeof p==='string'&&attachmentPicks.has(p)),'invalid_selection');
+  return engine.preview(args);
  case 'discardPlan':return engine.discardPlan(args.token);
  case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true,acceptedMissingAttachments:args.acceptedMissingAttachments??[]});
  case 'cancel':engine.cancel();return {status:'pausing'};

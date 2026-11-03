@@ -17,17 +17,23 @@ export async function referencesFor(row,catalog=null,{ownership=false}={}){
   return {resources:[...resources],issues:[...issues],omittedAttachments:[...omissions.values()]};
  }finally{owned?.close();}
 }
-export async function inspectAttachment(row,resource,approved=[]){
+export async function inspectAttachment(row,resource,approved=[],replacement=null){
+ const source=replacement||resource;
  const result={key:hash(row.id+'\0'+resource),sessionId:row.id,path:resource,bytes:0,status:'unreadable'};
  try{
-  requireThat(path.isAbsolute(resource),'unsupported');const stat=await fs.lstat(resource);requireThat(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1,'unsafe');
-  const resolved=await fs.realpath(resource);result.resolved=resolved;result.bytes=stat.size;result.stamp=[stat.size,stat.mtimeMs,stat.ctimeMs].join(':');
+  requireThat(path.isAbsolute(resource),'unsupported');const stat=await fs.lstat(source);requireThat(stat.isFile()&&!stat.isSymbolicLink()&&stat.nlink===1,'unsafe');
+  const resolved=await fs.realpath(source);if(replacement)result.replacementPath=replacement;result.resolved=resolved;result.bytes=stat.size;result.stamp=[stat.size,stat.mtimeMs,stat.ctimeMs].join(':');
   const handle=await fs.open(resolved,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
   try{const bytes=Buffer.alloc(32);const read=await handle.read(bytes,0,bytes.length,0);result.ext=imageType(bytes.subarray(0,read.bytesRead));requireThat(result.ext,'unsupported');}finally{await handle.close();}
   let internal=false;for(const root of [row.home,row.project].filter(Boolean))try{await inside(root,resolved);internal=true;break;}catch{}
-  result.external=!internal;result.status=internal||approved.includes(result.key)?'included':'approval_required';
- }catch(e){result.status=e.code==='ENOENT'?'missing':['unsafe','unsupported'].includes(e.code)?e.code:'unreadable';}
+  result.external=!internal;result.status=replacement||internal||approved.includes(result.key)?'included':'approval_required';
+ }catch(e){
+  // A regular macOS screenshot in the OS capture directory is recognizable even
+  // when opening its pixels is denied. Never waive arbitrary unreadable paths.
+  const screenshot = result.stamp && /\/T\/(?:TemporaryItems\/NSIRD_screencaptureui_[^/]+\/Screenshot [^/]+\.png|codex-clipboard-[a-f\d-]+\.png)$/i.test(result.resolved??'') && /^\/(?:private\/)?var\/folders\//.test(result.resolved);
+  if(!replacement && screenshot && ['EPERM','EACCES'].includes(e.code)){result.status='unreadable_image';result.readError=e.code;return result;}
+  result.readError=String(e.code??'').slice(0,40);result.status=e.code==='ENOENT'?'missing':['unsafe','unsupported'].includes(e.code)?e.code:'unreadable';}
  return result;
 }
-export const attachmentIssue=status=>({approval_required:'attachment_approval',missing:'attachment_missing',unsupported:'attachment_unsupported',unsafe:'attachment_unsafe',unreadable:'attachment_unreadable'})[status];
-export async function attachmentUnchanged(a){try{const s=await fs.lstat(a.path);return s.isFile()&&!s.isSymbolicLink()&&s.nlink===1&&(await fs.realpath(a.path))===a.resolved&&[s.size,s.mtimeMs,s.ctimeMs].join(':')===a.stamp;}catch{return false;}}
+export const attachmentIssue=status=>({approval_required:'attachment_approval',missing:'attachment_missing',unsupported:'attachment_unsupported',unsafe:'attachment_unsafe',unreadable:'attachment_unreadable',unreadable_image:'attachment_image_denied'})[status];
+export async function attachmentUnchanged(a){try{const s=await fs.lstat(a.replacementPath??a.path);return s.isFile()&&!s.isSymbolicLink()&&s.nlink===1&&(await fs.realpath(a.replacementPath??a.path))===a.resolved&&[s.size,s.mtimeMs,s.ctimeMs].join(':')===a.stamp;}catch{return false;}}
