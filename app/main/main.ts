@@ -149,10 +149,12 @@ async function request(method:string,args:any){switch(method){
  case 'createWorkspace':{
    const row=engine.rows?.find((r:any)=>r.projectId===args.projectId);
    requireThat(row&&/^[0-9a-f-]{36}$/i.test(args.projectId),'invalid_selection');
-   const documents=await canonical(testRoot??app.getPath('documents'));
+   const base=testRoot??app.getPath('documents');
+   if(!await exists(base)){await inside(os.homedir(),base);await fs.mkdir(base,{recursive:true,mode:0o700}).catch(()=>{throw new Fault('workspace_create_failed');});}
+   const documents=await canonical(base);
    const label=String(row.originProject?.name||'Project').replace(/[^\\p{L}\\p{N} _-]/gu,'_').slice(0,70);
    const dest=await inside(documents,path.join(documents,'Sesshuttle Workspaces',label+'-'+args.projectId.slice(0,8)));
-   await fs.mkdir(dest,{recursive:true,mode:0o700});return canonical(dest);
+   await fs.mkdir(dest,{recursive:true,mode:0o700}).catch(()=>{throw new Fault('workspace_create_failed');});return canonical(dest);
  }
  case 'credentialHealth':return credentialHealth();
  case 'retryCredentialSave':return saveCurrentCredentials();

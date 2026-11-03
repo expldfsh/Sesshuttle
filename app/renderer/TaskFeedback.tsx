@@ -4,15 +4,16 @@ export function TaskFeedback({job,t,size,onDismiss,onActivity,onRepair,onOpen}:a
  const [expanded,setExpanded]=useState(false);
  if(!job)return null;
  const running=job.status==='running',progress=job.progress,items=job.items??[];
- const uploaded=items.filter((i:any)=>i.cloudStatus==='uploaded').length;
+ const uploaded=items.filter((i:any)=>i.cloudStatus==='uploaded'&&!i.unchangedCloud).length;
+ const existing=items.filter((i:any)=>i.unchangedCloud).length;
  const imported=items.filter((i:any)=>Object.values(i.targets??{}).some(ok)).length;
  const problems=items.filter((i:any)=>!['uploaded','downloaded','skip','running'].includes(i.status));
  const warnings=items.filter((i:any)=>i.omittedImages||Object.values(i.targets??{}).some((r:any)=>r.omittedAttachments?.length));
  const next=items.flatMap((i:any)=>Object.entries(i.targets??{}).filter(([,r])=>ok(r)).map(([entry])=>({i,entry})))[0];
  return <section className={'task-feedback '+(running?'active':problems.length||warnings.length?'attention':'success')} aria-label={t('taskResult')}>
-   <div className="task-heading"><strong role="status" aria-live="polite">{running?t(progress?.stage??'stageCheck'):t(job.status==='completed'?'transferFinished':job.status)}</strong>
+   <div className="task-heading"><strong role="status" aria-live="polite">{running?t(progress?.stage??'stageCheck'):t(job.status==='attention'?(uploaded||imported||existing?'partial':'attention'):job.status==='completed'?'transferFinished':job.status)}</strong>
     {running&&progress&&<span>{progress.index} / {progress.total} · {progress.title} {progress.bytes>0?' · '+size(progress.bytes):''}</span>}
-    {!running&&<span>{uploaded>0&&<>{t('uploaded')} {uploaded}　</>}{imported>0&&<>{t('downloaded')} {imported}　</>}{problems.length>0&&<>{t('issues')} {problems.length}　</>}{warnings.length>0&&t('someImagesMissing')}</span>}
+    {!running&&<span>{uploaded>0&&<>{t('uploaded')} {uploaded}　</>}{existing>0&&<>{t('alreadyBackedUp')} {existing}　</>}{imported>0&&<>{t('downloaded')} {imported}　</>}{problems.length>0&&<>{t('issues')} {problems.length}　</>}{warnings.length>0&&t('someImagesMissing')}</span>}
     {!running&&<button className="text-button" onClick={onDismiss} aria-label={t('close')}>×</button>}
    </div>
    {running?<progress aria-label={t('running')}/>:<>

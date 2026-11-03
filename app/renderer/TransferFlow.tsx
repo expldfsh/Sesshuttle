@@ -3,7 +3,7 @@ import {DetectionPanel,EntryFields} from './Environment';
 import {Select} from './Select';
 import {SyncPlan} from './SyncPlan';
 
-export function TransferFlow({request,rows,cfg,setConfig,call,t,size,onClose,onStart}:any){
+export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size,onClose,onStart}:any){
  const [draft,setDraft]=useState(()=>structuredClone(cfg));
  const [targets,setTargets]=useState<string[]>(request.targets??['desktop']);
  const [info,setInfo]=useState<Record<string,any>>({});
@@ -52,17 +52,23 @@ export function TransferFlow({request,rows,cfg,setConfig,call,t,size,onClose,onS
  async function close(){if(lock.current)return;if(plan)await call('discardPlan',{token:plan.token});onClose();}
  const infoFor=(entry:string)=>info[entry]?.binary===draft.targets[entry]?.binary&&info[entry]?.home===draft.targets[entry]?.home?info[entry]:null;
  const activity=pending&&<div role="status" className="flow-activity"><progress/><strong>{t(pending)}</strong></div>;
- const issue=error&&<div className="notice error" role="alert"><strong>{t(error.code??'operation_failed')}</strong>{error.detail&&<details><summary>{t('details')}</summary>{error.detail}</details>}</div>;
+ async function recheck(keys:string[]=approvedKeys()){
+  const result=await call('refresh');refreshRows(result);
+  if(result.cloudError)throw result.cloudError;
+  await rebuild(keys);
+ }
+ function approvedKeys():string[]{return plan?.selection?.approvedAttachments??[];}
+ const issue=error&&<div className="notice error" role="alert"><strong>{t(error.code??'operation_failed')}</strong>{error.detail&&<details><summary>{t('details')}</summary>{error.detail}</details>}{['stale_plan','cloud_check_failed','storage_unavailable'].includes(error.code)&&<button disabled={!!pending} onClick={()=>run('refreshing',()=>recheck())}>{t('refreshAndRetry')}</button>}</div>;
  return <>
  {plan?<SyncPlan key={plan.token} plan={plan} cfg={draft} busy={!!pending} t={t} size={size} feedback={<>{activity}{issue}</>} onClose={()=>void close()}
    onBack={()=>run('checkingEntries',async()=>{await call('discardPlan',{token:plan.token});setPlan(null);if(importing)await inspect();})}
-   onRebuild={(keys:string[])=>run('preparingPreview',()=>rebuild(keys))}
+   onRebuild={(keys:string[])=>run('preparingPreview',()=>recheck(keys))}
    onLocate={(key:string,keys:string[])=>run('preparingPreview',async()=>{const path=await call('pickImage');if(path)await rebuild(keys,{...connections,[key]:path});})}
    onUndo={(key:string,keys:string[])=>run('preparingPreview',async()=>{const paths={...connections};delete paths[key];await rebuild(keys,paths);})}
    onExecute={(large:boolean,omitted:string[])=>run('stageCheck',async()=>{if(plan.items.some((i:any)=>i.targets.length))await call('checkClosed');onStart(plan,large,omitted);})}/>
  :<div className="modal-backdrop"><section className="modal flow" role="dialog" aria-modal="true" aria-label={title}>
  <div className="card-title"><h2>{title}</h2><button disabled={!!pending} onClick={()=>void close()}>{t('close')}</button></div>
- <p>{t('selectedScope')} <strong>{needed.length} / {chosen.length}</strong> · {needed.length===1?needed[0].title:t('conversations')}</p>
+ <fieldset disabled={!!pending} className="flow-fields"><p>{t('selectedScope')} <strong>{needed.length} / {chosen.length}</strong> · {needed.length===1?needed[0].title:t('conversations')}</p>
  {chosen.length>needed.length&&<p className="warning-box">{t('skippedScope')} {chosen.filter((r:any)=>!needed.includes(r)).map((r:any)=>r.title).join('、')}</p>}
  {importing&&<>
  <div className="card-title"><h3>1. {t('chooseApp')}</h3><button disabled={!!pending} onClick={()=>run('checkingEntries',async()=>setReport(await call('detectPaths')))}>{t('detectEnvironment')}</button></div>
@@ -97,7 +103,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,t,size,onClose,onS
   if(importing){await setConfig(draft);await call('validateFolders',{projectIds:projects.map(p=>p.projectId)});}
   await rebuild();
  })}>{t('reviewAction')}</button></div>
- </section></div>}
+ </fieldset></section></div>}
  {report&&<DetectionPanel report={report} cfg={draft} t={t} onRetry={()=>call('detectPaths').then(setReport)} onClose={()=>setReport(null)} onApply={async(next:any)=>{await setConfig(next);setDraft(next);await inspect(next);setReport(null);}}/>}
  </>;
 }

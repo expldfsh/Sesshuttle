@@ -67,7 +67,7 @@ export class Engine{
    items.push({id:logical,title:row.title,action,bytes,fileCount,assetCount,expectedHash:local?.hash??null,expectedSignature:local?this.signature(local,selection):null,expectedHead:head?.etag??null,
      attachmentReview:{optional:[...attachmentReview(payload).optional,...attachmentReview(preserve).optional],blockingIssues:[...new Set([...attachmentReview(payload).blockingIssues,...attachmentReview(preserve).blockingIssues])]},version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:[...describe(payload,'primary'),...describe(preserve,'preserve')],payload,preserve});
   }
-  const inventory=await this.vault.inventory();const uploads=items.flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const estimated=await this.vault.estimate(uploads,inventory);
+  const uploads=items.flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const inventory=uploads.length?await this.vault.inventory():{objects:new Map(),bytes:0};const estimated=await this.vault.estimate(uploads,inventory);
   // Reserve a conservative upper bound for encrypted manifests and replacement heads.
   // Chunks have their exact encrypted size; metadata reserve avoids a false exact quota promise.
   const metadataReserve=uploads.reduce((n,p)=>n+4*Buffer.byteLength(JSON.stringify(p))+4*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
@@ -92,7 +92,7 @@ export class Engine{
     let payload,importVersion=item.version,resolveEtag=head?.etag;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
       requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);if(!plan.allowIncomplete)assertAttachmentAcceptance(payload,acceptedMissingAttachments);
-      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'));this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.omittedImages=attachmentReview(payload).optional.length;
+      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'));this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;
       if(item.action!=='upload_import'||published.conflict){result.status=published.conflict?'conflict_preserved':'uploaded';continue;}
       importVersion=published.version;payload=await this.vault.version(importVersion);
     }else {
@@ -103,7 +103,7 @@ export class Engine{
     assertAttachmentAcceptance(payload,acceptedMissingAttachments);
     requireThat(payload.continuation!==false,'missing_rollout');
     // Explicit branch selection first preserves the current local branch remotely.
-    if(item.action==='resolve'&&local){assertAttachmentAcceptance(item.preserve,acceptedMissingAttachments);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'))).head.etag;}
+    if(item.action==='resolve'&&local){step('preservingVersion');assertAttachmentAcceptance(item.preserve,acceptedMissingAttachments);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'))).head.etag;}
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured',error:{code:target?.binary?'entry_home_missing':'entry_binary_missing'}};continue;}

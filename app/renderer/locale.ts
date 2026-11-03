@@ -556,3 +556,14 @@ for(const [key,[chinese,english]] of Object.entries(actionLabels)){zh[key]=chine
 zh.noChangesToApply='没有选中需要修改的配置。现有配置可继续使用。';en.noChangesToApply='No changes selected. Existing settings remain available.';
 zh.fillConnectionFields='先填写 Bucket、S3 地址和一对 R2 访问凭据。加入已有空间时，同时载入恢复文件。';en.fillConnectionFields='Enter the bucket, S3 endpoint and both R2 credentials. Load your recovery file when joining an existing space.';
 zh.launchManualHint='此入口可能需要手动打开应用，再按项目或标题查找。';en.launchManualHint='This app may need to be opened manually. Find the chat by project or title.';
+
+zh.languageSaved='已保存界面语言';en.languageSaved='Language saved';
+zh.refreshAndRetry='刷新并重试';en.refreshAndRetry='Refresh and retry';
+zh.preservingVersion='正在云端保留本机版本…';en.preservingVersion='Preserving the local version in the cloud…';
+zh.alreadyBackedUp='云端已有相同版本';en.alreadyBackedUp='Already backed up';
+zh.workspace_create_failed='文档目录不可写，未创建工作目录。请用「选择文件夹」选择可写目录。';en.workspace_create_failed='The workspace could not be created in Documents. Choose a writable folder.';
+
+zh.local_permission_denied='系统拒绝访问所选位置。请检查该文件或目录的权限，再重新检查。';en.local_permission_denied='Access to the selected location was denied. Check its permissions, then try again.';
+zh.read_only_disk='目标位置是只读的。请选择可写位置后重试。';en.read_only_disk='The destination is read-only. Choose a writable location and retry.';
+zh.local_path_missing='所选文件或目录已不存在。请重新选择可用位置。';en.local_path_missing='The selected file or folder no longer exists. Choose an available location.';
+zh.local_in_use='目标正在被使用。请退出占用该历史的应用，再重新检查。';en.local_in_use='The destination is in use. Close the app using that history and check again.';

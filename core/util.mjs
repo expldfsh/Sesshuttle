@@ -43,4 +43,7 @@ export async function walk(root) {
   if(await exists(root)) await visit(root);
   return files;
 }
-export function publicError(e) { return {code:e.code && /^[a-z_]+$/.test(e.code)?e.code:'operation_failed',detail:e instanceof Fault?e.detail:''}; }
+export function publicError(e) {
+  const localCodes = {EACCES:'local_permission_denied',EPERM:'local_permission_denied',EROFS:'read_only_disk',ENOSPC:'disk_space',ENOENT:'local_path_missing',EBUSY:'local_in_use',SQLITE_BUSY:'local_in_use'};
+  return {code:localCodes[e?.code]??(e?.code && /^[a-z_]+$/.test(e.code)?e.code:'operation_failed'),detail:e instanceof Fault?e.detail:''};
+}

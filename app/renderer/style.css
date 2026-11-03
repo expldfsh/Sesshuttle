@@ -292,3 +292,9 @@ progress {width:100%;height:7px;accent-color:var(--accent);display:block;margin:
 .working {position:sticky;top:8px;z-index:5;box-shadow:0 2px 12px var(--shadow)}
 .modal-actions button {min-height:40px}
 @media(max-width:980px){.sidebar{width:128px;padding:12px 8px}.content,.topbar{padding:14px}.topbar{gap:8px}.modal-backdrop{padding:12px}.modal{padding:18px}.entry-choices{align-items:stretch}.workspace{min-width:0}.detail{scroll-margin-top:12px}.modal-actions{bottom:-18px}}
+
+.flow-fields {padding:0;border:0;margin:0;min-width:0}
+.persistent-task {position:fixed;bottom:12px;left:204px;right:24px;background:var(--bg)}
+.content:has(.persistent-task){padding-bottom:155px}
+@media(max-width:1150px){.persistent-task{left:176px;right:18px}}
+@media(max-width:980px){.persistent-task{left:140px;right:12px}}
