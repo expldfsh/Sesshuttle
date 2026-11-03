@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {hash,id} from '../../core/util.mjs';
-import {newKey} from '../../core/crypto.mjs';
+import {newKey,seal} from '../../core/crypto.mjs';
 import {Vault} from '../../core/vault.mjs';
 import {MemoryStore} from '../../core/storage.mjs';
 import {changeCloud,cloudBins,cloudRemovalPlan} from '../../core/cloud-trash.mjs';
@@ -53,4 +53,16 @@ test('embedded histories in another backup are disclosed even when only the loca
  const request={ids:[root],inspectIds:[child],action:'purge'},p=await cloudRemovalPlan(v,request);
  assert.ok(p.preview.retained.some(c=>c.id===kept.version&&c.members.includes(child)));
  await changeCloud(v,request,p.preview.signature,id(),{upgrade:true});assert.equal((await v.version(kept.version)).files.length,2);
+});
+
+test('permanent removal leaves a manifest still referenced by another recovery entry',async()=>{
+ const store=new MemoryStore(),v=new Vault(store,id(),newKey());await v.create();const tid=id();
+ const first=await v.publish(payload(tid,'same saved revision'),{name:'test'}),{op}=await apply(v,{ids:[tid],action:'trash'});
+ const h=await v.rawHead(tid),name='heads/'+tid;
+ const duplicated={...first.head,trash:h.trash};delete duplicated.etag;
+ await store.put(v.prefix+name,seal(duplicated,v.key,v.space,name),h.etag);
+ const p=await apply(v,{ids:[tid],action:'purge'});
+ assert.equal(p.preview.freeBytes,0);assert.ok(p.preview.retained.some(r=>r.id===first.version&&r.place==='cloudBin'));
+ assert.equal((await v.version(first.version)).title,'same saved revision');
+ await apply(v,{ids:[tid],binId:op,action:'purgeBin'});await assert.rejects(v.version(first.version),{code:'missing_remote_object'});
 });

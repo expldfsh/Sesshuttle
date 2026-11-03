@@ -84,7 +84,7 @@ export async function cloudRemovalPlan(vault,request){
     const rest=head.versions.filter(v=>!picked.includes(v.id));
     let active,tips;
     if(action==='restore'){
-      active=[...head.versions,...chosen];
+      active=[...new Map([...head.versions,...chosen].map(v=>[v.id,v])).values()];
       tips=survivingTips([...head.tips,...bin.tips.filter(v=>picked.includes(v))],active.map(v=>v.id),metaRows(head));
     }else if(action==='purgeBin'){active=head.versions;tips=head.tips;}
     else{active=rest;tips=survivingTips(head.tips,rest.map(v=>v.id),metaRows(head));}
@@ -137,7 +137,7 @@ export async function cloudRemovalPlan(vault,request){
         const all=new Map(metaRows(head).map(v=>[v.id,v]));
         const reconnect=v=>{
           const parents=[],stack=[...(v.parents??[])],seen=new Set();
-          while(stack.length){const p=stack.pop();if(seen.has(p))continue;seen.add(p);if(picked.has(p))stack.push(...(all.get(p)?.parents??[]));else parents.push(p);}
+          while(stack.length){const p=stack.pop();if(seen.has(p))continue;seen.add(p);if(exclusiveVersions.has(p))stack.push(...(all.get(p)?.parents??[]));else parents.push(p);}
           return {...v,parents};
         };
         active=active.map(reconnect);trash=trash.map(b=>({...b,versions:b.versions.map(reconnect)}));
