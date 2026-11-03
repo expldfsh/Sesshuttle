@@ -104,6 +104,6 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
   await rebuild();
  })}>{t('reviewAction')}</button></div>
  </fieldset></section></div>}
- {report&&<DetectionPanel report={report} cfg={draft} t={t} onRetry={()=>call('detectPaths').then(setReport)} onClose={()=>setReport(null)} onApply={async(next:any)=>{await setConfig(next);setDraft(next);await inspect(next);setReport(null);}}/>}
+ {report&&<DetectionPanel report={report} cfg={draft} t={t} onRetry={async()=>{const next=await call('detectPaths');setReport(next);return next;}} onClose={()=>setReport(null)} onApply={async(next:any)=>{await setConfig(next);setDraft(next);await inspect(next);setReport(null);}}/>}
  </>;
 }

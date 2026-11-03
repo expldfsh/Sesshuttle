@@ -261,6 +261,7 @@ td small { display: block; font-size: 13px; color: var(--muted); margin-top: 5px
 }
 .selection-bar,.credential-strip,.task-heading,.input-action,.entry-choices,.candidate {display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .selection-bar {position:sticky;top:0;z-index:3;border-color:var(--accent);background:var(--bg)}
+.selection-list[open]{flex-basis:100%}.selection-list ul{max-height:18vh;overflow:auto;margin:6px 0;padding-left:24px;overflow-wrap:anywhere}
 .selection-bar small,.entry-choice small,.entry-fields small,.candidate small,.setup-project small,.task-items small {display:block;color:var(--muted)}
 .conversation-actions {display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 12px}
 .more-actions summary,.candidate-group summary,details>summary {color:var(--accent);cursor:pointer}
@@ -278,14 +279,14 @@ progress {width:100%;height:7px;accent-color:var(--accent);display:block;margin:
 .entry-choice {flex:1;min-width:145px;border:1px solid var(--line);padding:12px;border-radius:7px;cursor:pointer}
 .entry-choice:has(:checked),.candidate:has(:checked){border-color:var(--accent);background:var(--highlight)}
 .entry-choice input,.candidate input {margin-right:8px}
-.entry-fields label,.candidate span,.input-action input {flex:1;min-width:0}
-.entry-fields label {display:block;margin:12px 0}.candidate {border:1px solid var(--line);border-radius:7px;padding:10px;margin:8px 0}
+.entry-fields .entry-field,.candidate span,.input-action input {flex:1;min-width:0}
+.entry-fields .entry-field {display:block;margin:12px 0}.candidate {border:1px solid var(--line);border-radius:7px;padding:10px;margin:8px 0}
 .detection-layer {z-index:13}.modal-actions {position:sticky;bottom:-26px;background:var(--bg);padding:12px 0;flex-wrap:wrap}
 .credential-note {border-left:3px solid var(--warning);padding-left:12px}.repair-details {margin-top:12px}
 .setup-project .field,.setup-project>.select-trigger,.setup-project>div {margin:12px 0}
 .setup-project .select-trigger {max-width:100%}.preview-state{color:var(--accent)!important}
 .detail-head>.amber-text {display:block}.detail dd small {display:block}.actions{flex-wrap:wrap}
-@media(max-width:1150px){.workspace:has(.detail-head) .list-pane {max-height:40vh}.selection-bar{position:relative}.persistent-task{max-height:36vh}}
+@media(max-width:1150px){.workspace:has(.detail-head) .list-pane {max-height:40vh}.persistent-task{max-height:36vh}}
 
 .destination-summary {margin:9px 0}.destination-summary small,.task-items small,.entry-state b {display:block}
 .sync-plan .scope-list {margin-bottom:12px}.sync-plan .attachment-row {scroll-margin-block:40px 100px}
@@ -298,3 +299,5 @@ progress {width:100%;height:7px;accent-color:var(--accent);display:block;margin:
 .content:has(.persistent-task){padding-bottom:155px}
 @media(max-width:1150px){.persistent-task{left:176px;right:18px}}
 @media(max-width:980px){.persistent-task{left:140px;right:12px}}
+
+@media(max-width:1150px){.content:has(.selection-bar) .detail-head{scroll-margin-top:130px}}

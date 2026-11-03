@@ -546,6 +546,8 @@ const actionLabels:Record<string,[string,string]>={
   "当前筛选下没有云端对话。可清除筛选；若仍为空，核对两端的空间 ID 并刷新。",
   "No cloud chats match this view. Clear filters. If empty, compare space IDs on both devices and refresh."
  ],
+ "reviewSelectedTitles": ["查看所选对话", "Review selected chats"],
+ "outsideFilters": ["当前筛选之外", "Outside current filters"],
  "launchManualHint": [
   "导入后请手动打开原生应用，按项目或标题查找。",
   "After import, open the native app and find the project or title."

@@ -2,23 +2,34 @@ import React, {useState} from 'react';
 
 type Props = {target:any; entry:string; t:(key:string)=>string; pick:(method:string)=>Promise<string|null>; change:(target:any)=>void};
 export function EntryFields({target,entry,t,pick,change}:Props){
-  return <div className="entry-fields">{(['binary','home'] as const).map(key=><label key={key}>
+  const [error,setError]=useState('');
+  async function choose(key:'home'|'binary'){
+    setError('');
+    try{
+      const file=await pick(key==='binary'?'pickBinary':'pickDirectory');
+      if(file)change({...target,[key]:file});
+    }catch(e:any){setError(t(e.code??'operation_failed'));}
+  }
+  return <div className="entry-fields">{(['binary','home'] as const).map(key=><div className="entry-field" key={key}>
     <strong>{t(key==='binary'?'kernelProgram':'historyFolder')}</strong>
     <small>{t(key==='binary'?'kernelMeaning':'historyMeaning')}</small>
-    <span className="input-action"><input aria-label={t(entry)+' '+t(key)} value={target?.[key]??''} onChange={e=>change({...target,[key]:e.target.value})}/>
-      <button type="button" onClick={async()=>{const result=await pick(key==='binary'?'pickBinary':'pickDirectory');if(result)change({...target,[key]:result});}}>{t('browse')}</button>
-    </span></label>)}</div>;
+    <span className="input-action"><input aria-label={t(entry)+' '+t(key==='binary'?'kernelProgram':'historyFolder')} value={target?.[key]??''} onChange={e=>change({...target,[key]:e.target.value})}/>
+      <button type="button" onClick={()=>choose(key)}>{t('browse')}</button>
+    </span></div>)}{error&&<p role="alert" className="warning-box">{error}</p>}</div>;
 }
 
 export function DetectionPanel({report,cfg,t,onApply,onRetry,onClose}:any){
   const entries=['desktop','cli','ide'];
-  const initial:Record<string,number>={};
-  for(const entry of entries){
-    const indexes=report.candidates.map((v:any,index:number)=>({v,index})).filter(({v}:any)=>v.entry===entry&&v.runtime&&v.homeAvailable);
-    const current=cfg.targets[entry];
-    if(indexes.length===1 && !current?.binary && (!current?.home||current.home===indexes[0].v.home))initial[entry]=indexes[0].index;
+  function suggestions(candidates:any[]) {
+    const initial:Record<string,number>={};
+    for(const entry of entries){
+      const indexes=candidates.map((v:any,index:number)=>({v,index})).filter(({v}:any)=>v.entry===entry&&v.runtime&&v.homeAvailable);
+      const current=cfg.targets[entry];
+      if(indexes.length===1 && !indexes[0].v.assumedHome && !current?.binary && (!current?.home||current.home===indexes[0].v.home))initial[entry]=indexes[0].index;
+    }
+    return initial;
   }
-  const [chosen,setChosen]=useState(initial);
+  const [chosen,setChosen]=useState(()=>suggestions(report.candidates));
   const [homes,setHomes]=useState<string[]>([]);
   const [applying,setApplying]=useState(false),[error,setError]=useState('');
   const count=Object.keys(chosen).length+homes.length;
@@ -32,7 +43,7 @@ export function DetectionPanel({report,cfg,t,onApply,onRetry,onClose}:any){
   }
   return <div className="modal-backdrop detection-layer"><section className="modal" role="dialog" aria-modal="true" aria-label={t('detectEnvironment')}>
     <div className="card-title"><h2>{t('detectEnvironment')}</h2><button disabled={applying} onClick={onClose}>{t('close')}</button></div>
-    <p>{t('detectApplyHint')}</p><button disabled={applying} onClick={async()=>{setApplying(true);try{await onRetry();setChosen({});setHomes([]);}catch(e:any){setError(t(e.code??'operation_failed'));}finally{setApplying(false);}}}>{t('restartDetection')}</button>
+    <p>{t('detectApplyHint')}</p><button disabled={applying} onClick={async()=>{setApplying(true);try{const next=await onRetry();setChosen(suggestions(next.candidates));setHomes([]);setError('');}catch(e:any){setError(t(e.code??'operation_failed'));}finally{setApplying(false);}}}>{t('restartDetection')}</button>
     {entries.map(entry=><section className="candidate-group" key={entry}><h3>{t(entry)}</h3>
       {cfg.targets[entry]?.binary&&<small>{t('currentPath')} <code>{cfg.targets[entry].binary}</code><code>{cfg.targets[entry]?.home}</code></small>}
       {!report.candidates.some((c:any)=>c.entry===entry)&&<p className="warning-box">{t(entry==='desktop'?'launchDesktopToDetect':'noCandidate')}</p>}
