@@ -23,7 +23,7 @@ export class Removals{
     this.engine=engine;this.trash=trash;this.state=engine.state;this.onProgress=onProgress;this.plans=new Map();
   }
   storageKey(){const v=this.engine.vault;return v?hash(JSON.stringify([v.store.endpoint??null,v.store.bucket??null,v.space])):null;}
-  jobs(){return this.state.keys('removal/').map(k=>this.state.get(k)).filter(Boolean).sort((a,b)=>b.at.localeCompare(a.at));}
+  jobs(){return this.state.keys('removal/').map(k=>this.state.get(k)).filter(Boolean).map(j=>['checking','running'].includes(j.status)&&this.activeId!==j.id?{...j,status:'interrupted'}:j).sort((a,b)=>b.at.localeCompare(a.at));}
   async bins(){
     let cloud={bins:[],pending:null},cloudError=null;
     if(this.engine.vault)try{cloud=await cloudBins(this.engine.vault);}catch(e){cloudError=publicError(e);}
@@ -50,7 +50,7 @@ export class Removals{
       if(onlyHomes&&!onlyHomes.includes(home))continue;
       const result=await scan([home]);requireThat(!result.errors.length,'scan_incomplete');
       const ids=q.ids.filter(tid=>result.rows.some(r=>r.id===tid));if(!ids.length)continue;
-      const p=await new Trash(this.state,this.engine.importer).preview([home],{ids,includeDependents:q.includeDependents},{ownershipHomes:homeList});
+      const p=await new Trash(this.state,this.engine.importer).preview([home],{ids,includeDependents:q.includeDependents},{ownershipHomes:homeList,snapshot:result});
       const entries=[];
       for(const [entry,t] of Object.entries(config.targets??{}))if(t.home&&await canonical(t.home).catch(()=>null)===home)entries.push(entry);
       local.push({...p,entries,fingerprint:localFingerprint(p)});
@@ -97,16 +97,18 @@ export class Removals{
     requireThat(plan&&uuid(token)&&!this.engine.running,'stale_plan');
     const {q}=plan;
     requireThat(q.mode!=='purge'||permanent===true,'permanent_confirmation');
-    requireThat(!plan.cloud?.upgrade||upgrade===true,'cloud_upgrade_required');
+
     requireThat(!cloudScope(q.scope)||this.storageKey()===plan.storageKey,'space_changed');
     requireThat(plan.local.length||plan.cloud?.count,'nothing_to_remove');
     requireThat(plan.local.every(p=>!p.blockers.length),'trash_dependencies');
     let job=this.state.get('removal/'+token);
+    requireThat(!plan.cloud?.upgrade||!plan.cloud?.count||job?.sides.some(s=>s.side==='cloud'&&s.status==='done')||upgrade===true,'cloud_upgrade_required');
     requireThat(!job||job.status!=='completed','stale_plan');
     job??={id:token,at:new Date().toISOString(),scope:q.scope,mode:q.mode,kind:q.kind,space:plan.space,
       titles:unique([...plan.selected.map(r=>r.title),...plan.local.flatMap(p=>p.rows.map(r=>r.title)),...(plan.cloud?.items??[]).map(r=>r.title)]),
       sides:[...(plan.cloud?.count?[{side:'cloud',status:'waiting',count:plan.cloud.count}]:[]),...plan.local.map(g=>({side:'local',home:g.home,token:g.token,status:'waiting',count:g.rows.length}))]};
-    this.state.set('removal-plan/'+token,plan);this.plans.delete(token);this.engine.running=true;
+    this.state.set('removal-plan/'+token,plan);this.plans.delete(token);this.engine.running=true;this.activeId=token;
+    const tickets=new Map();
     const save=()=>{this.state.set('removal/'+token,job);this.onProgress(job);};
     let current;
     try{
@@ -131,7 +133,7 @@ export class Removals{
           if(q.kind==='bin'&&side.started&&saved?.status==='restored'&&q.mode==='restore'){side.status='done';continue;}
           if(q.kind==='bin'&&side.started&&saved?.status==='purging'&&q.mode==='purge')continue;
           requireThat(hash(JSON.stringify(this.engine.config()))===plan.configHash,'stale_plan');
-          await this.localTicket(g,plan);
+          tickets.set(g.token,await this.localTicket(g,plan));
         }
       }
       for(const side of job.sides){
@@ -141,7 +143,7 @@ export class Removals{
           const g=plan.local.find(p=>p.token===side.token);
           if(q.kind==='bin'&&q.mode==='restore')await this.trash.restore(g.token);
           else{
-            if(q.kind==='live'&&!this.state.get('trash/'+g.token)){const worker=await this.localTicket(g,plan);await worker.remove(g.token);}
+            if(q.kind==='live'&&!this.state.get('trash/'+g.token)){await tickets.get(g.token).remove(g.token);}
             if(q.mode==='purge'){side.erasing=true;save();await this.trash.purge(g.token);}
           }
         }
@@ -149,7 +151,7 @@ export class Removals{
       }
       job.status='completed';this.state.set('removal-plan/'+token,null);
     }catch(e){const error=publicError(e);if(current){current.status='failed';current.error=error;}job.error=error;job.status=job.sides.some(s=>s.status==='done')?'partial':'attention';}
-    finally{this.engine.running=false;save();}
+    finally{this.engine.running=false;this.activeId=null;save();}
     return job;
   }
   retryPlan(token){const plan=this.state.get('removal-plan/'+token),job=this.state.get('removal/'+token);requireThat(plan&&job,'stale_plan');return {...plan,previous:job};}
@@ -162,7 +164,10 @@ export class Removals{
     }
     for(const s of remaining.filter(s=>s.side==='local'&&s.started))if(plan.q.kind==='live')requireThat(!this.state.get('trash/'+s.token)||this.state.get('trash/'+s.token).status==='restored','resume_original_plan');
     const sides=unique(remaining.map(s=>s.side));
-    const next=await this.preview({...plan.q,scope:sides.length===2?'both':sides[0]},remaining.filter(s=>s.side==='local').map(s=>s.home));
+    const homes=remaining.filter(s=>s.side==='local').map(s=>s.home);
+    const ids=unique([...plan.local.filter(g=>homes.includes(g.home)).flatMap(g=>g.requestedIds??g.ids),...(sides.includes('cloud')?plan.cloud.items.filter(i=>i.versions.some(v=>v.selected)).map(i=>i.id):[])]);
+    const versions=Object.fromEntries(Object.entries(plan.q.versions).filter(([k])=>ids.includes(k)));
+    const next=await this.preview({...plan.q,ids,versions,scope:sides.length===2?'both':sides[0]},homes);
     next.replaces=token;return next;
   }
 }

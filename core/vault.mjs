@@ -25,12 +25,12 @@ export class Vault {
  async uploadChunks(payload){const inventory=await this.inventory();for(const f of payload.files)for(const a of f.artifacts)for(const c of a.chunks){const key=this.prefix+'blobs/'+c.hash;if(inventory.objects.has(key))continue;const file=this.staged?.get(c.hash);requireThat(file,'stale_plan');const body=await fs.readFile(file);const plain=Buffer.from(unseal(body,this.key,this.space,'blobs/'+c.hash).data,'base64');requireThat(hash(plain)===c.hash&&plain.length===c.bytes,'corrupt_data');try{await this.put(key,body,null);}catch(e){if(e.code!=='concurrent_update')throw e;}inventory.objects.set(key,body.length);}}
  async create(){await this.put(this.prefix+'space',seal({format:1,space:this.space,createdAt:new Date().toISOString()},this.key,this.space,'space'),null);return this.open();}
  async open(){return (await readSpace(this)).value;}
- async allHeads(){
-  await this.open();const keys=await this.store.list(this.prefix+'heads/'),result=[];
+ async allHeads({allowPending=true}={}){
+  const marker=await this.open();requireThat(allowPending||!marker.pending,'cloud_cleanup_pending');const keys=await this.store.list(this.prefix+'heads/'),result=[];
   for(const key of keys){const logical=key.slice((this.prefix+'heads/').length);const head=await this.rawHead(logical);if(head)result.push(head);}
   return result;
  }
- async heads(){const all=await this.allHeads();this.removedIds=new Set(all.filter(h=>!h.tips.length).map(h=>h.logicalId));return all.filter(h=>h.tips.length).map(({trash,lastRemoval,...visible})=>visible);}
+ async heads(){const all=await this.allHeads({allowPending:false});this.removedIds=new Set(all.filter(h=>!h.tips.length).map(h=>h.logicalId));return all.filter(h=>h.tips.length).map(({trash,lastRemoval,...visible})=>visible);}
  async head(logical){const h=await this.rawHead(logical);if(!h?.tips.length)return null;const {trash,lastRemoval,...visible}=h;return visible;}
  async rawHead(logical){requireThat(/^[0-9a-f-]{36}$/i.test(logical),'corrupt_data');const key='heads/'+logical;const r=await this.store.get(this.prefix+key);if(!r)return null;
   const h=unseal(r.body,this.key,this.space,key);requireThat(h.logicalId===logical&&Array.isArray(h.tips)&&Array.isArray(h.versions),'corrupt_data');return {...h,etag:r.etag};}

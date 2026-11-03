@@ -17,9 +17,9 @@ async function databaseWrite(home,action){const dbs={};try{for(const [kind,file]
 export class Trash{
  constructor(state,importer,{checkpoint=async()=>{}}={}){this.state=state;this.importer=importer;this.checkpoint=checkpoint;this.plans=new Map();}
  list(){return this.state.keys('trash/').map(k=>this.state.get(k)).filter(Boolean).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));}
- async preview(homes,{ids,includeDependents=false},{ownershipHomes=homes,reserveAssets=[]}={}){
+ async preview(homes,{ids,includeDependents=false},{ownershipHomes=homes,reserveAssets=[],snapshot=null}={}){
   requireThat(Array.isArray(ids)&&ids.length>0&&ids.length<=2000&&typeof includeDependents==='boolean','invalid_selection');
-  const result=await scan(homes);requireThat(!result.errors.length,'scan_incomplete');const selected=new Set(ids);requireThat(ids.every(tid=>result.rows.some(r=>r.id===tid)),'invalid_selection');
+  const result=snapshot??await scan(homes);requireThat(!result.errors.length,'scan_incomplete');const selected=new Set(ids);requireThat(ids.every(tid=>result.rows.some(r=>r.id===tid)),'invalid_selection');
   if(includeDependents){let added;do{added=false;for(const row of result.rows)if(!selected.has(row.id)&&(row.dependencies??[row.parent].filter(Boolean)).some(x=>selected.has(x))){selected.add(row.id);added=true;}}while(added);}
   const rows=result.rows.filter(r=>selected.has(r.id)),home=rows[0].home;requireThat(rows.every(r=>r.home===home&&r.homes.length===1),'trash_multiple_homes');requireThat(rows.every(r=>!r.busy&&!r.issues.length),'incomplete_history');
   const blockers=result.rows.filter(r=>!selected.has(r.id)&&(r.dependencies??[r.parent].filter(Boolean)).some(x=>selected.has(x))).map(r=>({id:r.id,title:r.title,kind:r.kind}));
@@ -47,7 +47,7 @@ export class Trash{
   Object.assign(info,{files,indexRows:await indexRows(plan.home,plan.ids),database:await digestFile(dbFile)});await this.mark(info,'prepared');this.plans.delete(token);
   }catch(e){if(this.state.get('trash/'+token)?.status==='staging')await this.clearStaging(token);throw e;}
   try{await this.importer.processGuard();const fresh=await scan(plan.homes);requireThat(!fresh.errors.length&&signature(fresh.rows)===plan.signature,'stale_plan');const ownership=await new Trash(this.state,this.importer).preview(plan.homes,{ids:plan.requestedIds,includeDependents:plan.includeDependents},{ownershipHomes:plan.ownershipHomes,reserveAssets:plan.reserveAssets});
-   requireThat(!ownership.blockers.length&&plan.files.every(f=>ownership.files.some(g=>g.path===f.path&&g.hash===f.hash)),'stale_plan');
+   requireThat(!ownership.blockers.length&&plan.files.length===ownership.files.length&&plan.files.every(f=>ownership.files.some(g=>g.path===f.path&&g.hash===f.hash)),'stale_plan');
    for(const f of info.files)requireThat((await digestFile(f.path)).hash===f.hash,'stale_plan');await this.mark(info,'removing');
    await databaseWrite(plan.home,async dbs=>{for(const db of Object.values(dbs))for(const t of tables(db).sort((a,b)=>Number(a.table==='threads')-Number(b.table==='threads'))){const w=where(t,plan.ids);db.prepare('DELETE FROM "'+t.table+'" WHERE '+w.sql).run(...w.args);}});
    await this.checkpoint('database_removed');await rewriteIndex(plan.home,plan.ids);for(const f of info.files){requireThat((await digestFile(f.path)).hash===f.hash,'stale_plan');await fs.unlink(f.path);}this.invalidate(plan.home,plan.ids);await this.mark(info,'removed');return info;

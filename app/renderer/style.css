@@ -301,3 +301,18 @@ progress {width:100%;height:7px;accent-color:var(--accent);display:block;margin:
 @media(max-width:980px){.persistent-task{left:140px;right:12px}}
 
 @media(max-width:1150px){.content:has(.selection-bar) .detail-head{scroll-margin-top:130px}}
+
+.removal-dialog{color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:22px 26px;max-height:90vh;width:min(840px,94vw);overflow:auto}
+.removal-dialog::backdrop{background:rgba(8,10,20,.76)}
+.removal-dialog h2:focus{outline:none}.removal-dialog p,.removal-dialog details,.other-device-note{margin:12px 0}
+.removal-dialog small,.removal-task small,.removal-dialog code{display:block;overflow-wrap:anywhere}.removal-dialog code{font-size:.88rem;color:var(--muted)}
+.remove-options{display:flex;flex-wrap:wrap;gap:10px;border:0;padding:0;margin:16px 0}
+.remove-options legend{font-weight:700;margin-bottom:8px}.remove-options label{padding:10px 15px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:var(--panel)}
+.remove-options label:has(:checked){border-color:var(--accent);background:var(--highlight)}.remove-options label:has(:disabled){opacity:.6}
+.remove-options input{accent-color:var(--accent);margin-right:8px}.other-device-note,.cloud-next{border-left:3px solid var(--accent);background:var(--panel);padding:10px 12px}
+.removal-section{border:1px solid var(--line);padding:15px;border-radius:7px;margin:14px 0}
+.removal-version,.removal-resource,.removal-version-group{border-top:1px solid var(--line);padding:8px 0}.removal-version .check{align-items:flex-start}
+.removal-dialog summary{cursor:pointer}.removal-dialog .modal-actions{bottom:-22px;z-index:2}
+.permanent-action{background:var(--danger);color:var(--on-accent);font-weight:700;border-color:var(--danger)}.permanent-action:hover:not(:disabled){background:var(--danger);filter:brightness(1.08)}
+.removal-task{overflow:auto;max-height:38vh}.task-feedback .reason{color:var(--warning);display:block}.removal-copies ul{max-height:32vh;overflow:auto}
+@media(max-width:980px){.removal-dialog{padding:14px}.removal-dialog .modal-actions{bottom:-14px}.remove-options label{padding:8px 10px}}
