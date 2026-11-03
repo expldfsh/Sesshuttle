@@ -12,7 +12,7 @@ from .verify_native import turn
 lab = Lab.create()
 home, project = lab.directory('target/codex'), lab.directory('target/project')
 binary = Path(sys.argv[1])
-with FixtureProvider() as fixture:
+with FixtureProvider(max_request_bytes=128 * 1024 * 1024) as fixture:
     (home / 'config.toml').write_text(f'model_provider = "openai"\nmodel = "gpt-6.1-sol"\nopenai_base_url = "http://127.0.0.1:{fixture.port}/v1"\nsandbox_mode = "read-only"\napproval_policy = "on-request"\n[analytics]\nenabled = false\n')
     print(json.dumps({'root': str(lab.root), 'home': str(home), 'project': str(project)}), flush=True)
     for line in sys.stdin:

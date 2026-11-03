@@ -7,7 +7,7 @@ import { assertCodexClosed,prepareNative,binaryVersion } from './native.mjs';
 import { normalized,remember,receiptKey } from './receipts.mjs';
 export class Importer {
  constructor(state,{testRoot=null,processGuard=assertCodexClosed,native=prepareNative}={}){this.state=state;this.testRoot=testRoot;this.processGuard=processGuard;this.native=native;}
- async guard(home){home=await canonical(home);if(this.testRoot)await inside(this.testRoot,path.join(home,'target-check'));await this.processGuard();return home;}
+ async guard(home,{allowTrashRecovery=false}={}){home=await canonical(home);requireThat(allowTrashRecovery||!this.state.keys('trash/').some(k=>{const t=this.state.get(k);return t?.home===home&&['prepared','removing','restoring','needs_recovery'].includes(t.status);}),'trash_recovery_required');if(this.testRoot)await inside(this.testRoot,path.join(home,'target-check'));await this.processGuard();return home;}
  async backup(home){const backupId=id(),root=path.join(this.state.root,'backups',backupId);await fs.mkdir(root,{recursive:true,mode:0o700});
   const files=[];for(const dir of ['sessions','archived_sessions','sesshuttle_assets'])files.push(...await walk(path.join(home,dir)));
   for(const e of await fs.readdir(home,{withFileTypes:true}))if(e.isFile()&&/^((state|thread_history)_\d+\.sqlite(?:-wal|-shm)?|session_index\.jsonl)$/.test(e.name))files.push(path.join(home,e.name));

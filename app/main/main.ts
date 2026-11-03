@@ -1,10 +1,11 @@
+import {Trash} from '../../core/trash.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
 import { pathToFileURL } from 'node:url';import { execFile,spawn } from 'node:child_process';import { promisify } from 'node:util';
 import { State } from '../../core/state.mjs';import { Engine } from '../../core/engine.mjs';import { R2Store } from '../../core/storage.mjs';import { Vault } from '../../core/vault.mjs';
 import { newKey,parseKey } from '../../core/crypto.mjs';import { Fault,requireThat,publicError,id,atomic,exists,canonical,inside } from '../../core/util.mjs';import { Importer } from '../../core/importer.mjs';
 import {getTheme,DEFAULT_THEME_ID} from '../shared/themes';
-const exec=promisify(execFile);let window:BrowserWindow;let state:any,engine:any;let secrets:any=null;let recovery:any=null;
+const exec=promisify(execFile);let window:BrowserWindow;let state:any,engine:any,trash:any;let secrets:any=null;let recovery:any=null;
 const testRoot=process.env.SESSHUTTLE_TEST_ROOT;
 if(testRoot){const canonicalRoot=realpathSync(testRoot);const tempRoots=[realpathSync(os.tmpdir()),realpathSync('/tmp')];requireThat(canonicalRoot===testRoot&&path.basename(testRoot).startsWith('sesshuttle-')&&tempRoots.some(p=>testRoot.startsWith(p+path.sep))&&JSON.parse(readFileSync(path.join(testRoot,'.sesshuttle-test.json'),'utf8')).format===1,'unsafe_path');app.setPath('userData',path.join(testRoot,'app-data'));}
 const renderer=path.join(__dirname,'renderer','index.html');
@@ -97,7 +98,10 @@ async function request(method:string,args:any){switch(method){
  case 'discardPlan':return engine.discardPlan(args.token);
  case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true});
  case 'cancel':engine.cancel();return {status:'pausing'};
- case 'backups':return {backups:state.keys('backup/').map((k:string)=>state.get(k)),imports:state.keys('import/').map((k:string)=>state.get(k))};
+ case 'previewDelete':requireThat(!engine.running,'task_running');return trash.preview(engine.config().sourceHomes,args);
+ case 'removeLocal':requireThat(!engine.running,'task_running');requireThat(JSON.stringify(trash.plans.get(args.token)?.homes)===JSON.stringify(engine.config().sourceHomes),'stale_plan');engine.running=true;try{return await trash.remove(args.token);}finally{engine.running=false;}
+ case 'restoreDeleted':requireThat(!engine.running,'task_running');engine.running=true;try{return await trash.restore(args.id);}finally{engine.running=false;}
+ case 'backups':return {trash:trash.list(),backups:state.keys('backup/').map((k:string)=>state.get(k)),imports:state.keys('import/').map((k:string)=>state.get(k))};
  case 'restore':requireThat(!engine.running,'task_running');engine.running=true;try{return await engine.importer.restore(args.id);}finally{engine.running=false;}
  case 'projectInfo':return projectInfo(args.project);
  case 'continue':requireThat(!engine.running,'task_running');return continueEntry(args);
@@ -113,6 +117,7 @@ if(primaryInstance)app.whenReady().then(async()=>{
  const importer=new Importer(state,(testRoot?{testRoot,processGuard:async()=>{}}:{}) as any);
  for(const k of state.keys('job/')){const j=state.get(k);if(j.status==='running')state.set(k,{...j,status:'interrupted'});}
  for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:'needs_recovery'});}
+ trash=new Trash(state,importer);for(const info of trash.list())if(['prepared','removing','restoring'].includes(info.status))await trash.mark(info,'needs_recovery');
  engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);await loadSecrets();
  updateMenu();updateTheme();
  session.defaultSession.setPermissionRequestHandler((_w,_p,callback)=>callback(false));

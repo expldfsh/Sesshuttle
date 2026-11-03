@@ -8,10 +8,10 @@ export function resourceReferences(value,resources=new Set(),issues=new Set()){
  for(const v of Object.values(value))if(typeof v==='object')resourceReferences(v,resources,issues);
  return {resources,issues};
 }
-export async function referencesFor(row,catalog=null){
+export async function referencesFor(row,catalog=null,{ownership=false}={}){
  const resources=new Set(),issues=new Set();let owned;
  try{if(row.file)for await(const record of records(row.file))resourceReferences(record,resources,issues);
-  if(row.database){catalog??=owned=await openCatalog(row.home);for(const record of databaseRecords(catalog,row.id))if(typeof record.row.item_json==='string')resourceReferences(JSON.parse(record.row.item_json),resources,issues);}
+  if(row.database){catalog??=owned=await openCatalog(row.home);for(const record of databaseRecords(catalog,row.id)){if(typeof record.row.item_json==='string')resourceReferences(JSON.parse(record.row.item_json),resources,issues);if(ownership&&record.table==='thread_attachments'&&typeof record.row.payload==='string'){const visit=v=>{if(typeof v==='string'&&path.isAbsolute(v))resources.add(v);else if(v&&typeof v==='object')for(const x of Object.values(v))visit(x);};try{visit(JSON.parse(record.row.payload));}catch{throw new Error('Invalid attachment metadata');}}}}
   return {resources:[...resources],issues:[...issues]};
  }finally{owned?.close();}
 }

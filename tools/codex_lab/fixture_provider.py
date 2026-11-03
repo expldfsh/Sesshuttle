@@ -8,7 +8,7 @@ import uuid
 
 
 class FixtureProvider:
-    def __init__(self):
+    def __init__(self, *, max_request_bytes=8 * 1024 * 1024):
         self.requests: list[dict] = []
         provider = self
 
@@ -18,7 +18,7 @@ class FixtureProvider:
 
             def do_POST(self):
                 size = int(self.headers.get('Content-Length', '0'))
-                if size <= 0 or size > 8 * 1024 * 1024:
+                if size <= 0 or size > max_request_bytes:
                     self.send_error(413)
                     return
                 body = json.loads(self.rfile.read(size))

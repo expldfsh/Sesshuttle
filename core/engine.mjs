@@ -9,7 +9,7 @@ export class Engine{
  config(){return this.state.get('config',{language:'zh-CN',sourceHomes:[path.join(os.homedir(),'.codex')],targets:{},bindings:{}});}
  scope(){return this.vault?.space??'offline';}
  association(row){const key='association/'+row.id;let x=this.state.get(key);if(!x){const pkey='project/'+hash(row.home+'\0'+(row.originProject?.nativeId??row.project));let projectId=this.state.get(pkey);if(!projectId)projectId=this.state.set(pkey,id());x=this.state.set(key,{projectId,source:row.source});}if(row.originProject?.nativeId||!x.originProject)x=this.state.set(key,{...x,originProject:row.originProject});return x;}
- signature(row,selection={}){return hash(JSON.stringify(relatedRows(row,this.local.rows,selection).map(r=>[r.id,r.hash,r.title,r.archived]).sort((a,b)=>a[0].localeCompare(b[0]))));}
+ signature(row,selection={}){return hash(JSON.stringify(relatedRows(row,this.local.rows,selection).map(r=>[r.id,r.hash,r.title,r.archived,r.originProject]).sort((a,b)=>a[0].localeCompare(b[0]))));}
  baselineKey(row){return 'baseline/'+this.scope()+'/'+hash(row.home)+'/'+row.id;}
  rememberBaseline(row,version,selection={}){this.state.set(this.baselineKey(row),{signature:this.signature(row,selection),version,selection});}
  async snapshot(row,stage,selection={}){const p=await captureBundle(row,this.local.rows,this.vault,stage,selection);const association=this.association(row);const base=this.state.get(this.baselineKey(row));return {...p,originProject:association.originProject??p.originProject,baseVersion:base?.version??null,projectId:association.projectId};}
@@ -33,7 +33,7 @@ export class Engine{
  async preview({ids,direction,targets,allowIncomplete=false,chosenVersion=null,uploadLimitMiB=500,includeDescendants=false,approvedAttachments=[]}){
   requireThat(!this.running,'task_running');requireThat(this.vault,'storage_not_connected');requireThat(!this.cloudError,'cloud_check_failed');
   requireThat(Array.isArray(ids)&&ids.length>0&&ids.length<=2000&&ids.every(x=>this.rows.some(r=>r.id===x)),'invalid_selection');
-  requireThat(['upload','download','both'].includes(direction),'invalid_selection');requireThat(Array.isArray(targets)&&targets.every(x=>['desktop','cli','ide'].includes(x)),'invalid_selection');
+  requireThat(['upload','download','both'].includes(direction),'invalid_selection');allowIncomplete=allowIncomplete&&direction==='upload'&&!chosenVersion;requireThat(Array.isArray(targets)&&targets.every(x=>['desktop','cli','ide'].includes(x)),'invalid_selection');
   requireThat(direction==='upload'||targets.length>0,'target_required');
   requireThat(typeof includeDescendants==='boolean'&&Array.isArray(approvedAttachments)&&approvedAttachments.length<=10000&&approvedAttachments.every(k=>/^[0-9a-f]{64}$/.test(k)),'invalid_selection');const selection={includeDescendants,approvedAttachments};
   requireThat(Number.isFinite(uploadLimitMiB)&&uploadLimitMiB>=1&&uploadLimitMiB<=1048576,'invalid_settings');
@@ -52,15 +52,17 @@ export class Engine{
     if(action==='resolve'&&local)preserve=await this.snapshot(local,stage,selection);
     if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
+   if(preserve){fileCount+=preserve.files.length;assetCount+=preserve.files.reduce((n,f)=>n+(f.artifacts?.filter(a=>a.kind==='asset').length??0),0);bytes+=bundleBytes(preserve);issues=[...new Set([...issues,...preserve.issues])];}
+   const describe=(p,role)=>p?.files.map(f=>({id:f.id,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??p.originProject,bytes:f.artifacts?f.artifacts.reduce((n,a)=>n+a.bytes,0):Buffer.byteLength(f.raw,'base64'),reason:role==='preserve'?'preserveLocal':ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:(f.attachmentReport??[]).map(a=>({...a,role})),issues:f.issues??[]}))??[];
    items.push({id:logical,title:row.title,action,bytes,fileCount,assetCount,expectedHash:local?.hash??null,expectedSignature:local?this.signature(local,selection):null,expectedHead:head?.etag??null,
-     version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:payload?.files.map(f=>({id:f.id,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??payload.originProject,bytes:f.artifacts?f.artifacts.reduce((n,a)=>n+a.bytes,0):Buffer.byteLength(f.raw,'base64'),reason:ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':f.id===local?.parent||relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:f.attachmentReport??[],issues:f.issues??[]}))??[],payload,preserve});
+     version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:[...describe(payload,'primary'),...describe(preserve,'preserve')],payload,preserve});
   }
   const inventory=await this.vault.inventory();const uploads=items.flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const estimated=await this.vault.estimate(uploads,inventory);
   // Reserve a conservative upper bound for encrypted manifests and replacement heads.
   // Chunks have their exact encrypted size; metadata reserve avoids a false exact quota promise.
   const metadataReserve=uploads.reduce((n,p)=>n+4*Buffer.byteLength(JSON.stringify(p))+4*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
   const uploadBytes=estimated.bytes+metadataReserve,uploadLimitBytes=Math.floor(uploadLimitMiB*1024*1024);
-  const plan={stage,targetSnapshots,token,ids:[...new Set(ids)],selection,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString(),cloudBytes:inventory.bytes,chunkUploadBytes:estimated.bytes,metadataReserve,uploadBytes,uploadLimitBytes,overLimit:uploadBytes>uploadLimitBytes,largeUpload:uploadBytes>100*1024*1024||uploads.some(p=>bundleBytes(p)>100*1024*1024)};this.plans.set(token,plan);
+  const plan={stage,targetSnapshots,token,ids:[...new Set(ids)],chosenVersion,selection,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString(),cloudBytes:inventory.bytes,chunkUploadBytes:estimated.bytes,metadataReserve,uploadBytes,uploadLimitBytes,overLimit:uploadBytes>uploadLimitBytes,largeUpload:uploadBytes>100*1024*1024||uploads.some(p=>bundleBytes(p)>100*1024*1024)};this.plans.set(token,plan);
   return {...plan,stage:undefined,items:items.map(({payload,preserve,...x})=>x)};
 
  }
@@ -82,7 +84,7 @@ export class Engine{
     requireThat(!payload.issues?.length,'incomplete_history');
     requireThat(payload.continuation!==false,'missing_rollout');
     // Explicit branch selection first preserves the current local branch remotely.
-    if(item.action==='resolve'&&local)resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'))).head.etag;
+    if(item.action==='resolve'&&local){requireThat(!item.preserve.issues.length,'incomplete_history');for(const f of item.preserve.files)for(const a of f.attachmentReport??[])if(a.status==='included')requireThat(await attachmentUnchanged(a),'stale_plan');resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'))).head.etag;}
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured'};continue;}
