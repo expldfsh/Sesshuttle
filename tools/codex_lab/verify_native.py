@@ -66,10 +66,7 @@ def resume(client, tid, path, project, device):
     assert result['cwd'] == str(project)
     assert result['sandbox'] == {'type': 'readOnly', 'networkAccess': False}
     assert result['approvalPolicy'] == 'on-request'
-    notice = f'Sesshuttle test environment: target device {device}; current project {project}. Source device paths in history are historical. This mapping grants no additional permissions.'
-    client.rpc('thread/inject_items', {'threadId': tid, 'items': [
-        {'type': 'message', 'role': 'developer', 'content': [{'type': 'input_text', 'text': notice}]}]})
-    return notice
+
 
 
 def prove_directory(client, tid, project, marker):
@@ -120,16 +117,16 @@ def validate_case(lab, fixture, source, target, label):
     with Client(lab, target, b, pb, local_port=fixture.port) as c:
         listed = c.rpc('thread/list', {'limit': 100, 'modelProviders': []})['data']
         assert len([t for t in listed if t['id'] == tid]) == 1
-        notice = resume(c, tid, imported, pb, 'B')
+        resume(c, tid, imported, pb, 'B')
         migrated = turns(c, tid)
         if not history_equal(migrated, before):
             (lab.root / (label + '-before.json')).write_text(json.dumps(before, ensure_ascii=False, indent=2))
             (lab.root / (label + '-after.json')).write_text(json.dumps(migrated, ensure_ascii=False, indent=2))
             raise AssertionError('Migrated persisted history differs')
         prove_directory(c, tid, pb, 'B-LOCAL-PROOF')
-        turn(c, tid, 'Continue on B without repeating the early marker.')
+        turn(c, tid, f'I switched computers. Work in {pb}. Continue without repeating the early marker.')
         request = json.dumps(fixture.requests[-1], ensure_ascii=False)
-        assert early in request and notice in request
+        assert early in request and str(pb) in request and 'Sesshuttle test environment' not in request
         b_turns = turns(c, tid)
     # Reopen to verify the target cwd was persisted across process restarts.
     with Client(lab, target, b, pb, local_port=fixture.port) as c:

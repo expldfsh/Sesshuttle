@@ -69,6 +69,12 @@ class Lab:
         }
 
     def command(self, arguments: list[str], *, local_port: int | None = None) -> list[str]:
+        if platform.system() == 'Linux':
+            marker = Path('/run/sesshuttle-isolated-vm')
+            if not marker.is_file() or marker.stat().st_uid != 0 or marker.read_text().strip() != 'loopback-only-fixture':
+                raise SafetyError('Linux native tests require the disposable VM with loopback-only outbound policy')
+            return ['/usr/bin/bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc',
+                    '--tmpfs', '/home', '--tmpfs', '/tmp', '--bind', str(self.root), str(self.root), '--', *arguments]
         if platform.system() != 'Darwin' or not Path('/usr/bin/sandbox-exec').is_file():
             raise SafetyError('This research runner requires the macOS process sandbox')
         root = json.dumps(str(self.root))
