@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
-import {attachmentReview,assertAttachmentAcceptance,omittedImageText} from '../../core/attachment-policy.mjs';import {remapHistory} from '../../core/remap-history.mjs';import {referencesFor} from '../../core/attachments.mjs';import {State} from '../../core/state.mjs';import {Engine} from '../../core/engine.mjs';import {Vault} from '../../core/vault.mjs';import {MemoryStore} from '../../core/storage.mjs';import {newKey} from '../../core/crypto.mjs';import {Importer} from '../../core/importer.mjs';import {id,hash} from '../../core/util.mjs';import {materialize} from '../../core/bundle.mjs';
+import {attachmentReview,assertAttachmentAcceptance,omittedImageText} from '../../core/attachment-policy.mjs';import {remapHistory} from '../../core/remap-history.mjs';import {referencesFor} from '../../core/attachments.mjs';import {State} from '../../core/state.mjs';import {Engine} from '../../core/engine.mjs';import {Vault} from '../../core/vault.mjs';import {MemoryStore} from '../../core/storage.mjs';import {newKey} from '../../core/crypto.mjs';import {Importer} from '../../core/importer.mjs';import {id,hash} from '../../core/util.mjs';import {materialize,bundleIdentity} from '../../core/bundle.mjs';
 const report=(tid,p,status='missing')=>({key:hash(tid+'\0'+p),sessionId:tid,path:p,status});
 test('only inventoried local images can be waived, and every file requires explicit confirmation',()=>{
  const a=report(id(),'/missing.png'),file={id:a.sessionId,artifacts:[],attachmentReport:[a],issues:['attachment_missing']},payload={format:2,files:[file],issues:['attachment_missing']};
@@ -23,4 +23,11 @@ test('missing image confirmation protects upload and import; restored image inva
  await assert.rejects(importer.import(payload,{home:target,project},{vault,acceptedMissingAttachments:[key]}),{code:'test_guard'});assert.equal(guarded,1);assert.deepEqual(await fs.readdir(target),[]);
  const staged=await materialize(payload,vault,path.join(root,'download'));await remapHistory(staged.files,target,{acceptedMissingAttachments:[key]});const mapped=staged.files[0].artifacts[0].file;const data=(await fs.readFile(mapped,'utf8')).trim().split('\n').map(JSON.parse);assert.equal(data[1].payload.item.content[0].text,'Keep every original word.');assert.equal(data[1].payload.item.content[1].type,'text');assert.match(data[1].payload.item.content[1].text,/Image not included/);const refs=await referencesFor({id:tid,file:mapped});assert.deepEqual(refs.resources,[]);assert.equal(refs.omittedAttachments[0].path,image);assert.equal(await fs.readFile(file,'utf8'),raw);
  }finally{state?.close();await fs.rm(root,{recursive:true,force:true});}
+});
+
+
+test('attachment availability changes are versioned even if history bytes stay identical',()=>{
+ const a=report(id(),'/image.png','approval_required'),file={id:a.sessionId,title:'test',artifacts:[],attachmentReport:[a],issues:['attachment_approval']},p={format:2,files:[file]};
+ const q=structuredClone(p);q.files[0].attachmentReport[0].status='missing';q.files[0].issues=['attachment_missing'];assert.notEqual(bundleIdentity(p),bundleIdentity(q));
+ const r=structuredClone(p);r.files[0].attachmentReport[0].stamp='later';assert.equal(bundleIdentity(p),bundleIdentity(r));
 });

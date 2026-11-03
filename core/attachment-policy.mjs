@@ -16,6 +16,7 @@ export function attachmentReview(payload){
  return {optional,blockingIssues:[...blocking]};
 }
 export function assertAttachmentAcceptance(payload,accepted=[]){
+ requireThat(Array.isArray(accepted)&&accepted.every(k=>typeof k==='string'),'invalid_selection');
  const review=attachmentReview(payload);requireThat(!review.blockingIssues.length,'incomplete_history');
  requireThat(review.optional.every(a=>accepted.includes(a.key)),'attachment_confirmation_required');
  return review.optional;

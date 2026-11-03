@@ -96,7 +96,7 @@ async function request(method:string,args:any){switch(method){
   await atomic(r.filePath,JSON.stringify({format:1,...state.get('connection'),key:secrets.key},null,2));return {saved:true};}
  case 'preview':return engine.preview(args);
  case 'discardPlan':return engine.discardPlan(args.token);
- case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true});
+ case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true,acceptedMissingAttachments:args.acceptedMissingAttachments??[]});
  case 'cancel':engine.cancel();return {status:'pausing'};
  case 'previewDelete':requireThat(!engine.running,'task_running');return trash.preview(engine.config().sourceHomes,args);
  case 'removeLocal':requireThat(!engine.running,'task_running');requireThat(JSON.stringify(trash.plans.get(args.token)?.homes)===JSON.stringify(engine.config().sourceHomes),'stale_plan');engine.running=true;try{return await trash.remove(args.token);}finally{engine.running=false;}
