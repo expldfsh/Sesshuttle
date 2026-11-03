@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-const methods=new Set(['init','credentialHealth','retryCredentialSave','pickImage','destinationInfo','detectPaths','refresh','saveConfig','pickDirectory','pickBinary','connect','disconnect','importRecovery','exportRecovery','preview','discardPlan','execute','cancel','backups','previewDelete','removeLocal','restoreDeleted','restore','diagnostics','projectInfo','continue']);
+const methods=new Set(['init','credentialHealth','retryCredentialSave','pickImage','versionDetails','destinationInfo','checkClosed','validateFolders','createWorkspace','detectPaths','refresh','saveConfig','pickDirectory','pickBinary','connect','disconnect','importRecovery','exportRecovery','preview','discardPlan','execute','cancel','backups','previewDelete','removeLocal','restoreDeleted','restore','diagnostics','projectInfo','continue']);
 contextBridge.exposeInMainWorld('sesshuttle',{
  invoke:(method:string,args:unknown={})=>{if(!methods.has(method))throw new Error('Unknown action');return ipcRenderer.invoke('sesshuttle:request',method,args);},
  onClosePending:(callback:()=>void)=>{const listener=()=>callback();ipcRenderer.on('sesshuttle:closePending',listener);return()=>ipcRenderer.removeListener('sesshuttle:closePending',listener);},

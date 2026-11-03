@@ -37,7 +37,7 @@ export class Importer {
   validatePayload(payload);requireThat(payload.files.every(f=>KNOWN_VERSIONS.includes(f.version)),'unknown_version');
   requireThat(!payload.issues?.length,'incomplete_history');const home=await this.guard(target.home);const project=await canonical(target.project);const runtime=await binaryVersion(target.binary);
   requireThat(!this.state.keys('import/').some(k=>{const t=this.state.get(k);return t.home===home&&['prepared','validating','needs_recovery'].includes(t.status); }),'recovery_required');
-  await checkLocalProject(home,target.nativeProjectId,runtime);
+  const nativeProjectName=await checkLocalProject(home,target.nativeProjectId,runtime);
   const current=await scan([home]);requireThat(current.errors.length===0,'scan_incomplete');const writes=[],nativeFiles=[];let allVerified=true;
   for(const f of payload.files){const original=Buffer.from(f.raw,'base64'),parsed=parseRollout(original);requireThat(parsed.issues.length===0&&!parsed.busy,'incomplete_history');requireThat(parsed.resources.every(p=>(payload.assets??[]).some(a=>a.path===p)),'incomplete_history');
    const found=current.rows.filter(r=>r.id===f.id);requireThat(found.length<=1,'duplicate_identity');const old=found[0];nativeFiles.push({...f,placementArchived:old?.archived??f.archived});
@@ -49,7 +49,7 @@ export class Importer {
    const file=old?.file??path.join(home,f.archived?'archived_sessions':'sessions',...(f.archived?[]:iso.slice(0,10).split('-')),name);
    await inside(home,file);writes.push({file,raw:mapResources(original,payload.assets??[],home),created:!old,id:f.id});
   }
-  if(allVerified)return {status:'verified',backup:null,unchanged:true,runtime};
+  if(allVerified)return {status:'verified',nativeProjectName,backup:null,unchanged:true,runtime};
   for(const asset of payload.assets??[]){const file=await inside(home,path.join(home,'sesshuttle_assets',asset.hash+'.'+asset.ext));if(await exists(file)){requireThat(hash(await stableRead(file))===asset.hash,'corrupt_data');}else writes.push({file,raw:Buffer.from(asset.data,'base64'),created:true});}
   target.onStage?.('stageBackup');const backup=await this.backup(home);backup.created=writes.filter(w=>w.created).map(w=>path.relative(home,w.file));this.state.set('backup/'+backup.id,backup);await atomic(path.join(this.state.root,'backups',backup.id,'manifest.json'),JSON.stringify(backup));
   const taskId=id();this.state.set('import/'+taskId,{status:'prepared',backup:backup.id,home});
@@ -59,7 +59,7 @@ export class Importer {
    target.onStage?.('stageWrite');for(const w of writes){await inside(home,w.file);if(w.created)requireThat(!await exists(w.file),'stale_plan');await atomic(w.file,w.raw);}
    this.state.set('import/'+taskId,{status:'validating',backup:backup.id,home});
    target.onStage?.('stageVerify');await this.native({binary:target.binary,home,project,files:nativeFiles,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.record(payload,home,project,target.binary,runtime);
-   this.state.set('import/'+taskId,{status:'verified',backup:backup.id,home});return {status:'verified',backup:backup.id,runtime};
+   this.state.set('import/'+taskId,{status:'verified',backup:backup.id,home});return {status:'verified',nativeProjectName,backup:backup.id,runtime};
   }catch(e){this.state.set('import/'+taskId,{status:'needs_recovery',backup:backup.id,home,error:e.code??'operation_failed'});throw new Fault('import_needs_recovery',backup.id);}
  }
 }

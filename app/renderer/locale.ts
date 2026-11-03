@@ -4,3 +4,555 @@ export const zh:Record<string,string>={someImagesMissing:'部分图片未包含'
 export const en:Record<string,string>={...zh,someImagesMissing:'Some images are not included',priorMissingImages:'These images were omitted in an earlier import. Their omission notices are preserved.',attachment_confirmation_required:'Confirm each omitted image before continuing.',acceptMissingImage:'Continue without this image; keep text and show an omission notice after import',missingImageNotice:'You can continue when text and required history are intact. Omitted images will be unavailable and may need to be supplied again. Original backups remain unchanged.',imported_missing_attachments:'Imported · Some attachments missing',preserveLocal:'Preserve local branch before import',"deleteLocal":"Delete local conversations","localTrash":"Local trash","trashHint":"Close Codex before removing history. Listed records move to recoverable local trash. R2 and other devices keep their copies; nothing is downloaded automatically.","includeDependents":"Also remove dependent forks and background sessions (updates the list)","trashRetainedSize":"will be retained in trash","trashFiles":"Files to move to trash","retainedAttachments":"Attachments kept at their original location","trash_shared":"Shared with other conversations; kept","trash_protected":"Project file or outside a dedicated attachment folder; kept","trash_missing":"No longer at the original path","moveToTrash":"Confirm move to local trash","trashSpaceHint":"Trash retains complete recovery data and does not immediately free disk space. It is never emptied automatically. Permanent emptying is not available in this version.","restoreDeleted":"Restore deleted conversations","restoreDeletedConfirm":"Close Codex first. Restore only these deleted conversations and attachments while keeping other records. Conflicting existing content will stop restoration. Continue?","trashEmpty":"No deleted local conversations","trashDone":"Moved to local trash. Restore from Backups & recovery. Cloud copies are retained.","trashStatus_removed":"In trash","trashStatus_restored":"Restored (recovery copy retained)","trashStatus_prepared":"Recovery copy saved","trashStatus_removing":"Moving to trash","trashStatus_restoring":"Restoring","trashStatus_needs_recovery":"Interrupted; restore required","trash_dependencies":"Other conversations depend on this history. Include the dependent forks/background sessions, or keep the original conversation.","trash_multiple_homes":"Remove records from one Codex folder at a time. Conversations shared across folders require separate handling.","trash_recovery_required":"Restore the interrupted removal for this folder first.","trash_needs_recovery":"Removal or restoration did not finish. Recovery data is retained. Restore from local trash before continuing.","trash_restore_conflict":"New or changed content occupies the original location. Restoration stopped without overwriting it.","locally_removed":"Removed locally; import and verify again","history_offsets":"History pagination offsets do not match. Import stopped; the original backup is retained.","originProject":"Source project","allProjects":"All projects","unassignedProject":"Unassigned project","ambiguousProject":"Ambiguous project","projectMatch_id":"Native project link","projectMatch_root":"Matched native project folder","projectMatch_backing_root":"Matched desktop project backing","projectMatch_ambiguous":"Multiple projects share this folder","projectMatch_directory":"Based on working folder","includeDescendants":"Include background descendants (listed individually in preview)","clearSelection":"Clear selection","hiddenSelection":"Selected outside this filter","directSelections":"directly selected","actualScope":"conversations in the transfer","selectedChat":"Selected","requiredParent":"Required parent","selectedDescendant":"Included descendant","backupMember":"Member of cloud backup","localDestination":"Import on this computer","approveAttachment":"Include this external attachment in this backup","attachment_included":"Included","attachment_approval_required":"File found; inclusion needs approval","attachment_missing":"Image file is missing; confirm to continue without it","attachment_unsupported":"Unsupported attachment format","attachment_unsafe":"Linked attachment rejected","attachment_unreadable":"Attachment unreadable; check permissions","attachment_approval":"External attachments exist; approve each one to include it","rebuildHint":"Attachment selection changed. Update preview to recalculate size.","rebuildPreview":"Update preview","planBlockedHint":"Resolve the items above before uploading or importing.","confirmUpload":"Confirm and upload listed conversations",projectedCloud:'Space usage upper bound after this plan',uploadPreviewHint:'Upload encrypted backups only. No local Codex import. Check capacity and selection before starting.',compressedHistory:'Compressed history detected',expandedSize:'Uncompressed history size',missing_rollout:'Local database records are preserved, but the original rollout required by Codex is missing. Full backup is available; native import and continuation are unavailable.',"main":"Main chats","mainChats":"Main chats","backgroundChats":"Background sessions","localSize":"Local history size","hasLocalDatabase":"Includes local database","fileSize":"Local history files","databaseSize":"Local database records","parentChat":"Parent chat","sizeHint":"Database size is logical record data, excluding shared indexes and free pages. Sync preview also includes related sessions and attachments.","uploadLimit":"Upload limit for this plan (MiB)","cloudUsage":"Current sync space usage","newUpload":"New encrypted data after deduplication","metadataReserve":"Metadata reserve","uploadUpperBound":"Estimated added-space upper bound","quotaHint":"This is this sync space, not the whole Bucket quota. Old versions and unfinished uploads also use space; other devices may upload concurrently.","confirmLarge":"I have checked capacity and approve this large upload","upload_limit":"Upload limit exceeded. Reduce selection or change the limit and preview again.","large_upload_confirmation":"Confirm this large upload first.","blocked":"Blocked","history_unavailable":"Chat index found, but no readable local history content.","database_schema":"Target Codex database schema is not compatible. Original backup is preserved.","record_too_large":"A single record exceeds the safe parsing limit; import is unavailable.","disk_space":"Insufficient local disk space. Writes stopped.","detectPaths":"Auto-detect","detectHint":"Detects paths without reading or copying login keys. Use a path explicitly, then save to apply.","pathFound":"Found","pathMissing":"Unavailable / not found","useDetected":"Use this path","currentPath":"Current setting","projectMappingHint":"Bind this computer’s code folder to continue after import. Upload-only backups do not need a binding.",
  unsafe_native_config:'Native tools and startup hooks could not be disabled. Import verification stopped.',recoveryLoaded:'Recovery file loaded. You do not need to enter the key again.',recoverySaved:'Recovery file saved. Keep it somewhere safe.',confirm:'Confirm',retryEntry:'Retry this entry',upload_import:'Upload & import selected entries',historyFiles:'history files',attachments:'attachments',brandTagline:'YOUR CONTEXT, EVERYWHERE',workContext:'YOUR WORK, IN CONTEXT',workspace:'WORKSPACE',you:'You',tool:'Tool',importVersion:'Imported version',closePending:'Pausing safely. Close the window after the current item finishes.',terminal_required:'Install a terminal application before opening CLI conversations.',custom_home_launcher:'This entry uses a custom data folder. Open the native app configured for that folder.',recovery_required:'A previous import was interrupted. Restore its backup before importing again.',interrupted:'Interrupted',conversations:'Conversations',projects:'Projects & entries',settings:'Settings',backups:'Backups & recovery',activity:'Sync activity',subtitle:'Pick up where you left off.',all:'All',desktop:'Desktop',cli:'CLI',ide:'VS Code',unknown:'Unknown origin',subagent:'Background sessions',refresh:'Refresh',search:'Search titles or projects…',sync:'Preview sync',selected:'selected',selectAll:'Select this view',title:'Conversation',source:'Origin',status:'Sync status',updated:'Last updated',details:'Conversation details',history:'History preview',noHistory:'Select a conversation',noMessages:'Download to preview cloud history',local:'Local',cloud:'Cloud',offline:'Cloud not connected',connectHint:'Connect your R2 storage to compare and sync conversations.',configure:'Set up storage',lastCheck:'Last checked',empty:'No conversations here yet',emptyHint:'Check your Codex data location or refresh cloud history.',archive:'Archived',bytes:'Size',sourceDevice:'Source device',entryStates:'Status by entry',notImported:'Not imported',continue:'Continue',close:'Close',cancel:'Cancel',save:'Save settings',saved:'Saved',saving:'Working…',direction:'Sync direction',upload:'Upload backup',download:'Download & import',both:'Sync both ways and import locally',targets:'Import into local entries',allTargets:'Select all entries',scopeHint:'Conversations select the content. Entries select the destination. Shared history is written once.',incomplete:'Allow backup of incomplete conversations (continuation is not verified)',preview:'Review sync plan',previewHint:'Imports are backed up first. Close Codex apps using the destination before importing.',confirmSync:'Confirm and start',action:'Action',skip:'Skip',resolve:'Select branch',preserve_conflict:'Preserve both branches',busy:'In use',conflict:'Conflicting changes',conflict_preserved:'Both branches preserved',local_only:'Local only',remote_only:'Cloud only',local_changes:'Local changes',remote_changes:'Cloud changes',synced:'Up to date',unchecked:'Not compared',pending:'Needs attention',verified:'Runtime verified',imported:'Imported, verify entry',already_imported:'Already present',not_configured:'Entry not configured',failed:'Failed',partial:'Partially completed',uploaded:'Backed up',downloaded:'Imported',running:'In progress',completed:'Completed',attention:'Needs attention',paused:'Paused',pause:'Pause after current item',retryHint:'Select the failed conversations and entries to preview and retry.',versions:'Cloud versions',useVersion:'Import this version into selected entries',versionHint:'Your local branch is preserved before switching. Other cloud versions remain recoverable.',projectPath:'Local project folder',bind:'Choose folder',projectHint:'Bind each project to the correct local working copy. Bindings stay on this device.',noProjects:'Projects appear after scanning or connecting cloud storage.',entryHint:'Entries can share a Codex data folder. Each is checked individually without duplicating history.',dataHome:'Codex data folder',binary:'Codex executable',browse:'Choose',language:'Language',deviceName:'Device name',device:'This device',localSettings:'Local settings',sourceHomes:'Scan locations (one per line)',storage:'Your cloud storage',storageHint:'An R2 Bucket stores encrypted history. No separate database is needed. Credentials are never synced.',endpoint:'R2 S3 endpoint',bucket:'Bucket name',accessKey:'Access Key ID',secretKey:'Secret Access Key',test:'Test connection',create:'Create a sync space',join:'Join an existing space',connectCreate:'Connect & create space',connectJoin:'Connect & join space',space:'Sync space ID',recoveryKey:'Recovery key',importKey:'Import recovery file',exportKey:'Export recovery file',keyHint:'Keep the recovery file somewhere safe. New devices need it; lost keys cannot be recovered.',connected:'Connected',disconnect:'Disconnect',disconnectHint:'Local and cloud history will be kept.',security:'Data protection',securityText:'Content, titles and paths are encrypted before upload. No telemetry by default. Login configuration and credential files are excluded; text within conversations is encrypted with the history.',backupsHint:'Original data is saved before import. Close Codex before recovery; recovery also preserves the current state.',noBackups:'No import backups yet',restore:'Restore backup',restoreConfirm:'Restore this folder’s history and index to the backup time? All current data, including conversations added later, will be kept in a safety copy.',restoreDone:'Backup restored. Reopen Codex to verify it.',createdAt:'Created',files:'files',noJobs:'No sync activity yet',issues:'Needs attention',diagnostics:'Preview diagnostics',diagnosticHint:'Only versions, platform, task states and error codes. No conversation content or credentials.',copy:'Copy',nativeHint:'Verify visibility in the actual entry after runtime checks. No task is submitted automatically.',recentMessages:'Preview shows recent messages; sync preserves the complete original history.',gitInfo:'Inspect local Git state',branch:'Branch',commit:'Commit',changes:'Uncommitted files',noGit:'Regular project folder',chooseProject:'Bind a local project folder first',loading:'Loading…',testMode:'Isolated test environment',cloudStale:'Cloud check failed. Showing the last successful result. Reconnect before syncing.',scanErrors:'Some records could not be read. They are not marked as synced.',nativeConfirm:'Open this native entry without submitting a task? Confirm your local project folder and code version.',readOnlyNotice:'Imports are checked with read-only permissions. Work continues under the target Codex approval settings.',notVerified:'Not verified',noSelection:'Select conversations to sync first',unknown_version:'This Codex version is not validated for import. Backup is available.',external_image:'An external image reference prevents verified continuation.',remote_resource:'History references a remote resource that was not captured.',external_attachment:'An attachment is missing, outside the project/Codex folder, or unsupported.',duplicate_identity:'Different local copies share a conversation ID. Resolve them separately.',missing_dependency:'A required parent or sub-session is missing.',invalid_history:'History could not be read completely.',file_too_large:'Data exceeds this version’s size limit.',invalid_path:'Choose a valid absolute path.',unsafe_path:'A linked or out-of-scope path was rejected.',stale_plan:'Data or settings changed after preview. Refresh and preview again.',invalid_key:'Invalid recovery key.',decrypt_failed:'Decryption failed. Check the key and data integrity.',corrupt_data:'Integrity check failed. Nothing was imported.',concurrent_update:'Another device updated the cloud. Refresh and retry.',storage_permission:'Storage access denied. Check credentials and Bucket permissions.',storage_write_permission:'Storage write or test-object deletion permission is missing.',storage_unavailable:'Storage is unavailable. Check network and endpoint.',invalid_endpoint:'Enter a Cloudflare R2 HTTPS S3 endpoint.',invalid_bucket:'Invalid Bucket name.',space_too_large:'The space exceeds this version’s limit.',space_not_found:'Sync space not found. Check Bucket and space ID.',invalid_space:'Unsupported sync space.',missing_remote_object:'A cloud version is missing a data object.',codex_running:'Close Codex Desktop, CLI and editor extensions before importing.',process_check_failed:'Cannot verify Codex has exited. Writes were stopped.',binary_required:'Configure the target Codex executable.',binary_unavailable:'Cannot run the selected Codex executable.',native_error:'Codex could not verify the import.',native_unavailable:'Cannot start the target Codex runtime.',native_timeout:'Codex verification timed out. Retry or restore the backup.',native_verification_failed:'Target history and folder verification failed.',backup_too_large:'Backup exceeds the limit. History was not changed.',backup_not_found:'Backup not found.',corrupt_backup:'Backup validation failed. Nothing was restored.',import_needs_recovery:'Import did not finish. Open Backups & recovery to restore the associated backup.',incomplete_history:'This format or resource is not supported for import. Backup only is available.',scan_incomplete:'Unreadable destination history prevents a safe import.',task_running:'Wait for the current task or pause it.',storage_not_connected:'Connect cloud storage first.',cloud_check_failed:'Refresh cloud status successfully first.',invalid_selection:'Choose valid conversations and sync options.',target_required:'Choose at least one destination.',project_required:'Bind a local folder in Projects & entries.',invalid_settings:'Check your settings.',secure_storage_unavailable:'System credential protection is unavailable. This connection stays in memory only; enter credentials again after restarting.',credentials_required:'Enter storage credentials.',not_verified:'This entry has not been verified.',open_failed:'Could not open the installed entry.',manual_cli_required:'Resume this conversation with Codex CLI in the bound project folder.',operation_failed:'The operation failed. Check settings and retry.',invalid_action:'Invalid action.',test_mode:'Test mode does not persist real credentials.',restored_needs_validation:'Restored, verification needed',empty_state:'No data'
 };
+
+const workflowLabels: Record<string,[string,string]> = {
+ "projects": [
+  "本机应用与项目",
+  "Apps & projects"
+ ],
+ "working": [
+  "正在处理当前操作…",
+  "Working on this action…"
+ ],
+ "stageCheck": [
+  "正在核对所选版本…",
+  "Checking selected versions…"
+ ],
+ "stageUpload": [
+  "正在上传到云端…",
+  "Uploading to cloud…"
+ ],
+ "stageDownload": [
+  "正在下载并校验历史…",
+  "Downloading and checking history…"
+ ],
+ "stageBackup": [
+  "正在备份本机历史…",
+  "Backing up local history…"
+ ],
+ "stageWrite": [
+  "正在写入本机历史…",
+  "Writing local history…"
+ ],
+ "stageVerify": [
+  "正在验证原生入口及项目归属…",
+  "Verifying runtime and project assignment…"
+ ],
+ "taskResult": [
+  "本次任务",
+  "Current task"
+ ],
+ "transferFinished": [
+  "同步任务已完成",
+  "Transfer complete"
+ ],
+ "fixAndRetry": [
+  "修复并重试",
+  "Fix and retry"
+ ],
+ "collapseDetails": [
+  "收起详情",
+  "Hide details"
+ ],
+ "uploadCloud": [
+  "上传到云端",
+  "Upload to cloud"
+ ],
+ "importLocal": [
+  "导入到本机",
+  "Import to this device"
+ ],
+ "moreActions": [
+  "更多操作",
+  "More actions"
+ ],
+ "compareVersions": [
+  "比较并选择版本",
+  "Compare versions"
+ ],
+ "selectedScope": [
+  "本次范围",
+  "Selected scope"
+ ],
+ "checkingEntries": [
+  "正在检测本机应用与项目…",
+  "Checking local apps and projects…"
+ ],
+ "preparingPreview": [
+  "正在生成清单，尚未上传或导入…",
+  "Preparing preview. Nothing has been uploaded or imported…"
+ ],
+ "reviewAction": [
+  "查看本次清单",
+  "Review transfer"
+ ],
+ "chooseApp": [
+  "选择打开对话的应用",
+  "Choose where to open the chat"
+ ],
+ "localProject": [
+  "选择本机项目",
+  "Choose a local project"
+ ],
+ "destinationProject": [
+  "导入到本机项目",
+  "Destination project"
+ ],
+ "selectedDestination": [
+  "将关联到",
+  "Assign to"
+ ],
+ "chooseDestination": [
+  "请选择原生项目或仅导入历史",
+  "Choose a project or local history only"
+ ],
+ "chooseMatching": [
+  "选择同名项目",
+  "Choose matching project"
+ ],
+ "historyOnly": [
+  "仅导入本机历史",
+  "Import to local history only"
+ ],
+ "historyOnlyHint": [
+  "仅导入历史时，仍可验证续聊；请在原生应用的对话列表中查找。",
+  "History-only imports can still be verified. Look in the app’s chat list."
+ ],
+ "workingFolderHint": [
+  "在这台电脑上继续工作时使用的文件夹",
+  "Folder to work in on this device"
+ ],
+ "createWorkingFolder": [
+  "创建并使用专用工作目录",
+  "Create a dedicated work folder"
+ ],
+ "chooseFolder": [
+  "正在选择工作目录…",
+  "Choosing a work folder…"
+ ],
+ "checkAgain": [
+  "重新检查",
+  "Check again"
+ ],
+ "checkingStorage": [
+  "正在检查凭据存储…",
+  "Checking credential storage…"
+ ],
+ "detectEnvironment": [
+  "检测本机 Codex 环境",
+  "Detect local Codex apps"
+ ],
+ "detectApplyHint": [
+  "选中需要采用的配置，点击下方按钮一次保存。采用的历史目录也会加入扫描位置。",
+  "Select the settings to apply and save them together. Selected history folders are also added to scan locations."
+ ],
+ "kernelProgram": [
+  "Codex 内核程序",
+  "Codex runtime"
+ ],
+ "kernelMeaning": [
+  "该应用用来读取、继续对话的可执行文件。",
+  "The executable this app uses to load and resume chats."
+ ],
+ "historyFolder": [
+  "Codex 历史目录",
+  "Codex history folder"
+ ],
+ "historyMeaning": [
+  "该应用存放会话和索引的目录，通常是 .codex。",
+  "Where this app stores its chats and indexes, commonly .codex."
+ ],
+ "desktopApp": [
+  "桌面主程序",
+  "Desktop application"
+ ],
+ "liveDatabase": [
+  "运行中内核实际打开的历史库",
+  "History database opened by the running app"
+ ],
+ "liveEnvironment": [
+  "运行中内核的 CODEX_HOME",
+  "Running app’s CODEX_HOME"
+ ],
+ "liveBinary": [
+  "运行中内核，历史目录待核对",
+  "Running app; check the history folder"
+ ],
+ "installedBinary": [
+  "安装位置",
+  "Installation path"
+ ],
+ "savedPath": [
+  "已填写的路径",
+  "Saved path"
+ ],
+ "configured": [
+  "可使用",
+  "Ready"
+ ],
+ "suggested": [
+  "建议新增",
+  "Suggested addition"
+ ],
+ "replaceSaved": [
+  "将替换已有路径",
+  "Replaces your saved path"
+ ],
+ "checkProposedFolder": [
+  "请核对建议的目录",
+  "Check the suggested folder"
+ ],
+ "launchDesktopToDetect": [
+  "还没识别到桌面内核。打开 GPT 桌面端的 Codex 页面后重新检测，或手动选择内核。",
+  "Desktop runtime not identified. Open Codex in your desktop app and detect again, or choose its runtime manually."
+ ],
+ "noCandidate": [
+  "未找到可用程序。可在应用卡片中手动选择。",
+  "No runtime found. Choose it manually in the app card."
+ ],
+ "applySelected": [
+  "应用所选配置",
+  "Apply selected settings"
+ ],
+ "applying": [
+  "正在保存配置…",
+  "Saving settings…"
+ ],
+ "needsCheck": [
+  "待检查",
+  "Needs checking"
+ ],
+ "resolveEntry": [
+  "请先补齐所选应用下方标出的路径，再点重新检查。",
+  "Complete the indicated paths for the selected app, then check again."
+ ],
+ "entry_binary_missing": [
+  "尚未配置内核程序。请检测环境或选择 Codex 可执行文件。",
+  "Runtime missing. Detect the app or choose its Codex executable."
+ ],
+ "entry_home_missing": [
+  "找不到历史目录。请启动该应用一次，或选择已有的数据目录。",
+  "History folder missing. Open the app once or choose its existing data folder."
+ ],
+ "project_assignment_unsupported": [
+  "此内核尚未验证原生项目归属。请选择仅导入历史，或使用已支持的入口。",
+  "Project assignment is unverified for this runtime. Select history only or a supported app."
+ ],
+ "destination_project_missing": [
+  "目标原生项目已变化。请重新检测并选择本机项目。",
+  "Destination project changed. Detect again and choose a local project."
+ ],
+ "project_assignment_failed": [
+  "历史归属验证失败。打开备份与恢复检查本次导入。",
+  "Project verification failed. Review this import in Backups & recovery."
+ ],
+ "working_folder_missing": [
+  "工作目录不存在。请选择本机已有目录，或创建专用目录。",
+  "Working folder unavailable. Choose an existing local folder or create one."
+ ],
+ "project_required": [
+  "请选择本机工作目录，或创建专用工作目录。",
+  "Choose a local working folder or create a dedicated folder."
+ ],
+ "previewOnly": [
+  "预览 · 尚未传输",
+  "Preview · No transfer started"
+ ],
+ "capacityDetails": [
+  "查看云端用量明细",
+  "View storage estimates"
+ ],
+ "skippedScope": [
+  "本次跳过",
+  "Skipped for this action"
+ ],
+ "confirmBoth": [
+  "确认同步并导入到",
+  "Confirm sync and import to"
+ ],
+ "confirmImport": [
+  "确认导入到",
+  "Confirm import to"
+ ],
+ "confirmUploadCount": [
+  "确认上传",
+  "Confirm upload of"
+ ],
+ "editScope": [
+  "调整本次选项",
+  "Change options"
+ ],
+ "resolvePreview": [
+  "请按清单中标出的原因处理：勾选可省略的图片、重新指定文件，或回到上一步调整范围。",
+  "Review the indicated items. Accept eligible omissions, locate a file, or change the selection."
+ ],
+ "nothingEligible": [
+  "此选择没有可执行项。请检查使用中、版本分歧及跳过的对话。",
+  "No eligible transfers. Review busy, conflicting or skipped chats."
+ ],
+ "findParent": [
+  "先在来源设备补齐必要的对话，再刷新预览。缺少的标识",
+  "Restore the required chats on the source and refresh. Missing IDs"
+ ],
+ "replacementFile": [
+  "此次选用的图片",
+  "Replacement for this plan"
+ ],
+ "systemDetail": [
+  "系统返回",
+  "System response"
+ ],
+ "locateImage": [
+  "重新指定图片…",
+  "Locate another image…"
+ ],
+ "replacement_invalid": [
+  "所选文件不是可安全读取的支持图片。请选择普通 PNG、JPEG、GIF 或 WebP 图片。",
+  "Choose a readable regular PNG, JPEG, GIF or WebP image."
+ ],
+ "attachment_image_denied": [
+  "系统拒绝读取这张临时截图。可重新指定图片，或接受省略它。",
+  "Access to this temporary screenshot was denied. Locate a copy or accept its omission."
+ ],
+ "attachment_unreadable_image": [
+  "系统拒绝读取截图",
+  "Screenshot access denied"
+ ],
+ "spaceJoined": [
+  "已加入同步空间",
+  "Connected to your sync space"
+ ],
+ "onlyThisSession": [
+  "本次可以同步，下次打开时需要重新填写凭据。",
+  "You can sync now. Credentials will be needed when you reopen the app."
+ ],
+ "signInAgain": [
+  "重新填写凭据以恢复连接",
+  "Enter credentials to reconnect"
+ ],
+ "connectionNeedsCredentials": [
+  "尚未恢复上次连接",
+  "Previous connection needs attention"
+ ],
+ "credential_test_memory": [
+  "隔离测试使用临时凭据。",
+  "The isolated test uses temporary credentials."
+ ],
+ "credential_service_unavailable": [
+  "系统未完成安全保存。检查桌面密钥环后可重新保存。",
+  "Secure storage did not complete. Check your desktop keyring and try saving again."
+ ],
+ "credential_write_failed": [
+  "无法写入本机连接文件。请检查应用数据目录权限和磁盘空间，然后重新保存。",
+  "Could not write the connection file. Check app data permissions and disk space, then save again."
+ ],
+ "credential_restore_failed": [
+  "上次保存的凭据无法读取。解锁系统密钥环后重开应用，或使用恢复文件重新连接。",
+  "Saved credentials could not be read. Unlock the keyring and reopen the app, or reconnect using your recovery file."
+ ],
+ "checkStorage": [
+  "检查凭据存储",
+  "Check credential storage"
+ ],
+ "saveCredentialsAgain": [
+  "重新保存凭据",
+  "Save credentials again"
+ ],
+ "credentialsRemembered": [
+  "已安全保存，下次打开可自动连接。",
+  "Saved securely. The connection can be restored next time."
+ ],
+ "viewCloud": [
+  "查看云端对话",
+  "View cloud chats"
+ ],
+ "storageCheckResult": [
+  "凭据存储检查结果",
+  "Credential storage result"
+ ],
+ "serviceReachable": [
+  "系统凭据服务可访问。请解锁钱包或登录密钥环，然后重新保存。",
+  "Secret Service is reachable. Unlock your wallet or login keyring, then save again."
+ ],
+ "serviceUnconfirmed": [
+  "当前桌面会话未能确认 Secret Service 可用。",
+  "Secret Service availability could not be confirmed in this desktop session."
+ ],
+ "unlockSystemStore": [
+  "解锁系统钥匙串后重新保存。",
+  "Unlock the system keychain and save again."
+ ],
+ "kwalletHelp": [
+  "在 KDE 系统设置中打开钱包并解锁，再点重新保存。",
+  "Open and unlock your wallet in KDE settings, then save again."
+ ],
+ "secretServiceHelp": [
+  "在图形桌面会话中启用并解锁登录密钥环，再点重新保存。",
+  "Enable and unlock the login keyring in your graphical session, then save again."
+ ],
+ "archSteps": [
+  "Arch Linux 检查步骤",
+  "Arch Linux troubleshooting"
+ ],
+ "archGuide": [
+  "在当前用户的桌面终端检查服务。若缺少服务且希望使用 GNOME 密钥环，安装后重新登录桌面并解锁。",
+  "Check the service in your desktop terminal. If missing and you want GNOME Keyring, install it, sign in to the desktop again and unlock it."
+ ],
+ "openingNative": [
+  "正在打开原生应用…",
+  "Opening native app…"
+ ],
+ "launchRequested": [
+  "已发送打开请求，请在原生应用中核对对话。",
+  "Open request sent. Check the chat in the native app."
+ ],
+ "no_protocol_handler": [
+  "未找到该应用的链接处理程序。请打开原生应用，在所选项目中按标题查找此对话。",
+  "No registered link handler. Open the app and look for this title in the selected project."
+ ],
+ "connectThenReturn": [
+  "请先加入同步空间，连接成功后继续本次操作。",
+  "Join your sync space to continue this action."
+ ],
+ "removeOnlyLocal": [
+  "仅移入回收站的本机对话数",
+  "Local chats to move to trash"
+ ],
+ "checkingRemoval": [
+  "正在检查删除范围与共用附件…",
+  "Checking removal scope and shared attachments…"
+ ],
+ "savedShort": [
+  "已保存",
+  "Saved"
+ ],
+ "refreshDone": [
+  "刷新完成",
+  "Refresh complete"
+ ],
+ "refreshing": [
+  "正在刷新本机和云端…",
+  "Refreshing local and cloud chats…"
+ ],
+ "bucketTestOk": [
+  "Bucket 读写测试成功。点击连接按钮以加入或创建空间。",
+  "Bucket access test passed. Use Connect to join or create the space."
+ ],
+ "pathsApplied": [
+  "已保存所选路径",
+  "Selected paths saved"
+ ],
+ "movingToTrash": [
+  "正在备份并移入本机回收站…",
+  "Backing up and moving to local trash…"
+ ],
+ "taskRestoring": [
+  "正在恢复并核对本机历史…",
+  "Restoring and checking local history…"
+ ],
+ "chooseMatchingApp": [
+  "选择匹配的应用",
+  "Select matching app"
+ ],
+ "selectChatHint": [
+  "点对话标题即可上传、导入或继续；勾选可批量操作。",
+  "Select a title to upload, import or continue. Check boxes for batch actions."
+ ],
+ "refreshEmpty": [
+  "清除筛选",
+  "Clear filters"
+ ],
+ "assignmentVerified": [
+  "已验证原生项目归属",
+  "Native project assignment verified"
+ ],
+ "waitingForApp": [
+  "请在原生应用中查看",
+  "Check in the native app"
+ ],
+ "entrySetup": [
+  "配置应用",
+  "Configure app"
+ ]
+};
+for(const [key,[chinese,english]] of Object.entries(workflowLabels)){zh[key]=chinese;en[key]=english;}
+
+const actionLabels:Record<string,[string,string]>={
+ "desktop": [
+  "GPT 桌面端",
+  "GPT desktop"
+ ],
+ "editPaths": [
+  "更改路径",
+  "Edit paths"
+ ],
+ "userHandoff": [
+  "换机与文件夹的说明由你在原生对话中提供。",
+  "Describe your new device and folders yourself in the native chat."
+ ],
+ "replacementUndo": [
+  "撤销替换",
+  "Undo replacement"
+ ],
+ "projectLabelVerified": [
+  "已验证原生项目归属",
+  "Project assignment verified"
+ ],
+ "progressDetails": [
+  "任务详情",
+  "Task details"
+ ],
+ "restartDetection": [
+  "重新检测",
+  "Detect again"
+ ],
+ "returnManual": [
+  "返回配置",
+  "Back to setup"
+ ],
+ "destinationAmbiguous": [
+  "同一历史目录选了不同的原生项目。请统一项目或分开导入。",
+  "Select one project per shared history folder or import separately."
+ ],
+ "restoreActive": [
+  "正在恢复并核对历史…",
+  "Restoring and checking history…"
+ ],
+ "restoredLocal": [
+  "本机历史已恢复，请重新打开 Codex 检查对话。",
+  "Local history restored. Reopen Codex to check your chats."
+ ],
+ "joiningSpace": [
+  "正在连接同步空间…",
+  "Connecting to your sync space…"
+ ],
+ "credential_reset": [
+  "已断开。使用已有空间的恢复文件可以重新连接。",
+  "Disconnected. Reconnect using your existing recovery file."
+ ],
+ "readingVersions": [
+  "正在比较云端分支…",
+  "Comparing cloud branches…"
+ ],
+ "chooseVersion": [
+  "使用这个版本…",
+  "Use this version…"
+ ],
+ "refreshEmpty": [
+  "清除筛选",
+  "Clear filters"
+ ],
+ "cloudEmptyHint": [
+  "当前筛选下没有云端对话。可清除筛选；若仍为空，核对两端的空间 ID 并刷新。",
+  "No cloud chats match this view. Clear filters. If empty, compare space IDs on both devices and refresh."
+ ],
+ "launchManualHint": [
+  "导入后请手动打开原生应用，按项目或标题查找。",
+  "After import, open the native app and find the project or title."
+ ]
+};
+for(const [key,[chinese,english]] of Object.entries(actionLabels)){zh[key]=chinese;en[key]=english;}
+
+zh.noChangesToApply='没有选中需要修改的配置。现有配置可继续使用。';en.noChangesToApply='No changes selected. Existing settings remain available.';
+zh.fillConnectionFields='先填写 Bucket、S3 地址和一对 R2 访问凭据。加入已有空间时，同时载入恢复文件。';en.fillConnectionFields='Enter the bucket, S3 endpoint and both R2 credentials. Load your recovery file when joining an existing space.';
+zh.launchManualHint='此入口可能需要手动打开应用，再按项目或标题查找。';en.launchManualHint='This app may need to be opened manually. Find the chat by project or title.';

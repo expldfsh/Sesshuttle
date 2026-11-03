@@ -1,7 +1,8 @@
+import {bundleBytes} from '../../core/bundle.mjs';
 import {credentialHealth,persistConnection,retrieveConnection} from './credentials';
 import {detectEnvironment,liveLinuxTargets} from '../../core/discovery.mjs';
 import {localProjects} from '../../core/local-projects.mjs';
-import {binaryVersion} from '../../core/native.mjs';
+import {binaryVersion,assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
@@ -53,6 +54,14 @@ async function destinationInfo(targets:any){
    checked.runtime=await binaryVersion(binary);
    Object.assign(checked,await localProjects(await canonical(home)));
    checked.supported=checked.supported&&checked.runtime.startsWith('0.166.0');
+   if(entry!=='cli'){
+     checked.manualOpen=await canonical(home)!==path.join(os.homedir(),'.codex');
+     if(process.platform==='linux'){
+       const scheme=entry==='desktop'?'codex':'vscode';
+       const handler=await exec('xdg-mime',['query','default','x-scheme-handler/'+scheme],{timeout:2500}).then(v=>v.stdout.trim(),()=>'');
+       checked.manualOpen ||= !handler;
+     }
+   }
   }catch(e:any){checked.error=e.code==='ENOENT'?'entry_home_missing':publicError(e).code;}
   output[entry]=checked;
  }
@@ -129,9 +138,29 @@ async function request(method:string,args:any){switch(method){
  case 'saveConfig':return saveConfig(args);
  case 'detectPaths':return detectEnvironment({config:engine.config(),testRoot} as any);
  case 'destinationInfo':return destinationInfo(args.targets??engine.config().targets);
+ case 'versionDetails':{
+  const head=engine.remote.find((h:any)=>h.logicalId===args.id);requireThat(head&&engine.vault,'storage_not_connected');
+  return Promise.all(head.tips.map(async(v:string)=>{const p=await engine.vault.version(v);return {id:v,title:p.title,device:p.device?.name,at:p.uploadedAt,bytes:bundleBytes(p),files:p.files.length,lastMessage:p.messages?.at(-1)?.text?.slice(0,180)};}));
+ }
+ case 'checkClosed':if(!testRoot)await assertCodexClosed();return true;
+ case 'validateFolders':for(const projectId of args.projectIds??[]){
+   const folder=engine.config().bindings?.[projectId];requireThat(folder && (await fs.stat(folder).catch(()=>null))?.isDirectory(),'working_folder_missing',folder??'');
+  }return true;
+ case 'createWorkspace':{
+   const row=engine.rows?.find((r:any)=>r.projectId===args.projectId);
+   requireThat(row&&/^[0-9a-f-]{36}$/i.test(args.projectId),'invalid_selection');
+   const documents=await canonical(testRoot??app.getPath('documents'));
+   const label=String(row.originProject?.name||'Project').replace(/[^\\p{L}\\p{N} _-]/gu,'_').slice(0,70);
+   const dest=await inside(documents,path.join(documents,'Sesshuttle Workspaces',label+'-'+args.projectId.slice(0,8)));
+   await fs.mkdir(dest,{recursive:true,mode:0o700});return canonical(dest);
+ }
  case 'credentialHealth':return credentialHealth();
  case 'retryCredentialSave':return saveCurrentCredentials();
- case 'refresh':return engine.refresh();
+ case 'refresh':{
+  const result=await engine.refresh();
+  if(testRoot)await atomic(path.join(testRoot,'launch-check.json'),JSON.stringify({version:app.getVersion(),platform:process.platform,arch:process.arch,rendererReady:true,rows:result.rows.length,scanErrors:result.errors.length}));
+  return result;
+ }
  case 'pickDirectory':{const r=await dialog.showOpenDialog(window,{properties:['openDirectory','createDirectory']});return r.canceled?null:r.filePaths[0];}
  case 'pickBinary':{const r=await dialog.showOpenDialog(window,{properties:['openFile']});return r.canceled?null:r.filePaths[0];}
  case 'pickImage':{
@@ -139,7 +168,7 @@ async function request(method:string,args:any){switch(method){
   if(r.canceled)return null;attachmentPicks.add(r.filePaths[0]);return r.filePaths[0];
  }
  case 'connect':return connect(args);
- case 'disconnect':requireThat(!engine.running,'task_running');engine.vault=null;secrets=null;state.set('connection',null);return {status:'disconnected'};
+ case 'disconnect':requireThat(!engine.running,'task_running');engine.vault=null;secrets=null;recovery=null;state.set('credentialError',null);state.set('connection',null);return {status:'disconnected'};
  case 'importRecovery':{const r=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'sesshuttle',extensions:['json']}]});if(r.canceled)return null;
   const stat=await fs.stat(r.filePaths[0]);requireThat(stat.size<16384,'invalid_key');const x=JSON.parse(await fs.readFile(r.filePaths[0],'utf8'));requireThat(x.format===1&&typeof x.space==='string','invalid_key');parseKey(x.key);recovery=x;return {space:x.space,endpoint:x.endpoint,bucket:x.bucket};}
  case 'exportRecovery':{requireThat(secrets&&engine.vault,'storage_not_connected');const r=await dialog.showSaveDialog(window,{defaultPath:'sesshuttle-recovery.json'});if(r.canceled||!r.filePath)return null;
@@ -173,9 +202,11 @@ if(primaryInstance)app.whenReady().then(async()=>{
  engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);await loadSecrets();
  updateMenu();updateTheme();
  session.defaultSession.setPermissionRequestHandler((_w,_p,callback)=>callback(false));
- window=new BrowserWindow({width:1320,height:860,minWidth:980,minHeight:680,title:'sesshuttle',backgroundColor:getTheme(state.get('config')?.theme).colors.bg,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+ window=new BrowserWindow({width:1320,height:860,minWidth:780,minHeight:600,title:'sesshuttle',backgroundColor:getTheme(state.get('config')?.theme).colors.bg,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});
- ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');return {ok:true,data:await request(method,args)};}catch(e){return {ok:false,error:publicError(e)};}});
+ let modifying=false;
+ const exclusive=new Set(['execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','previewDelete','removeLocal','restoreDeleted','restore']);
+ ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');const guarded=exclusive.has(method);if(guarded){requireThat(!modifying,'task_running');modifying=true;}try{return {ok:true,data:await request(method,args)};}finally{if(guarded)modifying=false;}}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();engine.cancel();window.webContents.send('sesshuttle:closePending');}});
  await window.loadFile(renderer);
 }).catch(error=>{dialog.showErrorBox('sesshuttle',publicError(error).code);app.quit();});

@@ -27,5 +27,7 @@ export async function checkLocalProject(home, projectId, runtime) {
   if (!projectId) return;
   requireThat(runtime.startsWith('0.166.0'), 'project_assignment_unsupported');
   const catalog = await localProjects(home);
-  requireThat(catalog.supported && catalog.projects.some(p => p.id === projectId), 'destination_project_missing');
+  const match=catalog.projects.find(p=>p.id===projectId);
+  requireThat(catalog.supported && match, 'destination_project_missing');
+  return match.name;
 }

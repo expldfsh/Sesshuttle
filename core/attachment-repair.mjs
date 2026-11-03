@@ -19,6 +19,7 @@ export async function repairDownload(original, replacements, vault, stage) {
      requireThat(await attachmentUnchanged(report),'stale_plan');
      resolvedIssues.add(attachmentIssue(previous.status));
      file.artifacts.push(asset);
+     delete previous.readError;
      Object.assign(previous,report,{hash:asset.hash});
    }
    file.issues=(file.issues??[]).filter(code=>!resolvedIssues.has(code)||file.attachmentReport.some(a=>attachmentIssue(a.status)===code));

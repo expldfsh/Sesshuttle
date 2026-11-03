@@ -108,6 +108,6 @@ export function Select({label, value, options, onChange, disabled = false}: Prop
         onPointerMove={()=>setActive(index)} onClick={()=>choose(index)}>
         <span>{option.label}</span><span className="select-check" aria-hidden="true">{value === option.value ? '✓' : ''}</span>
       </div>)}
-    </div>, document.body)}
+    </div>, trigger.current?.closest('[role="dialog"]')??document.body)}
   </>;
 }

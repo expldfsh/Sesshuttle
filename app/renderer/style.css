@@ -254,3 +254,41 @@ td small { display: block; font-size: 13px; color: var(--muted); margin-top: 5px
 .detected-path code {overflow-wrap:anywhere;flex:1;min-width:200px;font-family:inherit}
 .scope-list {display:grid;gap:20px}.scope-item {padding:16px;border:1px solid var(--line);border-radius:8px}.scope-file {border-top:1px solid var(--line);padding:12px 0;margin-top:12px}.scope-file code,.scope-item code,.attachment-row code {display:block;overflow-wrap:anywhere;white-space:normal;font:inherit;font-size:14px}.scope-file>small {display:block;margin:4px 0}.attachment-row {padding:10px 12px;margin-top:8px;background:var(--panel);border-radius:6px}.attachment-row>span {font-size:14px}.scope-file summary {cursor:pointer;margin:8px 0}.amber-text {color:var(--warning)}.sync-plan .card-title {gap:16px;align-items:flex-start;flex-wrap:wrap}.search-row {flex-wrap:wrap}.list-footer {flex-wrap:wrap;gap:8px}.scope-item strong {overflow-wrap:anywhere}.sync-plan .modal-actions {position:sticky;bottom:-24px;background:var(--bg);padding:16px 0;margin-bottom:0}
 .danger-button {color:var(--danger);border-color:var(--danger)}.path-block {display:block;overflow-wrap:anywhere;font:inherit;font-size:14px;margin:12px 0}.topbar .actions {flex-wrap:wrap}.topbar .actions button {white-space:nowrap}
+
+/* Keep the next action and its outcome visible in the same workspace. */
+.selection-bar,.credential-strip,.storage-state,.task-feedback,.setup-repair,.setup-project,.candidate-group {
+  padding:14px 18px; border:1px solid var(--line); border-radius:9px; background:var(--panel); margin-bottom:16px;
+}
+.selection-bar,.credential-strip,.task-heading,.input-action,.entry-choices,.candidate {display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.selection-bar {position:sticky;top:0;z-index:3;border-color:var(--accent);background:var(--bg)}
+.selection-bar small,.entry-choice small,.entry-fields small,.candidate small,.setup-project small,.task-items small {display:block;color:var(--muted)}
+.conversation-actions {display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 12px}
+.more-actions summary,.candidate-group summary,details>summary {color:var(--accent);cursor:pointer}
+.more-actions[open]>div {display:flex;flex-wrap:wrap;gap:6px}
+.persistent-task {position:sticky;bottom:0;z-index:4;max-height:42vh;overflow:auto;background:var(--bg);border-radius:10px;box-shadow:0 -4px 16px var(--shadow)}
+.task-feedback {margin:0;border-left:4px solid var(--accent)}
+.task-feedback.success,.joined {border-left:4px solid var(--success)}
+.task-feedback.attention,.credential-strip,.setup-repair {border-left:4px solid var(--warning)}
+.task-heading strong {font-size:18px}.task-heading .text-button {margin-left:auto}
+.task-items {max-height:160px;overflow:auto;margin:8px 0}.task-items p {margin:4px 0}
+.task-items code, .flow code,.candidate code,.storage-state code {display:block;overflow-wrap:anywhere;white-space:normal;font:inherit;font-size:14px}
+progress {width:100%;height:7px;accent-color:var(--accent);display:block;margin:8px 0}
+.flow-activity,.working {padding:10px 16px;border:1px solid var(--accent);border-radius:7px;background:var(--panel);color:var(--fg)}
+.flow-activity {position:sticky;bottom:65px;z-index:2}
+.entry-choice {flex:1;min-width:145px;border:1px solid var(--line);padding:12px;border-radius:7px;cursor:pointer}
+.entry-choice:has(:checked),.candidate:has(:checked){border-color:var(--accent);background:var(--highlight)}
+.entry-choice input,.candidate input {margin-right:8px}
+.entry-fields label,.candidate span,.input-action input {flex:1;min-width:0}
+.entry-fields label {display:block;margin:12px 0}.candidate {border:1px solid var(--line);border-radius:7px;padding:10px;margin:8px 0}
+.detection-layer {z-index:13}.modal-actions {position:sticky;bottom:-26px;background:var(--bg);padding:12px 0;flex-wrap:wrap}
+.credential-note {border-left:3px solid var(--warning);padding-left:12px}.repair-details {margin-top:12px}
+.setup-project .field,.setup-project>.select-trigger,.setup-project>div {margin:12px 0}
+.setup-project .select-trigger {max-width:100%}.preview-state{color:var(--accent)!important}
+.detail-head>.amber-text {display:block}.detail dd small {display:block}.actions{flex-wrap:wrap}
+@media(max-width:1150px){.workspace:has(.detail-head) .list-pane {max-height:40vh}.selection-bar{position:relative}.persistent-task{max-height:36vh}}
+
+.destination-summary {margin:9px 0}.destination-summary small,.task-items small,.entry-state b {display:block}
+.sync-plan .scope-list {margin-bottom:12px}.sync-plan .attachment-row {scroll-margin-block:40px 100px}
+.working {position:sticky;top:8px;z-index:5;box-shadow:0 2px 12px var(--shadow)}
+.modal-actions button {min-height:40px}
+@media(max-width:980px){.sidebar{width:128px;padding:12px 8px}.content,.topbar{padding:14px}.topbar{gap:8px}.modal-backdrop{padding:12px}.modal{padding:18px}.entry-choices{align-items:stretch}.workspace{min-width:0}.detail{scroll-margin-top:12px}.modal-actions{bottom:-18px}}
