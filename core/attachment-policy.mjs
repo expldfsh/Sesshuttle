@@ -1,7 +1,7 @@
 import {hash,requireThat} from './util.mjs';
 // Only explicitly inventoried local images can be omitted. Opaque legacy
 // warnings, unknown resources, damaged history and missing dependencies stay fatal.
-const soft={missing:'attachment_missing',approval_required:'attachment_approval'};
+const soft=Object.freeze(Object.assign(Object.create(null),{missing:'attachment_missing',approval_required:'attachment_approval'}));
 export function attachmentReview(payload){
  const optional=[],blocking=new Set(),allIssues=new Set(payload?.issues??[]),covered=new Set();
  for(const f of payload?.files??[]){
