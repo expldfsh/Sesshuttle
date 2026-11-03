@@ -39,7 +39,7 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
   const noWork=!!plan&&!totalLocal&&!totalCloud;
   const changed=Object.keys(versions).length>0;
   const blocked=groups.some((g:any)=>g.blockers.length);
-  const needUpgrade=totalCloud>0&&plan?.cloud?.upgrade;
+  const needUpgrade=totalCloud>0&&plan?.cloud?.upgrade&&!previous?.upgradeAccepted;
   const needPermanent=q.mode==='purge';
   const canRun=!pending&&!changed&&!blocked&&!noWork&&(!needPermanent||permanent)&&(!needUpgrade||upgrade);
   function toggleVersion(row:any,version:string,checked:boolean){
@@ -68,7 +68,7 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
       {!!plan.selected.length&&<details><summary>{t('directSelections')} ({plan.selected.length})</summary><ul>{plan.selected.map((r:any)=><li key={r.id}>{r.title} · {r.project} · {t(r.local?(r.remote?'bothCopies':'thisDevice'):'cloud')}{q.scope==='local'&&!r.local||q.scope==='cloud'&&!r.remote?' · '+t('outsideRemoval'):''}</li>)}</ul></details>}
       {groups.map((g:any)=><section key={g.home} className="removal-section"><h3>{t('thisDevice')} · {plan.device}</h3>
         {g.binPath&&<div><b>{t('binStorageFolder')}</b><code>{g.binPath}</code><small>{t('nativeHistoryLocation')}</small></div>}<code>{g.home}</code>{g.entries?.length>0&&<p>{t('sharingEntries')} {g.entries.map(t).join(' + ')}</p>}
-        {q.kind==='bin'&&<p>{t('onlyBinCopy')}</p>}
+        {q.kind==='bin'&&<p>{t('onlyBinCopy')}</p>}{(q.kind==='live'||q.mode==='restore')&&<p>{t('closeBeforeLocal')}</p>}
         <ul>{g.rows.map((r:any)=><li key={r.id}><b>{r.title}</b> · {t(r.kind==='background'?'backgroundChats':'mainChats')} · {r.originProject?.name??'—'}{r.indexOnly&&<small>{t('indexOnlyRemoval')}</small>}</li>)}</ul>
         <p>{t('listedFilesSize')} <b>{size(g.bytes)}</b> · {t(q.mode==='trash'?'binUsesSpace':q.mode==='purge'?'fileBytesHint':'restoreCopy')}</p>
         {!!g.blockers.length&&<div className="warning-box"><b>{t('trash_dependencies')}</b><ul>{g.blockers.map((b:any)=><li key={b.id}>{b.title}</li>)}</ul>
@@ -118,7 +118,7 @@ export function RemovalResult({job,t,onRetry,onBackups,onDismiss,busy}:any){
   return <section className={'task-feedback '+(running?'active':job.status==='completed'?'success':'attention')} aria-label={t('removeChats')}>
     <div className="task-heading"><strong role="status">{t(label)} · {t(modeKey(job.mode))}</strong>{!running&&onDismiss&&<button onClick={onDismiss} aria-label={t('close')}>×</button>}</div>
     {running&&<progress/>}<small>{job.titles?.join(' · ')}</small>
-    {job.sides.map((s:any)=><p key={s.home??s.side}><b>{t(s.side==='local'?'thisDevice':'currentSpace')} · {t(({done:'sideDone',failed:'sideFailed',running:interrupted?'removeInterrupted':'sideRunning',waiting:'sideWaiting'} as any)[s.status])}</b> · {s.count} {t(s.side==='local'?'chatCountUnit':'backupVersions')}
+    {job.sides.map((s:any)=><p key={s.home??s.side}><b>{t(s.side==='local'?'thisDevice':'currentSpace')} · {t(({done:'sideDone',failed:'sideFailed',cleanup:'sideCleanup',running:interrupted?'removeInterrupted':'sideRunning',waiting:'sideWaiting'} as any)[s.status])}</b> · {s.count} {t(s.side==='local'?'chatCountUnit':'backupVersions')}
       {s.progress&&s.status==='running'&&<small> · {s.progress[0]}/{s.progress[1]} {t('cloudObjects')}</small>}{s.home&&<small> {s.home}</small>}{s.error&&<small className="reason">{t(s.error.code)} {s.error.detail}</small>}</p>)}
     {job.error&&!job.sides.some((s:any)=>s.error)&&<p>{t(job.error.code)}</p>}
     <div className="actions">{!running&&['attention','partial','checking','running','interrupted'].includes(job.status)&&<button className="primary" disabled={busy} onClick={()=>onRetry(job.id)}>{t('reviewRemaining')}</button>}

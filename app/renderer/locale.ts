@@ -571,6 +571,8 @@ zh.local_path_missing='所选文件或目录已不存在。请重新选择可用
 zh.local_in_use='目标正在被使用。请退出占用该历史的应用，再重新检查。';en.local_in_use='The destination is in use. Close the app using that history and check again.';
 
 const removalLabels:Record<string,[string,string]>={
+  closeBeforeLocal: ["确认前请保存工作并退出使用这份历史的 Codex。需要写入本机历史时，程序会先检查占用。","Save your work and quit Codex apps using this history before confirming. The app checks for open writers before changing local history."],
+  sideCleanup: ["清单已登记，云端操作待收尾","Review recorded. Cloud operation needs to finish."],
   assetDecision_recycledShared: ["此版本移入回收站。其他版本的附件保留。","This version is recycled. Other versions retain the attachment."],
   trash_uncertain: ["有历史无法完整核对附件归属，保留在原位置","Ownership could not be verified for all history. File retained."],
   chatCountUnit: ["条对话","chats"],

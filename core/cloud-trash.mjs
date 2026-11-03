@@ -68,9 +68,10 @@ export async function cloudRemovalPlan(vault,request){
   const marker=await vault.open();requireThat(!marker.pending,'cloud_cleanup_pending');
   const {heads,inventory,versions}=await catalog(vault),selected=new Set(),changes=[],items=[];
   const references=new Map();
+  function addReference(id,ref){if(!references.has(id))references.set(id,[]);references.get(id).push(ref);}
   for(const h of heads){
-    for(const v of h.versions)references.set(v.id,{title:h.title,logicalId:h.logicalId,place:'cloudActive',at:v.at});
-    for(const b of h.trash??[])for(const v of b.versions)references.set(v.id,{title:b.title,logicalId:h.logicalId,place:'cloudBin',at:v.at});
+    for(const v of h.versions)addReference(v.id,{title:h.title,logicalId:h.logicalId,place:'cloudActive',at:v.at});
+    for(const b of h.trash??[])for(const v of b.versions)addReference(v.id,{title:b.title,logicalId:h.logicalId,place:'cloudBin',binId:b.id,at:v.at});
   }
   for(const logical of unique(ids)){
     const head=heads.find(h=>h.logicalId===logical),bin=head?.trash?.find(b=>b.id===binId);
@@ -95,19 +96,22 @@ export async function cloudRemovalPlan(vault,request){
   const keepChunks=new Set(),keepAssets=new Map(),wantedChunks=new Set(),retained=[];
   const affectedIds=new Set([...ids,...(request.inspectIds??[])]);
   for(const v of selected)for(const f of versions.get(v).files)affectedIds.add(f.id);
+  const exclusiveVersions=new Set();
   for(const [id,v] of versions){
-    if(selected.has(id)){for(const c of v.chunks)wantedChunks.add(c);continue;}
+    const refs=references.get(id)??[{title:v.header.title,place:'unlistedVersion',logicalId:v.header.logicalId}];
+    const kept=refs.filter(r=>!selected.has(id)||(isBin(action)?r.binId!==binId:r.place!=='cloudActive'));
+    if(selected.has(id)){for(const c of v.chunks)wantedChunks.add(c);if(!kept.length){exclusiveVersions.add(id);continue;}}
     for(const c of v.chunks)keepChunks.add(c);
     for(const f of v.files)for(const a of f.assets)if(a.hash){
       if(!keepAssets.has(a.hash))keepAssets.set(a.hash,new Map());
-      keepAssets.get(a.hash).set(id,{id,title:references.get(id)?.title??v.header.title,place:references.get(id)?.place??'unlistedVersion'});
+      keepAssets.get(a.hash).set(id,{id,title:kept[0].title,place:kept[0].place});
     }
-    if(v.files.some(f=>affectedIds.has(f.id)))retained.push({id,...(references.get(id)??{title:v.header.title,place:'unlistedVersion',logicalId:v.header.logicalId}),members:v.files.filter(f=>affectedIds.has(f.id)).map(f=>f.title)});
+    if(v.files.some(f=>affectedIds.has(f.id)))for(const ref of kept)retained.push({id,...ref,members:v.files.filter(f=>affectedIds.has(f.id)).map(f=>f.title)});
   }
   let freeBytes=0;
   const erase=[];
   if(purges(action)){
-    for(const id of selected)erase.push('versions/'+id);
+    for(const id of exclusiveVersions)erase.push('versions/'+id);
     for(const c of wantedChunks)if(!keepChunks.has(c))erase.push('blobs/'+c);
     for(const key of erase)freeBytes+=inventory.get(vault.prefix+key)??0;
   }

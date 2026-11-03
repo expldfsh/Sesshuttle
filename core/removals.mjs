@@ -101,11 +101,12 @@ export class Removals{
     requireThat(plan.local.length||plan.cloud?.count,'nothing_to_remove');
     requireThat(plan.local.every(p=>!p.blockers.length),'trash_dependencies');
     let job=this.state.get('removal/'+token);
-    requireThat(!plan.cloud?.upgrade||!plan.cloud?.count||job?.sides.some(s=>s.side==='cloud'&&s.status==='done')||upgrade===true,'cloud_upgrade_required');
+    requireThat(!plan.cloud?.upgrade||!plan.cloud?.count||job?.upgradeAccepted||job?.sides.some(s=>s.side==='cloud'&&s.status==='done')||upgrade===true,'cloud_upgrade_required');
     requireThat(!job||job.status!=='completed','stale_plan');
     job??={id:token,at:new Date().toISOString(),scope:q.scope,mode:q.mode,kind:q.kind,space:plan.space,
       titles:unique([...plan.selected.map(r=>r.title),...plan.local.flatMap(p=>p.rows.map(r=>r.title)),...(plan.cloud?.items??[]).map(r=>r.title)]),
       sides:[...(plan.cloud?.count?[{side:'cloud',status:'waiting',count:plan.cloud.count}]:[]),...plan.local.map(g=>({side:'local',home:g.home,token:g.token,status:'waiting',count:g.rows.length}))]};
+    job.upgradeAccepted=!!(job.upgradeAccepted||upgrade);
     this.state.set('removal-plan/'+token,plan);this.plans.delete(token);this.engine.running=true;this.activeId=token;
     const tickets=new Map();
     const save=()=>{this.state.set('removal/'+token,job);this.onProgress(job);};
@@ -137,7 +138,7 @@ export class Removals{
       }
       for(const side of job.sides){
         if(side.status==='done')continue;current=side;side.started=true;side.status='running';job.status='running';save();
-        if(side.side==='cloud')await changeCloud(this.engine.vault,cloudRequest(q,plan.local),plan.cloud.signature,token,{upgrade,progress:(n,total)=>{side.progress=[n,total];this.onProgress(job);}});
+        if(side.side==='cloud')await changeCloud(this.engine.vault,cloudRequest(q,plan.local),plan.cloud.signature,token,{upgrade:job.upgradeAccepted,progress:(n,total)=>{side.progress=[n,total];this.onProgress(job);}});
         else{
           const g=plan.local.find(p=>p.token===side.token);
           if(q.kind==='bin'&&q.mode==='restore')await this.trash.restore(g.token);
@@ -149,7 +150,18 @@ export class Removals{
         side.status='done';delete side.error;save();
       }
       job.status='completed';this.state.set('removal-plan/'+token,null);
-    }catch(e){const error=publicError(e);if(current){current.status='failed';current.error=error;}job.error=error;job.status=job.sides.some(s=>s.status==='done')?'partial':'attention';}
+    }catch(e){
+      const error=publicError(e);
+      if(current){
+        current.status='failed';current.error=error;
+        if(current.side==='cloud'&&current.started){
+          const marker=await this.engine.vault.open().catch(()=>null);
+          if(marker?.pending?.id===token)current.status='cleanup';
+          else if(marker?.completed?.includes(token)){current.status='done';delete current.error;}
+        }
+      }
+      job.error=error;job.status=job.sides.some(s=>['done','cleanup'].includes(s.status))?'partial':'attention';
+    }
     finally{this.engine.running=false;this.activeId=null;save();}
     return job;
   }
