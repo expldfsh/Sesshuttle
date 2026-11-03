@@ -80,8 +80,13 @@ async function continueEntry({logicalId,entry}:any){requireThat(['desktop','cli'
  }
  const error=await shell.openPath(file);requireThat(!error,'open_failed');return {status:'opened'};
 }
+// Settings can display the identifier of the credentials already unlocked on this device.
+function connectionForSettings(connection:any, activeSecrets:any){
+ if(!connection)return null;
+ return {...connection,accessKeyId:activeSecrets?.credentials?.accessKeyId??''};
+}
 async function request(method:string,args:any){switch(method){
- case 'init':return {config:engine.config(),device:state.get('device'),connection:state.get('connection'),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
+ case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
  case 'saveConfig':return saveConfig(args);
  case 'detectPaths':{const detected=await discover();const valid=async(p:string,kind:string)=>{try{const s=await fs.stat(p);return kind==='directory'?s.isDirectory():s.isFile();}catch{return false;}};const sourceHomes=[...new Set([...detected.sourceHomes,...(!testRoot&&process.env.CODEX_HOME?[process.env.CODEX_HOME]:[]),...engine.config().sourceHomes])];return {sourceHomes:await Promise.all(sourceHomes.map(async p=>({path:p,available:await valid(p,'directory')}))),targets:await Promise.all(['desktop','cli','ide'].map(async entry=>({entry,...detected.targets[entry],available:await valid(detected.targets[entry].binary,'file'),currentAvailable:await valid(engine.config().targets[entry]?.binary??'','file')}))),projects:await Promise.all((engine.rows??[]).filter((r:any)=>r.kind!=='background').map(async(r:any)=>({projectId:r.projectId,path:r.project,available:await valid(r.project,'directory')})))};}
 
