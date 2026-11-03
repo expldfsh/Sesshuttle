@@ -7,7 +7,7 @@ export class R2Store {
   requireThat(allowLocal?(url.hostname==='127.0.0.1'):(url.protocol==='https:'&&/^[a-z0-9]+(?:\.[a-z]+)?\.r2\.cloudflarestorage\.com$/.test(url.hostname)),'invalid_endpoint');
   requireThat(!url.username&&!url.password&&!url.search&&!url.hash&&(url.pathname==='/'||url.pathname===''),'invalid_endpoint');
   requireThat(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(config.bucket),'invalid_bucket');
-  this.bucket=config.bucket;
+  this.bucket=config.bucket;this.endpoint=url.origin;
   this.client=new S3Client({endpoint:url.origin,region:'auto',forcePathStyle:true,maxAttempts:2,
    credentials:{accessKeyId:config.accessKeyId,secretAccessKey:config.secretAccessKey},
    requestChecksumCalculation:'WHEN_REQUIRED',responseChecksumValidation:'WHEN_REQUIRED',

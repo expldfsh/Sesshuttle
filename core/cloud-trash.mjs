@@ -92,12 +92,17 @@ export async function cloudRemovalPlan(vault,request){
       versions:available.map(v=>({id:v.id,at:v.at,device:v.device?.name??v.device?.id,selected:picked.includes(v.id),current:head.tips.includes(v.id),bytes:versions.get(v.id).header.bytes,files:versions.get(v.id).files})),
       nextTips:tips.map(id=>{const info=metaRows(head).find(v=>v.id===id);return {id,at:info?.at,device:info?.device?.name??info?.device?.id};})});
   }
-  const keepChunks=new Set(),keepAssets=new Set(),wantedChunks=new Set(),retained=[];
+  const keepChunks=new Set(),keepAssets=new Map(),wantedChunks=new Set(),retained=[];
+  const affectedIds=new Set(ids);
+  for(const v of selected)for(const f of versions.get(v).files)affectedIds.add(f.id);
   for(const [id,v] of versions){
     if(selected.has(id)){for(const c of v.chunks)wantedChunks.add(c);continue;}
     for(const c of v.chunks)keepChunks.add(c);
-    for(const f of v.files)for(const a of f.assets)if(a.hash)keepAssets.add(a.hash);
-    if(v.files.some(f=>ids.includes(f.id)))retained.push({id,...(references.get(id)??{title:v.header.title,place:'unlistedVersion',logicalId:v.header.logicalId}),members:v.files.filter(f=>ids.includes(f.id)).map(f=>f.title)});
+    for(const f of v.files)for(const a of f.assets)if(a.hash){
+      if(!keepAssets.has(a.hash))keepAssets.set(a.hash,new Map());
+      keepAssets.get(a.hash).set(id,{id,title:references.get(id)?.title??v.header.title,place:references.get(id)?.place??'unlistedVersion'});
+    }
+    if(v.files.some(f=>affectedIds.has(f.id)))retained.push({id,...(references.get(id)??{title:v.header.title,place:'unlistedVersion',logicalId:v.header.logicalId}),members:v.files.filter(f=>affectedIds.has(f.id)).map(f=>f.title)});
   }
   let freeBytes=0;
   const erase=[];
@@ -111,7 +116,7 @@ export async function cloudRemovalPlan(vault,request){
       const {chunks,...asset}=a;
       const shared=keepAssets.has(a.hash),partial=chunks?.some(c=>keepChunks.has(c));
       const disposition=a.missing?'absent':!v.selected?'kept':action==='trash'?'recycled':action==='restore'?'restored':shared?'shared':partial?'partlyShared':'removed';
-      return {...asset,disposition};
+      return {...asset,disposition,sharedWith:shared?[...keepAssets.get(a.hash).values()]:[]};
     })}));
   }
   const signature=hash(JSON.stringify({space:vault.space,format:marker.format,request,
