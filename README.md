@@ -2,13 +2,13 @@
 
 在 Mac 和 Linux 之间接着做同一个 Codex 对话。把选中的对话加密备份到自己的 Cloudflare R2，再导入另一台电脑的 GPT 桌面端、CLI 或 VS Code。
 
-## 安装 0.2.0
+## 安装 0.3.0
 
 | 电脑 | 本地安装包 | 打开方式 |
 | --- | --- | --- |
-| Apple Silicon Mac（包括 M3） | `release/sesshuttle-0.2.0-mac-arm64.dmg` | 打开镜像，将 Sesshuttle 拖到“应用程序”。本地构建未做 Developer ID 签名和公证。 |
-| Arch 等 x86_64 Linux | `release/sesshuttle-0.2.0-linux-x64.tar.gz` | 解压，在图形桌面启动其中的 `sesshuttle`。 |
-| Debian / Ubuntu x86_64 | `release/sesshuttle-0.2.0-linux-amd64.deb` | 用系统软件安装器安装。 |
+| Apple Silicon Mac（包括 M3） | `release/sesshuttle-0.3.0-mac-arm64.dmg` | 打开镜像，将 Sesshuttle 拖到“应用程序”。本地构建未做 Developer ID 签名和公证。 |
+| Arch 等 x86_64 Linux | `release/sesshuttle-0.3.0-linux-x64.tar.gz` | 解压，在图形桌面启动其中的 `sesshuttle`。 |
+| Debian / Ubuntu x86_64 | `release/sesshuttle-0.3.0-linux-amd64.deb` | 用系统软件安装器安装。 |
 
 升级时退出旧版并替换应用，保留应用数据。两台电脑沿用已有 Bucket、同步空间和恢复文件。Comic Neue 和霞鹜文楷已内置。
 
@@ -21,7 +21,13 @@
 
 如果 Linux 提示本次凭据只保留在内存，当前连接仍可同步。在「设置 → 检查凭据存储」查看原因，解锁系统密钥环后点「重新保存凭据」。
 
-[中文配置和操作指南](docs/guides/zh-CN/quick-start.md) · [用已有云端对话在 Arch 验收](docs/guides/zh-CN/linux-acceptance.md) · [English guide](docs/guides/en/quick-start.md) · [支持范围](docs/compatibility/0.2.0.md)
+[中文配置和操作指南](docs/guides/zh-CN/quick-start.md) · [用已有云端对话在 Arch 验收](docs/guides/zh-CN/linux-acceptance.md) · [English guide](docs/guides/en/quick-start.md) · [支持范围](docs/compatibility/0.3.0.md)
+
+## 删除与恢复
+
+点开对话标题，或勾选多条对话，点击「删除对话…」。先选**仅本机、仅云端或本机和云端**，再选**移入回收站或彻底删除**。查看清单时可以逐项选择云端版本，核对对话、附件、保留副本和完成后可下载的版本。其他电脑已导入的对话保留。
+
+本机与云端的回收站都在「备份与恢复」。首次在已有空间使用云端删除前，把访问该空间的两端升级到 0.3.0 并结束旧版的传输。确认升级后沿用原 Bucket 和恢复文件。[删除、恢复和失败重试](docs/guides/zh-CN/quick-start.md#删除对话或备份版本)
 
 ## 本地开发
 
@@ -33,4 +39,4 @@ npm run build
 npm start
 ```
 
-开发写入测试使用独立测试目录、合成历史和本机存储服务。`npm run package:mac` 和 `npm run package:linux` 生成本地安装包。[0.2.0 验证记录](docs/validation/0.2.0.md)
+开发写入测试使用独立测试目录、合成历史和本机存储服务。`npm run package:mac` 和 `npm run package:linux` 生成本地安装包。[0.3.0 验证记录](docs/validation/0.3.0.md)

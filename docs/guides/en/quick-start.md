@@ -1,4 +1,4 @@
-# Sesshuttle 0.2.0
+# Sesshuttle 0.3.0
 
 If your Linux device already shows the cloud chat, go straight to **Import and continue**. Keep the existing space, application data and recovery file when upgrading.
 
@@ -6,11 +6,11 @@ If your Linux device already shows the cloud chat, go straight to **Import and c
 
 - On Apple Silicon, open the DMG and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.2.0-linux-amd64.deb` using your software installer.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.3.0-linux-amd64.deb` using your software installer.
 
 ```sh
-tar -xzf sesshuttle-0.2.0-linux-x64.tar.gz
-./sesshuttle-0.2.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.3.0-linux-x64.tar.gz
+./sesshuttle-0.3.0-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each device. Bring project files to each device separately. Fonts are bundled.
@@ -38,6 +38,16 @@ To include a readable external image, approve it and update the preview. You can
 5. Once an entry is verified, open it using **Continue**. If a native link is unavailable, open the destination app yourself and look for the title. Check the old messages and send the first new turn yourself. You can tell Codex you changed machines and give it the new folder. Sesshuttle sets the working directory without adding a model-facing message.
 6. Upload the new turn and import it back on the first computer to continue the round trip.
 
-**More actions** includes two-way transfers and recoverable removal from this device. Review dependency and attachment lists before removal. Restore from **Backups & recovery**. Shared assets, source files and other devices’ copies stay in place. If both devices edited independently, compare the versions before choosing the one to import.
+**More actions** includes two-way transfer. Use **Delete chats…** for removal. If both devices edited independently, compare the versions before choosing the one to import.
 
-[Compatibility](../../compatibility/0.2.0.md) · [Verification report](../../validation/0.2.0.md)
+[Compatibility](../../compatibility/0.3.0.md) · [Verification report](../../validation/0.3.0.md)
+
+## Delete chats and manage recovery copies
+
+1. Open a title or select several chats. Choose **Delete chats…**, then choose **This device only**, **Cloud only**, or **This device and cloud**. Separately choose **Move to recycle bin** or **Delete permanently**. Each new review defaults to recycling.
+2. Review device folders, shared apps, dependencies, attachments and retained copies. Cloud versions show the source device, time, size, included histories and attachments. Untick any versions to keep, update the review, and check which versions will be available afterward.
+3. Before the first cloud removal, finish older transfers and upgrade all devices that use the existing space to 0.3.0 or later. Confirming enables the updated space format. The same bucket and recovery key remain in use. Close Codex writers before changing local history.
+4. Permanent deletion requires an extra acknowledgement. The final button gives the device chat count and cloud version count. Results are reported per location. If one location fails, review and retry only the unfinished work.
+5. **Backups & recovery** has separate device and cloud recycle bins. Choose an entry to restore it or permanently remove the recycled copy. A restored cloud version becomes downloadable. A conflicting new branch stays available for comparison. Previously created safety backups are retained.
+
+Recycling retains the storage. Permanent cleanup releases only unshared objects in the selected space. On another device, imported chats keep working and refresh does not upload them again. An interrupted cloud cleanup can be finished from the cloud bin. If a writer is still recorded on another device, wait for it or reopen the original installation and retry.
