@@ -24,6 +24,12 @@ export async function* rolloutBlocks(file){
  finally{if(!ended){input.destroy();decoded.destroy();}await completion;}
 }
 export async function digestRollout(file){const h=createHash('sha256');let bytes=0;for await(const b of rolloutBlocks(file)){h.update(b);bytes+=b.length;}return {hash:h.digest('hex'),historyBytes:bytes,bytes:(await fs.stat(file)).size};}
-export async function* records(file){let pending=[],length=0;for await(const block of rolloutBlocks(file)){let from=0;for(let i=0;i<block.length;i++)if(block[i]===10){const end=block.subarray(from,i);length+=end.length;requireThat(length<=RECORD_LIMIT,'record_too_large');pending.push(end);const line=Buffer.concat(pending,length);pending=[];length=0;from=i+1;if(line.length)yield JSON.parse(line.toString('utf8'));}if(from<block.length){const tail=block.subarray(from);pending.push(tail);length+=tail.length;requireThat(length<=RECORD_LIMIT,'record_too_large');}}requireThat(!length,'busy');}
+export async function* recordLines(file){
+ let pending=[],length=0,base=0,start=0;
+ for await(const block of rolloutBlocks(file)){let from=0;for(let i=0;i<block.length;i++)if(block[i]===10){const end=block.subarray(from,i);length+=end.length;requireThat(length<=RECORD_LIMIT,'record_too_large');pending.push(end);const raw=Buffer.concat(pending,length),offset=base+i+1;pending=[];length=0;from=i+1;const line={raw,start,end:offset};start=offset;yield line;}
+  if(from<block.length){const tail=block.subarray(from);pending.push(tail);length+=tail.length;requireThat(length<=RECORD_LIMIT,'record_too_large');}base+=block.length;
+ }requireThat(!length,'busy');
+}
+export async function* records(file){for await(const {raw} of recordLines(file))if(raw.length)yield JSON.parse(raw.toString('utf8'));}
 export async function writeStream(file,source){await fs.mkdir(path.dirname(file),{recursive:true,mode:0o700});const tmp=file+'.tmp-'+id();const h=await fs.open(tmp,'wx',0o600);let ok=false;try{for await(const b of source)await h.writeFile(b);await h.sync();await h.close();await fs.rename(tmp,file);ok=true;}finally{if(!ok){await h.close().catch(()=>{});await fs.rm(tmp,{force:true});}}}
 export async function copyVerified(source,target,expected){const h=createHash('sha256');async function* data(){for await(const b of readBlocks(source)){h.update(b);yield b;}if(expected)requireThat(h.digest('hex')===expected,'stale_plan');}await writeStream(target,data());}

@@ -44,7 +44,7 @@ export class Vault {
    const version=hash(JSON.stringify(versionPayload));const object='versions/'+version;
    try{await this.put(this.prefix+object,seal(versionPayload,this.key,this.space,object),null);}catch(e){if(e.code!=='concurrent_update')throw e;}
    const check=await this.version(version);requireThat(check.logicalId===payload.logicalId,'corrupt_data');
-   const next={format:1,logicalId:payload.logicalId,title:payload.title,source:payload.source,project:payload.project,projectId:payload.projectId,
+   const next={format:1,logicalId:payload.logicalId,title:payload.title,source:payload.source,project:payload.project,originProject:payload.originProject,projectId:payload.projectId,
     updatedAt:payload.updatedAt,device,tips:[...remaining,version],versions:[...(head?.versions??[]),{id:version,parents,device,at:versionPayload.uploadedAt}],
     bytes:bundleBytes(payload),continuation:payload.continuation,messages:payload.messages,kind:payload.kind,parent:payload.parent,agent:payload.agent,archived:payload.archived,issues:payload.issues};
    try{const etag=await this.put(this.prefix+'heads/'+payload.logicalId,seal(next,this.key,this.space,'heads/'+payload.logicalId),head?.etag??null);return {version,head:{...next,etag},conflict:remaining.length>0};}

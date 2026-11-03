@@ -20,7 +20,7 @@ class RpcError(RuntimeError):
 
 class Client:
     def __init__(self, lab: Lab, binary: Path, home: Path, project: Path,
-                 *, local_port: int | None = None):
+                 *, local_port: int | None = None, local_openai: bool = False):
         self.lab, self.home = lab, lab.checked(home)
         self.project = lab.checked(project)
         if not home.is_dir() or not project.is_dir():
@@ -35,7 +35,7 @@ class Client:
         self.log = self.log_path.open('ab')
         try:
             self.process = subprocess.Popen(lab.command(args, local_port=local_port),
-                cwd=project, env=lab.environment(home), stdin=subprocess.PIPE,
+                cwd=project, env={**lab.environment(home), **({'OPENAI_API_KEY': 'sesshuttle-local-fixture-only', 'CODEX_API_KEY': 'sesshuttle-local-fixture-only'} if local_openai and local_port else {})}, stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=self.log)
         except BaseException:
             self.log.close()
