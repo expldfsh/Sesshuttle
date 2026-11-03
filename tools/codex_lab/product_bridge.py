@@ -1,4 +1,5 @@
 """Synthetic provider bridge for the production JS engine round-trip check."""
+import os
 import json
 from pathlib import Path
 import sys
@@ -24,13 +25,22 @@ with FixtureProvider() as fixture:
         turn(client, tid, 'Embedded image round', image=True)
         prove_directory(client, tid, pa, 'A-LOCAL-PROOF')
         expected = turns(client, tid)
-    print(json.dumps({'root': str(lab.root), 'a': str(a), 'b': str(b), 'pa': str(pa), 'pb': str(pb), 'tid': tid}), flush=True)
+    destination_project = None
+    if os.environ.get('SESSHUTTLE_PROJECT_TEST') == '1':
+        with Client(lab, target, b, pb, local_port=fixture.port) as client:
+            result = client.rpc('project/create', {'name': 'linux', 'roots': [{'path': str(pb)}], 'idempotencyKey': uuid.uuid4().hex})
+            destination_project = result['project']['id']
+            assert not client.rpc('thread/list', {'projectId': destination_project, 'modelProviders': []})['data']
+    print(json.dumps({'root': str(lab.root), 'a': str(a), 'b': str(b), 'pa': str(pa), 'pb': str(pb), 'tid': tid, 'destinationProject': destination_project}), flush=True)
     for line in sys.stdin:
         request = json.loads(line)
         try:
             side = request['side']
             home, project, binary = (b, pb, target) if side == 'B' else (a, pa, source)
             with Client(lab, binary, home, project, local_port=fixture.port) as client:
+                if destination_project and side == 'B':
+                    assert client.rpc('thread/read', {'threadId': tid})['thread']['projectId'] == destination_project
+                    assert tid in [t['id'] for t in client.rpc('thread/list', {'projectId': destination_project, 'modelProviders': []})['data']]
                 assert client.rpc('thread/read', {'threadId': tid})['thread']['cwd'] == str(project)
                 client.rpc('thread/resume', {'threadId': tid, 'sandbox': 'read-only', 'approvalPolicy': 'on-request', 'excludeTurns': True})
                 actual = turns(client, tid)
@@ -38,8 +48,8 @@ with FixtureProvider() as fixture:
                 prove_directory(client, tid, project, side + '-LOCAL-PROOF')
                 turn(client, tid, 'Continue on ' + side + ' without repeating the early marker')
                 body = json.dumps(fixture.requests[-1], ensure_ascii=False)
-                assert early in body and 'sesshuttle environment mapping' in body and str(project) in body
+                assert early in body and 'sesshuttle environment mapping' not in body
                 expected = turns(client, tid)
-            print(json.dumps({'ok': True, 'side': side, 'turns': len(expected), 'cwd': True, 'earlyContext': True, 'mappingInModelInput': True}), flush=True)
+            print(json.dumps({'ok': True, 'side': side, 'turns': len(expected), 'cwd': True, 'earlyContext': True, 'automaticEnvironmentMessage': False}), flush=True)
         except Exception as error:
             print(json.dumps({'ok': False, 'error': str(error)}), flush=True)

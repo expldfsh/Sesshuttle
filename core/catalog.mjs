@@ -26,7 +26,7 @@ export function displayName(thread,fallback){return (thread?.name?.trim()||fallb
 
 // Only project identity, display name and roots leave the native catalog. Account
 // metadata is never added to sync manifests.
-function readProjects(db){
+export function readProjects(db){
  if(!db||!tableColumns(db,'projects').includes('name'))return [];
  const roots=tableColumns(db,'project_roots').includes('path')?db.prepare('SELECT project_id,path FROM project_roots').all():[];
  return db.prepare('SELECT * FROM projects LIMIT 20001').all().map(p=>{let backing=null;try{const m=JSON.parse(p.metadata??'{}');backing=JSON.parse(m['codex.chatGptBacking']??'{}').projectId??null;}catch{}

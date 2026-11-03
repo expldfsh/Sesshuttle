@@ -60,7 +60,7 @@ with FixtureProvider() as fixture:
                 prove_directory(client, tid, project, side + '-LOCAL-PROOF')
                 turn(client, tid, 'Continue without needing the omitted image; do not repeat the early marker.')
                 body = json.dumps(fixture.requests[-1], ensure_ascii=False)
-                assert early in body and 'sesshuttle environment mapping' in body and str(project) in body
+                assert early in body and 'sesshuttle environment mapping' not in body
                 expected = turns(client, tid)
             print(json.dumps({'ok': True, 'side': side, 'turns': len(expected), 'cwd': True, 'earlyContext': True, 'textAndToolHistoryPreserved': True, 'imageReplaced': replaced}), flush=True)
         except Exception as error:

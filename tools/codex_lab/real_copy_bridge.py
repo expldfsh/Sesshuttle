@@ -36,7 +36,7 @@ with FixtureProvider(max_request_bytes=128 * 1024 * 1024) as fixture:
                 assert after == before + 1
                 body = fixture.requests[-1]
                 assert len(body.get('input', [])) > 1
-                assert 'sesshuttle environment mapping' in json.dumps(body)
+                assert 'sesshuttle environment mapping' not in json.dumps(body)
                 fixture.requests.clear()
             print(json.dumps({'ok': True, 'before': before, 'after': after, 'contextPresent': True, 'targetDirectory': True}), flush=True)
         except Exception as e:
