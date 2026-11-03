@@ -32,7 +32,7 @@ async function loadSecrets(){
   const value=await retrieveConnection(state);
   if(!value)return;
   secrets=value;const cfg=state.get('connection');
-  engine.vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key);
+  engine.vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key,{installation:state.get('device').id,deviceName:state.get('device').name});
   state.set('credentialError',null);
  }catch{state.set('credentialError','credential_restore_failed');}
 }
@@ -88,7 +88,7 @@ async function connect(input:any){requireThat(!engine.running,'task_running');co
  const credentials={accessKeyId:String(input.accessKeyId??''),secretAccessKey:String(input.secretAccessKey??'')};requireThat(credentials.accessKeyId&&credentials.secretAccessKey,'credentials_required');const store=new R2Store({...cfg,...credentials},testRoot?{allowLocal:true}:{});
  await store.test();if(input.mode==='test')return {status:'connected'};
  const space=input.mode==='create'?id():(recovery?.space??String(input.space??''));const key=input.mode==='create'?newKey():(recovery?.key??String(input.key??''));parseKey(key);
- const vault=new Vault(store,space,key);if(input.mode==='create')await vault.create();else await vault.open();
+ const vault=new Vault(store,space,key,{installation:state.get('device').id,deviceName:state.get('device').name});if(input.mode==='create')await vault.create();else await vault.open();
  // If secure persistence is unavailable, keep the successful connection in memory
  // and return an explicit warning; never write plaintext credentials.
  secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space});recovery=null;

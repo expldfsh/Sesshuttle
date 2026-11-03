@@ -27,13 +27,14 @@ export class Engine{
   const rows=[];
   for(const logical of new Set([...this.local.rows.map(x=>x.id),...this.remote.map(x=>x.logicalId)])){
    const local=this.local.rows.find(x=>x.id===logical),head=this.remote.find(x=>x.logicalId===logical);let status=local?(head?'unchecked':'local_only'):'remote_only';
+   if(local&&!head&&this.vault&&!this.cloudError&&this.vault.removedIds?.has(logical))status='cloud_removed';
    if(local?.busy)status='busy';else if(head?.tips.length>1)status='conflict';else if(local&&head&&!this.cloudError){const base=this.state.get(this.baselineKey(local));status=base?(base.signature===this.signature(local,base.selection)?(head.tips.includes(base.version)?'synced':'remote_changes'):(head.tips.includes(base.version)?'local_changes':'conflict')):'conflict';}
    const association=local?this.association(local):{projectId:head?.projectId,originProject:head?.originProject};
    rows.push({id:logical,title:local?.title??head.title,source:local?local.source:head.source,project:local?.project??head.project,originProject:association.originProject??local?.originProject??head?.originProject,projectId:association.projectId,
     continuation:local?.continuation??head?.continuation??true,kind:local?.kind??head?.kind??(head?.source==='subagent'?'background':'main'),parent:local?.parent??head?.parent,parentTitle:local?.parentTitle,agent:local?.agent??head?.agent,compressed:local?.compressed,historyBytes:local?.historyBytes,fileBytes:local?.fileBytes,databaseBytes:local?.databaseBytes,updatedAt:local?.updatedAt,cloudUpdatedAt:head?.versions.at(-1)?.at,device:head?.device,bytes:local?.bytes??head.bytes,archived:local?.archived??head?.archived??false,
     issues:local?.issues??head?.issues??[],cloudOmittedImages:head?.omittedImageCount??0,status,local:!!local,remote:!!head,version:local?.version,
     messages:local?.messages??head?.messages??[],totalMessages:local?.totalMessages??0,
-    versions:head?.versions??[],tips:head?.tips??[],targets:Object.fromEntries(Object.entries(this.state.get('entries/'+this.scope()+'/'+logical,{})).map(([entry,value])=>[entry,{...value,syncStatus:head?.tips.includes(value.version)?'synced':'remote_changes'}]))});
+    versions:head?.versions??[],tips:head?.tips??[],targets:Object.fromEntries(Object.entries(this.state.get('entries/'+this.scope()+'/'+logical,{})).map(([entry,value])=>[entry,{...value,syncStatus:head?(head.tips.includes(value.version)?'synced':'remote_changes'):(status==='cloud_removed'?'cloud_removed':'local_only')}]))});
   }
   this.rows=rows.sort((a,b)=>(b.updatedAt??b.cloudUpdatedAt??'').localeCompare(a.updatedAt??a.cloudUpdatedAt??''));
   return {rows:this.rows,errors:this.local.errors,cloudError:this.cloudError,checkedAt:this.local.checkedAt,remoteCheckedAt:this.state.get('cache/'+this.scope())?.checkedAt};
@@ -92,7 +93,7 @@ export class Engine{
     let payload,importVersion=item.version,resolveEtag=head?.etag;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
       requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);if(!plan.allowIncomplete)assertAttachmentAcceptance(payload,acceptedMissingAttachments);
-      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'));this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;
+      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'),item.expectedHead);this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;
       if(item.action!=='upload_import'||published.conflict){result.status=published.conflict?'conflict_preserved':'uploaded';continue;}
       importVersion=published.version;payload=await this.vault.version(importVersion);
     }else {
@@ -103,7 +104,7 @@ export class Engine{
     assertAttachmentAcceptance(payload,acceptedMissingAttachments);
     requireThat(payload.continuation!==false,'missing_rollout');
     // Explicit branch selection first preserves the current local branch remotely.
-    if(item.action==='resolve'&&local){step('preservingVersion');assertAttachmentAcceptance(item.preserve,acceptedMissingAttachments);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'))).head.etag;}
+    if(item.action==='resolve'&&local){step('preservingVersion');assertAttachmentAcceptance(item.preserve,acceptedMissingAttachments);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'),item.expectedHead)).head.etag;}
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured',error:{code:target?.binary?'entry_home_missing':'entry_binary_missing'}};continue;}
