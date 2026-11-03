@@ -31,8 +31,8 @@ export class Importer {
   this.state.set('restore/'+backupId,{status:'restored',safety:safety.id});return {status:'restored_needs_validation',safety:safety.id};
  }
  async record(payload,home,project,binary,runtime){if(payload.format===2)return recordBundle(this,payload,home,project,binary,runtime);const rows=(await scan([home])).rows;await remember(this.state,payload,rows,home,project);for(const f of payload.files){const key=receiptKey(home,f.id),r=this.state.get(key);if(r)this.state.set(key,{...r,binary,runtime});}}
- async import(payload,target,{replace=false,expectedHashes={},vault=null}={}){
-  if(payload?.format===2)return importBundle(this,payload,target,{replace,expectedHashes,vault});
+ async import(payload,target,{replace=false,expectedHashes={},vault=null,acceptedMissingAttachments=[]}={}){
+  if(payload?.format===2)return importBundle(this,payload,target,{replace,expectedHashes,vault,acceptedMissingAttachments});
   validatePayload(payload);requireThat(payload.files.every(f=>KNOWN_VERSIONS.includes(f.version)),'unknown_version');
   requireThat(!payload.issues?.length,'incomplete_history');const home=await this.guard(target.home);const project=await canonical(target.project);const runtime=await binaryVersion(target.binary);
   requireThat(!this.state.keys('import/').some(k=>{const t=this.state.get(k);return t.home===home&&['prepared','validating','needs_recovery'].includes(t.status); }),'recovery_required');

@@ -1,3 +1,4 @@
+import {assertAttachmentAcceptance,inheritedOmissions} from './attachment-policy.mjs';
 import {remapHistory} from './remap-history.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';import {DatabaseSync} from 'node:sqlite';
 import {validateBundle,bundleIdentity,bundleBytes,materialize} from './bundle.mjs';
@@ -28,17 +29,17 @@ async function mergeDatabases(home,files,placements,project){const paths=await d
   const sql=`INSERT INTO "${table}" (${quoted.join(',')}) VALUES (${fields.map(()=>'?').join(',')}) ON CONFLICT ${update?'DO UPDATE SET '+update:'DO NOTHING'}`;db.prepare(sql).run(...values);
  }}for(const db of Object.values(dbs))db.exec('COMMIT');
  }catch(e){for(const db of Object.values(dbs))try{db.exec('ROLLBACK');}catch{}throw e;}finally{for(const db of Object.values(dbs))db.close();}}
-export async function importBundle(importer,payload,target,{replace=false,expectedHashes={},vault}={}){
+export async function importBundle(importer,payload,target,{replace=false,expectedHashes={},vault,acceptedMissingAttachments=[]}={}){
  validateBundle(payload);requireThat(payload.files.find(f=>f.id===payload.logicalId).artifacts.some(a=>a.kind==='rollout'),'missing_rollout');requireThat(vault,'storage_not_connected');// Source versions are historical metadata; the target executable is independently validated below.
- requireThat(!payload.issues?.length,'incomplete_history');const home=await importer.guard(target.home),project=await fs.realpath(target.project),runtime=await binaryVersion(target.binary);
+ const omittedAttachments=[...assertAttachmentAcceptance(payload,acceptedMissingAttachments),...inheritedOmissions(payload)];const home=await importer.guard(target.home),project=await fs.realpath(target.project),runtime=await binaryVersion(target.binary);
  requireThat(!importer.state.keys('import/').some(k=>{const t=importer.state.get(k);return t.home===home&&['prepared','validating','needs_recovery'].includes(t.status); }),'recovery_required');
  const before=await scan([home]);requireThat(!before.errors.length,'scan_incomplete');let verified=true;for(const f of payload.files){const old=before.rows.find(r=>r.id===f.id);if(expectedHashes[f.id]!==undefined)requireThat((old?.hash??null)===expectedHashes[f.id],'stale_plan');const receipt=importer.state.get(key(home,f.id));const identical=receipt&&receipt.hash===old?.hash&&receipt.identity===bundleIdentity(payload);verified&&=!!identical&&receipt.project===project&&receipt.binary===target.binary&&receipt.runtime===runtime;
   const raw=f.artifacts.find(a=>a.kind==='rollout'),db=f.artifacts.find(a=>a.kind==='database');const exact=old&&(old.rawHash??null)===(raw?.hash??null)&&(old.dbHash??null)===(db?.hash??null);
   if(old&&!replace&&!exact)requireThat(receipt?.hash===old.hash,'conflict');
  }
- if(verified)return {status:'verified',backup:null,unchanged:true,runtime};
+ if(verified)return {status:'verified',backup:null,unchanged:true,runtime,omittedAttachments};
  const temp=path.join(importer.state.root,'downloads',id());await fs.mkdir(temp,{recursive:true,mode:0o700});const disk=await fs.statfs(temp);requireThat(disk.bavail*disk.bsize>bundleBytes(payload)+256*1024*1024,'disk_space');let taskId,backup;
- try{const staged=await materialize(payload,vault,temp),placements=new Map(),writes=[];staged.files=await remapHistory(staged.files,home);
+ try{const staged=await materialize(payload,vault,temp),placements=new Map(),writes=[];staged.files=await remapHistory(staged.files,home,{acceptedMissingAttachments});
   for(const f of staged.files){const old=before.rows.find(r=>r.id===f.id),rollout=f.artifacts.find(a=>a.kind==='rollout');f.placementArchived=f.artifacts.some(a=>a.kind==='database')?f.archived:(old?.archived??f.archived);const destination=(!f.artifacts.some(a=>a.kind==='database')||old?.archived===f.archived?old?.file?.replace(/\.zst$/,''):null)??path.join(home,f.archived?'archived_sessions':'sessions',`rollout-2026-01-01T00-00-00-${f.id}.jsonl`);await inside(home,destination);placements.set(f.id,destination);
    if(rollout)writes.push({source:rollout.file,target:destination,hash:rollout.remapped?undefined:rollout.hash,preservedOriginal:old?.file&&old.file!==destination?old.file:null});
    for(const a of f.artifacts.filter(a=>a.kind==='asset')){const dest=await inside(home,path.join(home,'sesshuttle_assets',a.hash));writes.push({source:a.file,target:dest,hash:a.hash});}
@@ -46,6 +47,6 @@ export async function importBundle(importer,payload,target,{replace=false,expect
   backup=await importer.backup(home);taskId=id();importer.state.set('import/'+taskId,{status:'prepared',backup:backup.id,home});await importer.processGuard();const fresh=await scan([home]);requireThat(!fresh.errors.length&&fresh.rows.length===before.rows.length&&before.rows.every(r=>fresh.rows.some(n=>n.id===r.id&&n.hash===r.hash)),'stale_plan');
   for(const w of writes){await inside(home,w.target);if(w.preservedOriginal){await inside(home,w.preservedOriginal);const kept=path.join(importer.state.root,'recovered',backup.id,path.relative(home,w.preservedOriginal));await fs.mkdir(path.dirname(kept),{recursive:true,mode:0o700});await fs.rename(w.preservedOriginal,kept);}await copyVerified(w.source,w.target,w.hash);}
   if(staged.files.some(f=>f.artifacts.some(a=>a.kind==='database'))){await initialize(target.binary,home,project,temp);await mergeDatabases(home,staged.files,placements,project);}
-  importer.state.set('import/'+taskId,{status:'validating',backup:backup.id,home});await importer.native({binary:target.binary,home,project,files:staged.files,device:payload.device});await recordBundle(importer,payload,home,project,target.binary,runtime);importer.state.set('import/'+taskId,{status:'verified',backup:backup.id,home});return {status:'verified',backup:backup.id,runtime};
+  importer.state.set('import/'+taskId,{status:'validating',backup:backup.id,home});await importer.native({binary:target.binary,home,project,files:staged.files,device:payload.device});await recordBundle(importer,payload,home,project,target.binary,runtime);importer.state.set('import/'+taskId,{status:'verified',backup:backup.id,home});return {status:'verified',backup:backup.id,runtime,omittedAttachments};
  }catch(e){if(taskId){importer.state.set('import/'+taskId,{status:'needs_recovery',backup:backup.id,home,error:e.code??'operation_failed'});throw new Fault('import_needs_recovery',backup.id+': '+(e.code??e.message)+' '+(e.detail??''));}throw e;}finally{await fs.rm(temp,{recursive:true,force:true});}
 }

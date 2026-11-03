@@ -1,3 +1,4 @@
+import {attachmentReview,inheritedOmissions} from './attachment-policy.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';
 import {atomic,exists} from './util.mjs';
 import {validateBundle,bundleIdentity,bundleBytes} from './bundle.mjs';
@@ -46,7 +47,7 @@ export class Vault {
    const check=await this.version(version);requireThat(check.logicalId===payload.logicalId,'corrupt_data');
    const next={format:1,logicalId:payload.logicalId,title:payload.title,source:payload.source,project:payload.project,originProject:payload.originProject,projectId:payload.projectId,
     updatedAt:payload.updatedAt,device,tips:[...remaining,version],versions:[...(head?.versions??[]),{id:version,parents,device,at:versionPayload.uploadedAt}],
-    bytes:bundleBytes(payload),continuation:payload.continuation,messages:payload.messages,kind:payload.kind,parent:payload.parent,agent:payload.agent,archived:payload.archived,issues:payload.issues};
+    omittedImageCount:attachmentReview(payload).optional.length+inheritedOmissions(payload).length,bytes:bundleBytes(payload),continuation:payload.continuation,messages:payload.messages,kind:payload.kind,parent:payload.parent,agent:payload.agent,archived:payload.archived,issues:payload.issues};
    try{const etag=await this.put(this.prefix+'heads/'+payload.logicalId,seal(next,this.key,this.space,'heads/'+payload.logicalId),head?.etag??null);return {version,head:{...next,etag},conflict:remaining.length>0};}
    catch(e){if(e.code!=='concurrent_update')throw e;}
   }

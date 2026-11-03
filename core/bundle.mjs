@@ -29,7 +29,7 @@ export async function captureBundle(row,rows,vault,stage,options={}){const selec
   if(report.status==='included'){requireThat(await attachmentUnchanged(report),'stale_plan');const a=await packStream(readBlocks(report.resolved),'asset',vault,stage,{path:resource});requireThat(await attachmentUnchanged(report),'stale_plan');artifacts.push(a);report.hash=a.hash;}
   else issues.push(attachmentIssue(report.status));
  }
- files.push({id:r.id,title:r.title,source:r.source,kind:r.kind,parent:r.parent,historyBase:r.historyBase,dependencies:r.dependencies,agent:r.agent,continuation:!!r.file,turnCount:r.turnCount,version:r.version,archived:r.archived,fingerprint:r.hash,project:r.project,originProject:r.originProject,attachmentReport,artifacts,issues:[...new Set(issues)]});
+ files.push({id:r.id,title:r.title,source:r.source,kind:r.kind,parent:r.parent,historyBase:r.historyBase,dependencies:r.dependencies,agent:r.agent,continuation:!!r.file,turnCount:r.turnCount,version:r.version,archived:r.archived,fingerprint:r.hash,project:r.project,originProject:r.originProject,attachmentReport,omittedAttachments:found.omittedAttachments,artifacts,issues:[...new Set(issues)]});
  }
  return validateBundle({format:2,logicalId:row.id,title:row.title,source:row.source,kind:row.kind,parent:row.parent,agent:row.agent,continuation:!!row.file,messages:row.messages,project:row.project,originProject:row.originProject,updatedAt:row.updatedAt,archived:row.archived,files,issues:[...new Set(files.flatMap(f=>f.issues))]});
  }finally{for(const c of catalogs.values())c.close();}}

@@ -1,18 +1,20 @@
+import {readOmissionText} from './attachment-policy.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';import {constants} from 'node:fs';
 import {records} from './stream.mjs';import {databaseRecords,openCatalog} from './catalog.mjs';import {imageType} from './codex.mjs';import {hash,inside,requireThat} from './util.mjs';
-export function resourceReferences(value,resources=new Set(),issues=new Set()){
- if(!value||typeof value!=='object')return {resources,issues};
+export function resourceReferences(value,resources=new Set(),issues=new Set(),omissions=new Map()){
+ if(!value||typeof value!=='object')return {resources,issues,omissions};
+ const omission=['text','input_text'].includes(value.type)?readOmissionText(value.text):null;if(omission)omissions.set(JSON.stringify(omission),omission);
  if(['localImage','local_image'].includes(value.type)&&typeof value.path==='string')resources.add(value.path);
  if(['input_image','image'].includes(value.type)){const u=value.image_url??value.url;if(typeof u==='string'&&!u.startsWith('data:image/'))issues.add('external_image');}
  if(value.file_id||['input_audio','input_file'].includes(value.type))issues.add('remote_resource');
- for(const v of Object.values(value))if(typeof v==='object')resourceReferences(v,resources,issues);
- return {resources,issues};
+ for(const v of Object.values(value))if(typeof v==='object')resourceReferences(v,resources,issues,omissions);
+ return {resources,issues,omissions};
 }
 export async function referencesFor(row,catalog=null,{ownership=false}={}){
- const resources=new Set(),issues=new Set();let owned;
- try{if(row.file)for await(const record of records(row.file))resourceReferences(record,resources,issues);
-  if(row.database){catalog??=owned=await openCatalog(row.home);for(const record of databaseRecords(catalog,row.id)){if(typeof record.row.item_json==='string')resourceReferences(JSON.parse(record.row.item_json),resources,issues);if(ownership&&record.table==='thread_attachments'&&typeof record.row.payload==='string'){const visit=v=>{if(typeof v==='string'&&path.isAbsolute(v))resources.add(v);else if(v&&typeof v==='object')for(const x of Object.values(v))visit(x);};try{visit(JSON.parse(record.row.payload));}catch{throw new Error('Invalid attachment metadata');}}}}
-  return {resources:[...resources],issues:[...issues]};
+ const resources=new Set(),issues=new Set(),omissions=new Map();let owned;
+ try{if(row.file)for await(const record of records(row.file))resourceReferences(record,resources,issues,omissions);
+  if(row.database){catalog??=owned=await openCatalog(row.home);for(const record of databaseRecords(catalog,row.id)){if(typeof record.row.item_json==='string')resourceReferences(JSON.parse(record.row.item_json),resources,issues,omissions);if(ownership&&record.table==='thread_attachments'&&typeof record.row.payload==='string'){const visit=v=>{if(typeof v==='string'&&path.isAbsolute(v))resources.add(v);else if(v&&typeof v==='object')for(const x of Object.values(v))visit(x);};try{visit(JSON.parse(record.row.payload));}catch{throw new Error('Invalid attachment metadata');}}}}
+  return {resources:[...resources],issues:[...issues],omittedAttachments:[...omissions.values()]};
  }finally{owned?.close();}
 }
 export async function inspectAttachment(row,resource,approved=[]){
