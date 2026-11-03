@@ -1,6 +1,6 @@
 # 安装与 R2 配置
 
-适用于 sesshuttle 0.1.0-rc.4。首次验收使用 Mac + Linux；兼容边界见[版本说明](../../compatibility/rc4.md)。
+适用于 sesshuttle 0.1.0-rc.5。首次验收使用 Mac + Linux；兼容边界见[版本说明](../../compatibility/rc4.md)。
 
 ## 1. 安装软件
 
@@ -9,7 +9,7 @@
 **Debian / Ubuntu x86_64**：打开 `.deb` 用系统软件安装器安装。也可以在安装包所在目录执行：
 
 ```sh
-sudo apt install ./sesshuttle-0.1.0-rc.4-linux-amd64.deb
+sudo apt install ./sesshuttle-0.1.0-rc.5-linux-amd64.deb
 ```
 
 安装后从应用菜单打开 sesshuttle。其他 Linux 发行版解压 `.tar.gz` 并运行目录内的 `sesshuttle`；需要正常的桌面环境和 Electron 系统依赖。Linux 包尚待实机验证；出现启动错误时保留原始报错，不使用 `--no-sandbox` 或关闭系统保护绕过。
@@ -93,7 +93,7 @@ Codex 本身须在每台电脑分别安装、登录。sesshuttle 不同步账号
 
 ## 从 rc.1 / rc.2 / rc.3 升级
 
-退出旧 sesshuttle 后替换应用，保留原有应用数据即可沿用 R2 连接和恢复文件，不要创建新空间。两台电脑均使用 rc.4；旧 rc.1 不能读取新的分块备份格式。首次 Linux 安装可在 Mac 核对本轮修复后再进行。
+退出旧 sesshuttle 后替换应用，保留原有应用数据即可沿用 R2 连接和恢复文件，不要创建新空间。两台电脑均使用 rc.5；旧 rc.1 不能读取新的分块备份格式。首次 Linux 安装可在 Mac 核对本轮修复后再进行。
 
 ## 8. 删除本机对话和附件
 
@@ -112,3 +112,5 @@ Codex 本身须在每台电脑分别安装、登录。sesshuttle 不同步账号
 3. 目标显示“已导入 · 部分附件缺失”且“继续”可用后，在实际 Codex 打开检查。涉及原图片细节时，可能需要重新提供图片。
 
 “已同步”只表示云端版本关系，旁边的“部分图片未包含”不会隐藏。再次预览需重新确认；已经转为文字的缺图说明会随往返保留。旧备份若只有笼统附件错误、无法列出具体图片，请在源端用 rc.4 重新预览备份；不要直接放过所有错误。
+
+在已连接的 Mac 上打开「设置 → 自有云端存储」，可复制已解锁的 Access Key ID 到 Linux，再输入与之配套的 Secret Access Key。

@@ -2,13 +2,13 @@
 
 在多台电脑之间同步 Codex 对话，保留上下文，回到原生 Codex 继续工作。历史加密保存在你自己的 Cloudflare R2 Bucket 中，不需要额外部署数据库或服务器。
 
-当前版本：**0.1.0-rc.4，M4 安装验收候选版**。本轮允许逐项确认缺失图片后导入并继续对话，保留缺图提示；关键历史缺失仍阻止导入。用户已连接 R2；实际历史同步与 Linux 验收待完成。Windows 后续单独验收。
+当前版本：**0.1.0-rc.5，M4 安装验收候选版**。设置页会显示当前设备已解锁的 R2 Access Key ID，方便配置第二台设备。用户已连接 R2；实际历史同步与 Linux 验收待完成。Windows 后续单独验收。
 
 ## 安装
 
 安装包位于本地 `release/`，尚未发布到 GitHub。
 
-- **Mac Apple Silicon（M1/M2/M3 等）**：打开 `sesshuttle-0.1.0-rc.4-mac-arm64.dmg`，将 sesshuttle 拖入“应用程序”。候选版未做 Developer ID 签名和公证。
+- **Mac Apple Silicon（M1/M2/M3 等）**：打开 `sesshuttle-0.1.0-rc.5-mac-arm64.dmg`，将 sesshuttle 拖入“应用程序”。候选版未做 Developer ID 签名和公证。
 - **Linux x86_64**：Debian/Ubuntu 使用 `.deb` 安装包；其他发行版可解压 `.tar.gz` 后运行其中的 `sesshuttle`。Linux 包已构建，尚未在 Linux 实机运行验收。
 
 安装后通过应用图标打开，不需要 Node、Python、Rust 或开发服务器。Comic Neue 和霞鹜文楷已内置，用户无需安装字体，离线也能正常显示。
