@@ -154,13 +154,14 @@ export class Removals{
       const error=publicError(e);
       if(current){
         current.status='failed';current.error=error;
+        if(current.side==='local'&&current.erasing&&this.state.get('trash/'+current.token))current.status='localCleanup';
         if(current.side==='cloud'&&current.started){
           const marker=await this.engine.vault.open().catch(()=>null);
           if(marker?.pending?.id===token)current.status='cleanup';
           else if(marker?.completed?.includes(token)){current.status='done';delete current.error;}
         }
       }
-      job.error=error;job.status=job.sides.some(s=>['done','cleanup'].includes(s.status))?'partial':'attention';
+      job.error=error;job.status=job.sides.some(s=>['done','cleanup','localCleanup'].includes(s.status))?'partial':'attention';
     }
     finally{this.engine.running=false;this.activeId=null;save();}
     return job;

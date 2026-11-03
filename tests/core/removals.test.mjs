@@ -130,3 +130,14 @@ test('two home folders are reviewed separately, and a shared asset is kept acros
    assert.ok(await exists(x.asset));assert.equal(await exists(x.other+'/sessions/'+x.a+'.jsonl'),false);
  }finally{x.state.close();}
 });
+
+test('a failed final local purge reports the remaining recovery copy and retries cleanup only',async()=>{
+ const x=await fixture();try{
+   const p=await x.removals.preview({scope:'local',mode:'purge',ids:[x.a]});
+   x.trash.purge=async tid=>{const bin=x.state.get('trash/'+tid);x.state.set('trash/'+tid,{...bin,status:'purging'});throw new Fault('local_permission_denied');};
+   const job=await x.removals.execute(p.token,{permanent:true});assert.equal(job.status,'partial');assert.equal(job.sides[0].status,'localCleanup');
+   const path=x.home+'/sessions/'+x.a+'.jsonl';assert.equal(await exists(path),false);await fs.writeFile(path,'different, newly created file');
+   const resumed=new Removals(x.engine,new Trash(x.state,x.importer));assert.equal((await resumed.execute(p.token,{permanent:true})).status,'completed');
+   assert.equal(await fs.readFile(path,'utf8'),'different, newly created file');assert.equal(x.trash.list().length,0);
+ }finally{x.state.close();}
+});
