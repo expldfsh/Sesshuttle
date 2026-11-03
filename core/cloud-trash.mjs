@@ -93,7 +93,7 @@ export async function cloudRemovalPlan(vault,request){
       nextTips:tips.map(id=>{const info=metaRows(head).find(v=>v.id===id);return {id,at:info?.at,device:info?.device?.name??info?.device?.id};})});
   }
   const keepChunks=new Set(),keepAssets=new Map(),wantedChunks=new Set(),retained=[];
-  const affectedIds=new Set(ids);
+  const affectedIds=new Set([...ids,...(request.inspectIds??[])]);
   for(const v of selected)for(const f of versions.get(v).files)affectedIds.add(f.id);
   for(const [id,v] of versions){
     if(selected.has(id)){for(const c of v.chunks)wantedChunks.add(c);continue;}
@@ -115,7 +115,7 @@ export async function cloudRemovalPlan(vault,request){
     v.files=v.files.map(f=>({...f,assets:f.assets.map(a=>{
       const {chunks,...asset}=a;
       const shared=keepAssets.has(a.hash),partial=chunks?.some(c=>keepChunks.has(c));
-      const disposition=a.missing?'absent':!v.selected?'kept':action==='trash'?'recycled':action==='restore'?'restored':shared?'shared':partial?'partlyShared':'removed';
+      const disposition=a.missing?'absent':!v.selected?'kept':action==='trash'?(shared?'recycledShared':'recycled'):action==='restore'?'restored':shared?'shared':partial?'partlyShared':'removed';
       return {...asset,disposition,sharedWith:shared?[...keepAssets.get(a.hash).values()]:[]};
     })}));
   }

@@ -45,3 +45,12 @@ test('partial version removal shows the surviving head and does not reactivate r
   const {op}=await apply(v,{ids:[t],action:'trash'});await apply(v,{ids:[t],binId:op,action:'purgeBin'});
   assert.equal((await cloudBins(v)).bins.length,0);await assert.rejects(v.version(one.version),{code:'missing_remote_object'});
 });
+
+test('embedded histories in another backup are disclosed even when only the local dependent is also removed',async()=>{
+ const v=new Vault(new MemoryStore(),id(),newKey());await v.create();
+ const root=id(),child=id(),other=id(),r=payload(root,'root'),sub=payload(child,'child'),independent=payload(other,'other project');
+ await v.publish(r,{name:'Mac'});independent.files.push(sub.files[0]);const kept=await v.publish(independent,{name:'Linux'});
+ const request={ids:[root],inspectIds:[child],action:'purge'},p=await cloudRemovalPlan(v,request);
+ assert.ok(p.preview.retained.some(c=>c.id===kept.version&&c.members.includes(child)));
+ await changeCloud(v,request,p.preview.signature,id(),{upgrade:true});assert.equal((await v.version(kept.version)).files.length,2);
+});

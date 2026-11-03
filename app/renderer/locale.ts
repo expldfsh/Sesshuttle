@@ -571,6 +571,14 @@ zh.local_path_missing='所选文件或目录已不存在。请重新选择可用
 zh.local_in_use='目标正在被使用。请退出占用该历史的应用，再重新检查。';en.local_in_use='The destination is in use. Close the app using that history and check again.';
 
 const removalLabels:Record<string,[string,string]>={
+  assetDecision_recycledShared: ["此版本移入回收站。其他版本的附件保留。","This version is recycled. Other versions retain the attachment."],
+  trash_uncertain: ["有历史无法完整核对附件归属，保留在原位置","Ownership could not be verified for all history. File retained."],
+  chatCountUnit: ["条对话","chats"],
+  binStorageFolder: ["本次处理的回收副本目录","Recycled copy being processed"],
+  nativeHistoryLocation: ["对应的原生历史目录","Original app history folder"],
+  originalLocation: ["原位置","Original location"],
+  chooseVersionsHint: ["默认勾选全部版本。想保留某一版时取消它的勾选，再点「更新清单」核对剩余版本。","All versions are initially selected. Untick versions to leave alone, then update the review to see what will remain."],
+  indexOnlyRemoval: ["仅处理仍在本机的原生记录。索引指向的历史文件当前不存在。","Only existing native records are included. The indexed history file is absent."],
   removeChats: ["删除对话","Delete chats"],
   reviewRemoval: ["确认处理清单","Review affected copies"],
   manageBinCopy: ["处理回收站副本","Manage a recycled copy"],
@@ -594,8 +602,8 @@ const removalLabels:Record<string,[string,string]>={
   binPolicy: ["可在「备份与恢复」找回。本机和云端各自保留恢复副本，仍占用空间。","Recover these copies in Backups & recovery. Each selected location retains the data and storage usage."],
   permanentPolicy: ["会清理所选位置的指定副本。已有安全备份、共用文件及其他保留项会在下一步列明。","The listed copies will be permanently removed from the chosen location. Review existing safety backups and shared files in the next step."],
   deleteOffline: ["当前未连接云端。可以处理本机历史，连接同步空间后可选择云端。","Cloud storage is disconnected. Local history is available here. Connect the space to manage cloud copies."],
-  cloudOnlyRemoval: ["所选对话只有云端副本。","The selected chats only have cloud copies."],
-  localOnlyRemoval: ["所选对话只有本机副本。","The selected chats only have local copies."],
+  cloudOnlyRemoval: ["当前只找到可操作的云端版本。回收站和其他已知备份在清单里单列。","Only cloud versions are active. Recycled and other known copies are shown separately in the review."],
+  localOnlyRemoval: ["当前只找到可操作的本机历史。回收站和其他已知备份在清单里单列。","Only device history is active. Recycled and other known copies are shown separately in the review."],
   onlyBinCopy: ["只处理这份回收记录。已经恢复或后来新建的本机对话会保留。","This action applies to the recycled copy. Restored or newly created local chats remain available."],
   removalPreviewOnly: ["正在预览，尚未执行本次操作","Preview only. This action has not started."],
   outsideRemoval: ["此位置没有副本，跳过","No copy at this location. Skipped."],

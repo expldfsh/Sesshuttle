@@ -17,7 +17,7 @@ function cleanRequest(input){
   requireThat(Array.isArray(ids)&&ids.length>0&&ids.length<=2000&&ids.every(uuid)&&typeof includeDependents==='boolean','invalid_selection');
   return {scope,mode,kind,ids:unique(ids),binId,versions,includeDependents};
 }
-function cloudRequest(q){return {ids:q.ids,action:q.kind==='bin'&&q.mode==='purge'?'purgeBin':q.mode,binId:q.binId,versions:q.versions};}
+function cloudRequest(q,groups=[]){return {ids:q.ids,inspectIds:unique(groups.flatMap(g=>g.ids)),action:q.kind==='bin'&&q.mode==='purge'?'purgeBin':q.mode,binId:q.binId,versions:q.versions};}
 export class Removals{
   constructor(engine,trash,{onProgress=()=>{}}={}){
     this.engine=engine;this.trash=trash;this.state=engine.state;this.onProgress=onProgress;this.plans=new Map();
@@ -44,7 +44,7 @@ export class Removals{
     if(q.scope==='local'&&q.kind==='bin'){
       requireThat(record&&q.ids.length===record.ids.length&&record.ids.every(tid=>q.ids.includes(tid)),'backup_not_found');
       requireThat(q.mode==='restore'?['prepared','removed','removing','restoring','needs_recovery'].includes(record.status):['removed','restored','purging'].includes(record.status),'trash_recovery_required');
-      local.push({token:q.binId,home:record.home,ids:record.ids,rows:record.rows,files:record.files,assets:record.assets,bytes:record.files.reduce((n,f)=>n+f.bytes,0)+record.database.bytes,blockers:[],fingerprint:binFingerprint(record)});
+      local.push({binPath:this.state.root+'/trash/'+record.id,token:q.binId,home:record.home,ids:record.ids,rows:record.rows,files:record.files,assets:record.assets,bytes:record.files.reduce((n,f)=>n+f.bytes,0)+record.database.bytes,blockers:[],fingerprint:binFingerprint(record)});
     }
     for(const home of homeList){
       if(onlyHomes&&!onlyHomes.includes(home))continue;
@@ -56,13 +56,12 @@ export class Removals{
       local.push({...p,entries,fingerprint:localFingerprint(p)});
     }
     const localIds=unique([...q.ids,...local.flatMap(g=>g.ids)]),retained=[];
-    const mentionedHomes=new Set([...local.map(g=>g.home),...this.engine.local.rows.filter(r=>localIds.includes(r.id)).flatMap(r=>r.homes??[r.home])]);
     for(const t of this.trash.list())if(t.id!==record?.id&&t.ids.some(tid=>localIds.includes(tid)))
       retained.push({place:'localBin',id:t.id,home:t.home,at:t.createdAt,title:t.rows.map(r=>r.title).join(' · ')});
-    for(const k of this.state.keys('backup/')){const b=this.state.get(k);if(b&&(!mentionedHomes.size||mentionedHomes.has(b.home)))retained.push({place:'wholeBackup',id:b.id,home:b.home,at:b.createdAt});}
+    for(const k of this.state.keys('backup/')){const b=this.state.get(k);if(b)retained.push({place:'wholeBackup',id:b.id,home:b.home,at:b.createdAt});}
     let cloud=null,cloudError=null;
     if(cloudScope(q.scope)){
-      requireThat(vault,'storage_not_connected');cloud=(await cloudRemovalPlan(vault,cloudRequest(q))).preview;
+      requireThat(vault,'storage_not_connected');cloud=(await cloudRemovalPlan(vault,cloudRequest(q,local))).preview;
     }else if(vault){
       try{const preserved=await cloudRemovalPlan(vault,{action:'trash',ids:localIds,versions:Object.fromEntries(localIds.map(tid=>[tid,[]]))});retained.push(...preserved.preview.retained);}
       catch(e){cloudError=publicError(e);}
@@ -120,7 +119,7 @@ export class Removals{
         if(side.side==='cloud'){
           const marker=await this.engine.vault.open();
           if(marker.completed?.includes(token)){side.status='done';continue;}
-          if(marker.pending?.id!==token){const fresh=await cloudRemovalPlan(this.engine.vault,cloudRequest(q));requireThat(fresh.preview.signature===plan.cloud.signature,'stale_plan');}
+          if(marker.pending?.id!==token){const fresh=await cloudRemovalPlan(this.engine.vault,cloudRequest(q,plan.local));requireThat(fresh.preview.signature===plan.cloud.signature,'stale_plan');}
         }else{
           const saved=this.state.get('trash/'+side.token),g=plan.local.find(p=>p.token===side.token);
           if(side.started&&q.kind==='live'&&saved){
@@ -138,7 +137,7 @@ export class Removals{
       }
       for(const side of job.sides){
         if(side.status==='done')continue;current=side;side.started=true;side.status='running';job.status='running';save();
-        if(side.side==='cloud')await changeCloud(this.engine.vault,cloudRequest(q),plan.cloud.signature,token,{upgrade,progress:(n,total)=>{side.progress=[n,total];this.onProgress(job);}});
+        if(side.side==='cloud')await changeCloud(this.engine.vault,cloudRequest(q,plan.local),plan.cloud.signature,token,{upgrade,progress:(n,total)=>{side.progress=[n,total];this.onProgress(job);}});
         else{
           const g=plan.local.find(p=>p.token===side.token);
           if(q.kind==='bin'&&q.mode==='restore')await this.trash.restore(g.token);

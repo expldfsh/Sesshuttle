@@ -63,6 +63,15 @@ for(const scope of ['local','cloud','both'])for(const mode of ['trash','purge'])
       assert.equal(await exists(x.home+'/sessions/'+x.a+'.jsonl'),scope==='cloud');assert.equal(await exists(x.asset),scope==='cloud');
       assert.ok(await exists(x.logo));assert.ok(await exists(x.shared));assert.ok(await exists(x.home+'/sessions/'+x.b+'.jsonl'));
       assert.deepEqual(await fs.readFile(x.other+'/sessions/'+x.a+'.jsonl'),x.sample);
+      const observerState=new State(x.dir+'/observer-index');try{
+        observerState.set('config',{sourceHomes:[x.other],targets:{},bindings:{}});
+        const observer=new Engine(observerState,{vault:x.second});
+        const beforeRefresh=await x.second.inventory(),observed=await observer.refresh();
+        assert.ok(observed.rows.some(r=>r.id===x.a&&r.local));
+        if(scope!=='local')assert.equal(observed.rows.find(r=>r.id===x.a).status,'cloud_removed');
+        assert.equal((await x.second.inventory()).bytes,beforeRefresh.bytes);
+        assert.deepEqual(await fs.readFile(x.other+'/sessions/'+x.a+'.jsonl'),x.sample);
+      }finally{observerState.close();}
       assert.equal(!!await x.second.head(x.a),scope==='local');assert.ok(await x.second.head(x.b));
       const bins=await cloudBins(x.second);assert.equal(bins.bins.length,scope!=='local'&&mode==='trash'?1:0);
       const sharedChunk=hash(await fs.readFile(x.shared));assert.ok((await x.vault.readChunk(sharedChunk)).length);
@@ -108,5 +117,16 @@ test('stale new local images or a changed space stop before either side writes',
    await fs.appendFile(x.asset,'changed');const job=await x.removals.execute(p.token,{permanent:true,upgrade:true});
    assert.equal(job.error.code,'stale_plan');assert.ok(await x.second.head(x.a));assert.ok(await exists(x.asset));
    x.engine.vault=new Vault(store,id(),newKey());await assert.rejects(x.removals.execute(p.token,{permanent:true,upgrade:true}),{code:'space_changed'});
+ }finally{x.state.close();}
+});
+
+test('two home folders are reviewed separately, and a shared asset is kept across homes',async()=>{
+ const x=await fixture();try{
+   const cfg=x.engine.config();cfg.sourceHomes=[x.home,x.other];cfg.targets.ide={home:x.other};x.state.set('config',cfg);await x.engine.refresh();
+   const plan=await x.removals.preview({scope:'local',mode:'purge',ids:[x.a]});
+   assert.equal(plan.local.length,2);assert.deepEqual(plan.local.find(g=>g.home===x.other).entries,['ide']);
+   assert.ok(plan.local.every(g=>g.assets.some(a=>a.path===x.asset&&a.disposition==='shared')));
+   const job=await x.removals.execute(plan.token,{permanent:true});assert.equal(job.status,'completed',JSON.stringify(job));
+   assert.ok(await exists(x.asset));assert.equal(await exists(x.other+'/sessions/'+x.a+'.jsonl'),false);
  }finally{x.state.close();}
 });
