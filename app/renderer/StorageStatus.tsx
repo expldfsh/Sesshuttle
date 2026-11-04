@@ -2,6 +2,7 @@ import React,{useState} from 'react';
 export function StorageStatus({init,t,call,reload,viewCloud,busy,restore}:any){
  const [health,setHealth]=useState<any>(null),[pending,setPending]=useState(''),[message,setMessage]=useState('');
  const warning=init.credentialError;
+ const saving=init.connected&&warning==='credential_save_pending';
  async function action(method:string){
   setPending(method);setMessage('');setHealth(null);
   try{
@@ -15,7 +16,8 @@ export function StorageStatus({init,t,call,reload,viewCloud,busy,restore}:any){
    <div className="card-title"><strong>{t(init.connected?'spaceJoined':'offline')}</strong>
     {init.connected&&<button className="primary" onClick={viewCloud}>{t('viewCloud')}</button>}</div>
    {init.connected&&!warning&&<p>{t('credentialsRemembered')}</p>}
-   {warning&&<div className="credential-note"><b>{t(init.connected?'onlyThisSession':init.canRestore?'savedConnectionLocked':'reconnectAfterSession')}</b>
+   {saving&&<p role="status"><progress/> {t(warning)}</p>}
+   {warning&&!saving&&<div className="credential-note"><b>{t(init.connected?'onlyThisSession':init.canRestore?'savedConnectionLocked':'reconnectAfterSession')}</b>
     {(init.connected||init.canRestore)&&<p>{t(warning)}</p>}
     <div className="actions">
      {init.connected&&<button disabled={waiting} onClick={()=>action('retryCredentialSave')}>{t('rememberAndAuthorize')}</button>}

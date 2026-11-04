@@ -101,7 +101,7 @@ async function connect(input:any){requireThat(!engine.running,'task_running');co
  // and return an explicit warning; never write plaintext credentials.
  await engine.clearDownloads();secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space,accessKeyId:credentials.accessKeyId});recovery=null;
  state.set('credentialMethod','session');
- state.set('credentialError','credential_session_only');
+ state.set('credentialError',input.remember?'credential_save_pending':'credential_session_only');
  return {status:'connected',space};
 }
 async function projectInfo(project:string){await canonical(project);try{

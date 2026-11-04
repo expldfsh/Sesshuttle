@@ -117,6 +117,12 @@ export class Engine{
         validateKeys(keys,item.attachmentReview.optional.filter(a=>a.role===role));
       }
     }
+    for(const item of executable){
+      for(const attachment of item.attachmentReview.optional){
+        const keys=acceptedByItem[item.id]?.[attachment.role]??[];
+        requireThat(keys.includes(attachment.key),'attachment_confirmation_required');
+      }
+    }
   }
   this.plans.delete(token);this.running=true;this.cancelled=false;this.vault.writeBudget={remaining:plan.uploadBytes};
   const job={id:id(),total:plan.items.length,startedAt:new Date().toISOString(),status:'running',items:[]};this.state.set('job/'+job.id,job);

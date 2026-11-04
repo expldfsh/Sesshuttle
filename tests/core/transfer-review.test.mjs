@@ -34,6 +34,7 @@ test('mixed preview binds omissions to a chat and only executes the confirmed el
  assert.equal(accept(ready[0]).length,2);
  await assert.rejects(engine.execute(plan.token),{code:'partial_scope_confirmation'});
  await assert.rejects(engine.execute(plan.token,{onlyEligible:true,acceptedByItem:{[ids[1]]:{primary:accept(ready[0])}}}),{code:'invalid_selection'});
+ await assert.rejects(engine.execute(plan.token,{onlyEligible:true,acceptedByItem:{[ids[0]]:{primary:accept(ready[0])}}}),{code:'attachment_confirmation_required'});
  assert.equal(store.objects.size,before);
  const acceptedByItem=Object.fromEntries(ready.map(item=>[item.id,{primary:accept(item)}]));
  const job=await engine.execute(plan.token,{onlyEligible:true,acceptedByItem});

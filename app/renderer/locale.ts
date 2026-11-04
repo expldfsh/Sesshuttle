@@ -956,3 +956,11 @@ const reviewLabels:Record<string,[string,string]>={
  ]
 };
 for(const [key,[cn,us]] of Object.entries(reviewLabels)){zh[key]=cn;en[key]=us;}
+
+const savingConnectionLabels:Record<string,[string,string]>={
+ "credential_save_pending": [
+  "同步空间已连接。请在系统密码库的授权窗口中完成保存。",
+  "Your sync space is connected. Complete the system password-store prompt to remember this connection."
+ ]
+};
+for(const [key,[cn,us]] of Object.entries(savingConnectionLabels)){zh[key]=cn;en[key]=us;}
