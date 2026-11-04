@@ -986,6 +986,9 @@ const scopedActions:Record<string,[string,string]>={
  operation_failed:['此步骤未完成。打开详情查看系统原因，再刷新检查本机和云端状态。','This step did not finish. Check the details and refresh the local and cloud status.'],
  uploadCloud:['上传到云端','Upload to cloud'],
  importLocal:['导入到这台电脑','Import to this computer'],
+ saveCloudCopy:['仅下载云端副本到文件夹','Download a cloud copy to a folder'],
+ saveCloudCopyHint:['选择私有文件夹保存已解密的历史和随备份提供的附件。要在 Codex 里继续聊，请使用「导入到这台电脑」。','Choose a private folder for decrypted history and the attachments in this backup. To continue in Codex, use Import to this computer.'],
+ savedCopyAt:['云端副本已保存到以下位置。Codex 历史目录未修改。','Cloud copy saved here. The Codex history directory was left unchanged.'],
  importNeedsApp:['选择对话后点「导入到这台电脑」，并勾选此入口。','Choose Import to this computer and select this app.'],
 };
 for(const [key,[cn,us]] of Object.entries(scopedActions)){zh[key]=cn;en[key]=us;}

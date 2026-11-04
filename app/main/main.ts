@@ -7,6 +7,7 @@ import {detectEnvironment,liveLinuxTargets} from '../../core/discovery.mjs';
 import {localProjects} from '../../core/local-projects.mjs';
 import {binaryVersion,assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
+import {downloadCopy} from '../../core/download-copy.mjs';
 import {keepLocalCopy} from '../../core/local-copies.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
@@ -198,6 +199,13 @@ async function request(method:string,args:any){switch(method){
  case 'discardPlan':return engine.discardPlan(args.token);
  case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true,acceptedByItem:args.acceptedByItem??{},onlyEligible:args.onlyEligible===true});
  case 'cancel':engine.cancel();return {status:'pausing'};
+ case 'downloadCopy':{
+   requireThat(!engine.running,'task_running');requireThat(engine.vault,'storage_not_connected');
+   const picked=await dialog.showOpenDialog(window,{properties:['openDirectory','createDirectory']});
+   if(picked.canceled||!picked.filePaths[0])return null;
+   requireThat(!engine.running,'task_running');engine.running=true;
+   try{return await downloadCopy(engine.vault,args.logical,args.version,picked.filePaths[0]);}finally{engine.running=false;}
+ }
  case 'keepLocalCopy':return keepLocalCopy(engine,args);
  case 'reviewRemoval':return removals.preview(args);
  case 'retryRemovalPlan':return removals.retryPlan(args.id);

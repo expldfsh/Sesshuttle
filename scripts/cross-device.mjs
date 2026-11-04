@@ -25,12 +25,19 @@ async function next(){const line=await lines.next();assert.ok(!line.done,'fixtur
 let state;
 try {
  const lab=await next();assert.ok(lab.root.startsWith(tmp+path.sep+'sesshuttle-lab-'));
+ if(mode==='receive'&&process.env.SESSHUTTLE_DUPLICATE_TEST==='1'){
+  const logical=id(),folder=path.join(lab.home,'sessions','unrelated-conflict');await fs.mkdir(folder,{recursive:true});
+  for(const message of ['left','right']){
+   const records=[{type:'session_meta',payload:{id:logical,source:'cli',cli_version:'0.166.0',cwd:lab.project}},{type:'event_msg',payload:{type:'user_message',message}}];
+   await fs.writeFile(path.join(folder,message+'.jsonl'),records.map(r=>JSON.stringify(r)).join('\n')+'\n');
+  }
+ }
  const store=new R2Store({endpoint:'http://127.0.0.1:'+Number(port),bucket:'sesshuttle-ui',accessKeyId:'fixture',secretAccessKey:'fixture'},{allowLocal:true});
  const vault=new Vault(store,info.space,info.key);if(mode==='source')await vault.create();else await vault.open();
  state=new State(path.join(lab.root,'application'));const entry=process.platform==='linux'?'cli':'desktop';
  state.set('config',{sourceHomes:[lab.home],targets:{[entry]:{home:lab.home,binary}},bindings:info.sourceProject?{[info.sourceProject]:lab.project}:{},nativeBindings:lab.projectId?{[info.sourceProject]:{[lab.home]:lab.projectId}}:{}});
  const engine=new Engine(state,{vault,importer:new Importer(state,{testRoot:lab.root,processGuard:async()=>{}})});
- async function sync(direction){await engine.refresh();const p=await engine.preview({ids:[lab.tid],direction,targets:direction==='upload'?[]:[entry]});const job=await engine.execute(p.token);assert.equal(job.status,'completed',JSON.stringify(job));}
+ async function sync(direction){const checked=await engine.refresh();if(mode==='receive'&&process.env.SESSHUTTLE_DUPLICATE_TEST==='1')assert.ok(checked.errors.some(e=>e.code==='duplicate_identity'));const p=await engine.preview({ids:[lab.tid],direction,targets:direction==='upload'?[]:[entry]});const job=await engine.execute(p.token);assert.equal(job.status,'completed',JSON.stringify(job));}
  if(mode==='source'){
   await sync('upload');Object.assign(info,{tid:lab.tid,macRoot:lab.root,sourceProject:engine.rows.find(r=>r.id===lab.tid).projectId});
   await fs.writeFile(exchange,JSON.stringify(info),{mode:0o600});
