@@ -31,14 +31,21 @@
       "LICENSE",
       "THIRD_PARTY_NOTICES.txt",
       "assets/font-licenses/**/*",
-      "assets/fonts.json"
+      "assets/fonts.json",
+      "!dist/macos-keychain.node"
     ],
     "asar": true,
     "npmRebuild": false,
     "mac": {
       "category": "public.app-category.developer-tools",
       "identity": null,
-      "target": "dmg"
+      "target": "dmg",
+      "extraResources": [
+        {
+          "from": "dist/macos-keychain.node",
+          "to": "macos-keychain.node"
+        }
+      ]
     },
     "linux": {
       "category": "Development",

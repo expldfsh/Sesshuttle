@@ -31,6 +31,8 @@
 
 ## 本地开发
 
+从源码构建 Mac 版需要 Xcode 命令行工具，以及包含 Node-API 头文件的 Node.js 安装。
+
 ```sh
 npm ci
 npm run check
