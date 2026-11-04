@@ -1136,3 +1136,46 @@ const manualOperations:Record<string,[string,string]>={
  ]
 };
 for(const [key,[cn,us]] of Object.entries(manualOperations)){zh[key]=cn;en[key]=us;}
+
+const compatibilityCopy:Record<string,[string,string]>={
+ runtimePathsReady:['路径已就绪，此内核首次用于导入','Paths are ready. First import with this runtime'],
+ runtimeCheckTitle:['本机导入能力','Local import capability'],
+ runtimeCheckHint:['用一条临时测试对话验证续聊。无需登录，通过后这台电脑会记住结果。','Check continuation with a temporary sample chat. No sign-in is needed. This computer remembers a pass.'],
+ startRuntimeCheck:['快速验证此内核','Run quick check'],
+ retryRuntimeCheck:['重新快速验证','Retry quick check'],
+ stopRuntimeCheck:['取消本次验证','Cancel check'],
+ runtimeBuiltIn:['可导入 · 已支持的内核','Ready to import · Supported runtime'],
+ runtimeRemembered:['可导入 · 本机验证已通过','Ready to import · Verified on this computer'],
+ runtimePendingShort:['路径已就绪 · 待快速验证','Paths ready · Quick check needed'],
+ runtimeSample:['正在创建测试对话…','Creating a sample chat…'],
+ runtimeImport:['正在将测试对话导入临时目录…','Importing the sample into a temporary folder…'],
+ runtimeContinue:['正在续写并重新打开同一条对话…','Continuing and reopening the same chat…'],
+ runtimeProjects:['续聊已通过，正在检查项目归属…','Continuation passed. Checking project support…'],
+ runtime_check_needed:['在所选应用下点击「快速验证此内核」，通过后即可查看导入清单。','Run the quick check under the selected app to review your import.'],
+ runtime_unfinished:['验证未完成。可以重试、选择另一个入口，或将云端副本下载到文件夹。','The check could not finish. Retry, select another app, or download a copy to a folder.'],
+ runtime_history_mismatch:['重开测试对话后，内核未能读回同一条对话的完整消息。请选择其他入口导入，或将副本下载到文件夹。','The runtime did not reopen the same chat with its messages intact. Select another app for import or download a copy.'],
+ runtime_protocol:['内核缺少导入或续聊所需的接口。请选择其他入口，或更新此应用后重试。','This runtime lacks a required import or continuation operation. Select another app or update this one and retry.'],
+ runtime_schema:['内核无法写入测试对话的历史格式。请选择其他入口，或下载副本以保留文件。','This runtime could not store the sample history format. Use another app or download the files to keep a copy.'],
+ runtime_start_failed:['测试进程提前退出。请检查 Codex 可执行文件能否运行，再重试或选择其他入口。','The test process stopped early. Check that the selected Codex executable runs, then retry or choose another app.'],
+ runtime_temp_denied:['系统未允许创建临时文件或本机测试连接。请检查临时目录权限和本机连接限制，再重试。','The system denied temporary storage or the local test connection. Check temporary folder and loopback permissions, then retry.'],
+ runtime_isolation:['无法确认内核只使用临时配置与本机应答。请检查此安装的全局工具或模型设置，再重试或选择其他入口。','The runtime could not use the isolated settings safely. Check this installation’s system-wide tool and provider settings, then retry or choose another app.'],
+ runtime_reply_unavailable:['本机测试应答未完成，尚未取得验证结果。请重试或选择其他入口。','The local test reply did not finish. Retry the check or select another app.'],
+ runtime_timeout:['本次测试等待超时。可以重试，或选择其他已就绪的应用。','The check timed out. Retry or select another ready app.'],
+ runtime_cancelled:['已取消验证。对话和路径选择已保留。','Check cancelled. Your chat and path selections are kept.'],
+ runtime_changed:['验证期间内核文件已变化。请重新快速验证当前内核。','The runtime changed during verification. Run the quick check on the current executable.'],
+ runtime_busy:['另一个内核正在验证。请等它完成，或先取消那次验证。','Another check is running. Wait for it to finish or cancel that check.'],
+ runtime_launcher:['此路径指向启动脚本。请在「编辑路径」中选择该安装实际使用的 Codex 可执行文件，再验证。','This path points to a launcher script. Edit the path, select the installed Codex executable, then retry.'],
+ binary_not_codex:['该程序未报告 Codex 版本。请选择 Codex 内核可执行文件。','This program did not report a Codex version. Select the Codex runtime executable.'],
+ runtimeCatalogUnavailable:['暂时无法读取本机项目列表。可选择「仅导入历史」，或检查历史目录后重试。','The local project list could not be read. Choose history only or check the history folder and retry.'],
+ technicalDetails:['查看具体原因','Show technical details'],
+ savedKernelPath:['已保存的内核','Saved runtime'],
+ savedHistoryPath:['已保存的历史目录','Saved history folder'],
+ reusePathsHint:['所选入口的路径已经填好，可直接返回导入。','The selected apps already have paths. Continue with the current settings.'],
+ manualPathsHint:['没有选中要采用的路径。返回导入可手动编辑缺失的路径。','No replacement was selected. Return to import to edit the missing path.'],
+ reuseAndReturn:['使用当前路径，继续导入','Use current paths and continue'],
+ backToImportSetup:['返回导入，编辑路径','Return to import and edit paths'],
+ chooseHistoryOnly:['使用此目录，仅导入历史','Use this folder for history only'],
+ downloadFolderOnly:['仅下载到普通文件夹','Download a copy to a folder'],
+ historyOnlyHint:['仅导入历史也会验证能否继续同一条对话。可在目标应用的对话列表中查找。','History-only import also verifies continuation. Look in the destination app’s chat list.']
+};
+for(const [key,[cn,us]] of Object.entries(compatibilityCopy)){zh[key]=cn;en[key]=us;}

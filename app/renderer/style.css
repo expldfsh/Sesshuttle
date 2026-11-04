@@ -331,3 +331,6 @@ progress {width:100%;height:7px;accent-color:var(--accent);display:block;margin:
 .permanent-action{background:var(--danger);color:var(--on-accent);font-weight:700;border-color:var(--danger)}.permanent-action:hover:not(:disabled){background:var(--danger);filter:brightness(1.08)}
 .removal-task{overflow:auto;max-height:38vh}.task-feedback .reason{color:var(--warning);display:block}.removal-copies ul{max-height:32vh;overflow:auto}
 @media(max-width:980px){.removal-dialog{padding:14px}.removal-dialog .modal-actions{bottom:-14px}.remove-options label{padding:8px 10px}}
+.runtime-check{border:1px solid var(--line);border-radius:.5rem;padding:.75rem 1rem;margin:.5rem 0}
+.runtime-check p,.runtime-ready{margin:.4rem 0 .65rem}
+.saved-paths small{display:block;overflow-wrap:anywhere}

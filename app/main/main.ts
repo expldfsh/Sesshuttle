@@ -7,7 +7,9 @@ import {bundleBytes} from '../../core/bundle.mjs';
 import {credentialHealth,persistConnection,retrieveConnection} from './credentials';
 import {detectEnvironment,liveLinuxTargets} from '../../core/discovery.mjs';
 import {localProjects} from '../../core/local-projects.mjs';
-import {binaryVersion,assertCodexClosed} from '../../core/native.mjs';
+import {runtimeInfo} from '../../core/runtime.mjs';
+import {verifyRuntime} from '../../core/runtime-check.mjs';
+import {assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
 import {downloadCopy} from '../../core/download-copy.mjs';
 import {keepLocalCopy,inspectTarget} from '../../core/local-copies.mjs';
@@ -50,6 +52,7 @@ async function saveCurrentCredentials(){
  try{await persistConnection(state,secrets,testRoot);state.set('credentialError',null);return {warning:null};}
  catch(e:any){const warning=e instanceof Fault?e.code:'credential_write_failed';state.set('credentialError',warning);return {warning};}
 }
+let activeProof:{id:string,controller:AbortController,done:Promise<any>}|null=null;
 async function destinationInfo(targets:any){
  const output:any={};
  for(const entry of ['desktop','cli','ide']){
@@ -60,9 +63,11 @@ async function destinationInfo(targets:any){
   else try{
    if(testRoot)await inside(testRoot,path.join(home,'probe'));
    requireThat((await fs.stat(home).catch(()=>null))?.isDirectory(),'entry_home_missing');
-   checked.runtime=await binaryVersion(binary);
-   Object.assign(checked,await localProjects(await canonical(home)));
-   checked.supported=checked.supported&&checked.runtime.startsWith('0.166.0');
+   checked.proof=await runtimeInfo(binary,state);
+   checked.runtime=checked.proof.version;
+   try{Object.assign(checked,await localProjects(await canonical(home)));}
+   catch{checked.projectWarning='runtimeCatalogUnavailable';}
+   checked.supported=checked.supported&&checked.proof.projects;
    if(entry!=='cli'){
      checked.manualOpen=await canonical(home)!==path.join(os.homedir(),'.codex');
      if(process.platform==='linux'){
@@ -151,6 +156,17 @@ async function request(method:string,args:any){switch(method){
  case 'saveConfig':return saveConfig(args);
  case 'detectPaths':return detectEnvironment({config:engine.config(),testRoot} as any);
  case 'destinationInfo':return destinationInfo(args.targets??engine.config().targets);
+ case 'verifyRuntime':{
+  requireThat(!activeProof,'runtime_busy');
+  requireThat(typeof args.id==='string'&&/^[a-f0-9-]{36}$/i.test(args.id)&&typeof args.binary==='string'&&path.isAbsolute(args.binary),'invalid_selection');
+  const controller=new AbortController();
+  const done=verifyRuntime(args.binary,state,{signal:controller.signal,onStage:(stage:string)=>{
+   if(!window.isDestroyed())window.webContents.send('sesshuttle:runtime',{id:args.id,stage});
+  }} as any);
+  activeProof={id:args.id,controller,done};
+  try{return await done;}finally{activeProof=null;}
+ }
+ case 'cancelRuntimeCheck':if(activeProof?.id===args.id)activeProof?.controller.abort();return true;
  case 'versionDetails':{
   const head=engine.remote.find((h:any)=>h.logicalId===args.id);requireThat(engine.vault,'storage_not_connected');requireThat(head,'cloud_version_missing');
   return Promise.all(head.tips.map(async(v:string)=>{const p=await engine.vault.version(v);return {id:v,title:p.title,device:p.device?.name,at:p.uploadedAt,bytes:bundleBytes(p),files:p.files.length,lastMessage:p.messages?.at(-1)?.text?.slice(0,180)};}));
@@ -257,7 +273,7 @@ if(primaryInstance)app.whenReady().then(async()=>{
  let modifying=false;
  const exclusive=new Set(['createBackup','deleteBackup','clearActivity','downloadCopy','keepLocalCopy','execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','restoreConnection','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');const guarded=exclusive.has(method);if(guarded){requireThat(!modifying,'task_running');modifying=true;}try{return {ok:true,data:await request(method,args)};}finally{if(guarded)modifying=false;}}catch(e){return {ok:false,error:publicError(e)};}});
- window.on('close',event=>{if(engine.running){event.preventDefault();if(!deletionActive)engine.cancel();window.webContents.send('sesshuttle:closePending',deletionActive);}});
+ window.on('close',event=>{if(activeProof){event.preventDefault();activeProof.controller.abort();void activeProof.done.catch(()=>{}).then(()=>{if(!window.isDestroyed())window.close();});return;}if(engine.running){event.preventDefault();if(!deletionActive)engine.cancel();window.webContents.send('sesshuttle:closePending',deletionActive);}});
  await window.loadFile(renderer);
 }).catch(error=>{dialog.showErrorBox('sesshuttle',publicError(error).code);app.quit();});
 app.on('window-all-closed',()=>app.quit());app.on('will-quit',()=>{try{state?.close();}catch{}});

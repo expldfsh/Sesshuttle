@@ -69,3 +69,9 @@ Choose **Import to this computer…** to continue in Codex. Saving a copy to a f
 5. **Backups & recovery** has separate device and cloud recycle bins. Choose an entry to restore it or permanently remove the recycled copy. A restored cloud version becomes downloadable. A conflicting new branch stays available for comparison. Previously created safety backups are retained.
 
 Recycling retains the storage. Permanent cleanup releases only unshared objects in the selected space. On another device, imported chats keep working and refresh does not upload them again. An interrupted cloud cleanup can be finished from the cloud bin. If a writer is still recorded on another device, wait for it or reopen the original installation and retry.
+
+### First import with a new Codex runtime
+
+When **Import to this computer** shows that the paths are ready, choose **Run quick check** under the selected app. Sesshuttle imports and continues a temporary sample chat and remembers a pass on this computer. Choose a local project or history only, then review the import. If you opened path detection and the saved paths are correct, choose **Use current paths and continue**.
+
+Replacing the runtime can require a fresh check. You can still import history when native project assignment is unavailable. If continuation fails, the window explains why and offers another app or a download to an ordinary folder.
