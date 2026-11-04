@@ -57,7 +57,11 @@ export class Trash{
    for(const f of info.files)requireThat((await digestFile(f.path)).hash===f.hash,'stale_plan');await this.mark(info,'removing');
    await databaseWrite(plan.home,async dbs=>{for(const db of Object.values(dbs))for(const t of tables(db).sort((a,b)=>Number(a.table==='threads')-Number(b.table==='threads'))){const w=where(t,plan.ids);db.prepare('DELETE FROM "'+t.table+'" WHERE '+w.sql).run(...w.args);}});
    await this.checkpoint('database_removed');await rewriteIndex(plan.home,plan.ids);for(const f of info.files){requireThat((await digestFile(f.path)).hash===f.hash,'stale_plan');await fs.unlink(f.path);}this.invalidate(plan.home,plan.ids);await this.mark(info,'removed');return info;
-  }catch(e){await this.mark(info,'needs_recovery');throw new Fault('trash_needs_recovery',info.id+': '+(e.code??e.message));}
+  }catch(e){
+   // The second preflight can fail while every original is still untouched.
+   if(info.status==='prepared'){await this.eraseCopy(info);throw e;}
+   await this.mark(info,'needs_recovery');throw new Fault('trash_needs_recovery',info.id+': '+(e.code??e.message));
+  }
  }
  async clearStaging(trashId){
   const info=this.state.get('trash/'+trashId);requireThat(info?.status==='staging','invalid_selection');

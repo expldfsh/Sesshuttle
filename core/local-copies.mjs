@@ -5,10 +5,13 @@ import {hash,id,inside,requireThat} from './util.mjs';
 import {checkScope} from './scan-scope.mjs';
 
 export function copiesOf(rows,logical){
-  return rows.filter(row=>row.id===logical).flatMap(row=>row.physicalFiles.map(file=>({
+  const matches=rows.filter(row=>row.id===logical);
+  const paths=new Set(matches.flatMap(row=>row.physicalFiles));
+  return matches.flatMap(row=>row.physicalFiles.map(file=>({
     file,home:row.home,title:row.title,bytes:row.historyBytes,updatedAt:row.updatedAt,
     sample:row.messages.at(-1)?.text?.slice(0,240),hash:row.hash,busy:row.busy,
-    indexedFile:row.indexedFile??null
+    indexedFile:row.indexedFile??null,canUse:!row.database||row.indexedFile===file||
+      (file.endsWith('.zst')&&row.indexedFile===file.slice(0,-4)&&!paths.has(row.indexedFile))
   }))).sort((a,b)=>a.file.localeCompare(b.file));
 }
 export const copyToken=copies=>hash(JSON.stringify(copies));
@@ -40,7 +43,7 @@ export async function keepLocalCopy(engine,{logical,token,file,entry}){
       const chosen=copies.find(copy=>copy.file===file);
       requireThat(chosen&&copies.every(copy=>copy.home===chosen.home),'copies_multiple_homes');
       requireThat(copies.every(copy=>!copy.busy),'busy');
-      requireThat(copies.every(copy=>!copy.indexedFile||copy.indexedFile===file),'copies_indexed');
+      requireThat(chosen.canUse&&copies.every(copy=>!copy.indexedFile||copy.indexedFile===chosen.indexedFile||copy.indexedFile===file),'copies_indexed');
       for(const copy of copies){
         await inside(chosen.home,copy.file);
         requireThat(['sessions','archived_sessions'].includes(path.relative(chosen.home,copy.file).split(path.sep)[0]),'unsafe_path');
@@ -74,6 +77,6 @@ export function uploadSource(rows,logical,choice){
   requireThat(copies.length>1&&choice.token===copyToken(copies),'stale_plan');
   const row=rows.find(r=>r.id===logical&&r.physicalFiles.includes(choice.file));
   requireThat(row?.issues.includes('duplicate_identity'),'stale_plan');
-  requireThat(!row.database||row.indexedFile===choice.file,'copies_indexed');
+  requireThat(copies.find(copy=>copy.file===choice.file)?.canUse,'copies_indexed',row.indexedFile??'');
   return {...row,file:choice.file,issues:row.issues.filter(code=>code!=='duplicate_identity')};
 }

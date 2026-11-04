@@ -100,6 +100,7 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
     {noWork&&<p role="status">{t('nothing_to_remove')}</p>}
     {!pending&&!changed&&plan&&!noWork&&!blocked&&((needPermanent&&!permanent)||(needUpgrade&&!upgrade))&&<p>{t('reviewConsentHint')}</p>}
     {error&&<div role="alert" className="notice error"><span>{t(error.code??'operation_failed')} {error.detail}</span>
+      {error.code==='scan_incomplete'&&<button onClick={()=>onRepair('scan')}>{t('scanSummary')}</button>}
       {['cloud_cleanup_pending','trash_recovery_required','storage_not_connected'].includes(error.code)&&<button onClick={()=>onRepair(error.code==='storage_not_connected'?'settings':'backups')}>{t(error.code==='storage_not_connected'?'settings':'backups')}</button>}</div>}
     <footer className="modal-actions">
       <button disabled={pending} onClick={onClose}>{t('cancel')}</button>

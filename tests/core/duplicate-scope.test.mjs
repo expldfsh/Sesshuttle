@@ -54,3 +54,22 @@ test('a divergent pair does not prevent independent transfer, removal and restor
   await importer.restore(resolved.backup);
   assert.deepEqual(await Promise.all([a,b,independent].map(f=>fs.readFile(f))),originals);
 });
+
+test('a change before the first deletion write keeps the original and does not lock recovery',async t=>{
+  const root=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'sesshuttle-prewrite-')));
+  const home=path.join(root,'codex'),folder=path.join(home,'sessions'),logical=id();
+  await fs.mkdir(folder,{recursive:true});
+  const file=path.join(folder,logical+'.jsonl');
+  const history=JSON.stringify({type:'session_meta',payload:{id:logical,source:'cli',cli_version:'0.166.0',cwd:root}})+'\n';
+  const update=JSON.stringify({type:'event_msg',payload:{type:'user_message',message:'Added during review'}})+'\n';
+  await fs.writeFile(file,history);
+  const state=new State(path.join(root,'app'));t.after(async()=>{state.close();await fs.rm(root,{recursive:true,force:true});});
+  let checks=0;
+  const importer=new Importer(state,{testRoot:root,processGuard:async()=>{if(++checks===2)await fs.appendFile(file,update);}});
+  const trash=new Trash(state,importer),plan=await trash.preview([home],{ids:[logical]});
+  await assert.rejects(trash.remove(plan.token),{code:'stale_plan'});
+  assert.equal(await fs.readFile(file,'utf8'),history+update);
+  assert.equal(trash.list().length,0);
+  const next=await trash.preview([home],{ids:[logical]});await trash.remove(next.token);await trash.restore(next.token);
+  assert.equal(await fs.readFile(file,'utf8'),history+update);
+});
