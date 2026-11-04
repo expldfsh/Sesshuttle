@@ -1,0 +1,59 @@
+name: Prepare 0.5.0 release draft
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/releases/0.5.0/**
+      - .github/workflows/draft-0.5.0.yml
+
+permissions:
+  contents: write
+
+concurrency: draft-sesshuttle-0.5.0
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const repo = context.repo;
+            const tag = 'v0.5.0';
+            const target = 'c30ccdf76377767dbb817e10e205cd7a35bc9b6e';
+            const folder = 'docs/releases/0.5.0';
+            const name = 'SHA256SUMS-0.5.0.txt';
+            const releases = github.rest.repos;
+            const list = await github.paginate(releases.listReleases, {...repo, per_page: 100});
+            let draft = list.find(r => r.tag_name === tag);
+            if (draft && !draft.draft) {
+              core.info('This version has already been published. Nothing to change.');
+              return;
+            }
+            const refs = await github.rest.git.listMatchingRefs({...repo, ref: 'tags/' + tag});
+            const existing = refs.data.find(r => r.ref === 'refs/tags/' + tag);
+            if (existing && existing.object.sha !== target) {
+              throw Error('An existing tag does not point directly to the accepted commit. Inspect it before proceeding.');
+            }
+            if (!draft) {
+              const result = await releases.createRelease({...repo, tag_name: tag, target_commitish: target,
+                name: 'Sesshuttle 0.5.0', body: fs.readFileSync(folder + '/notes.md', 'utf8'), draft: true});
+              draft = result.data;
+            }
+            if (draft.target_commitish !== target) throw Error('Existing draft has a different target.');
+            const data = fs.readFileSync(folder + '/' + name);
+            const asset = draft.assets.find(a => a.name === name);
+            if (!asset) {
+              await releases.uploadReleaseAsset({...repo, release_id: draft.id, name, data,
+                headers: {'content-type': 'text/plain', 'content-length': data.length}});
+            } else {
+              const download = await releases.getReleaseAsset({...repo, asset_id: asset.id,
+                headers: {accept: 'application/octet-stream'}});
+              if (!Buffer.from(download.data).equals(data)) throw Error('Draft checksum file differs from the accepted manifest.');
+            }
+            await core.summary.addLink('Open the private release draft', draft.html_url).write();
