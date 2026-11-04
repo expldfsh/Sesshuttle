@@ -1,16 +1,16 @@
-# Sesshuttle 0.4.2 使用指南
+# Sesshuttle 0.5.0 使用指南
 
 两台电脑都已连上 R2，并且 Linux 已经能看到云端对话时，从下面的「导入到 Linux」开始。恢复文件可以继续使用。
 
 ## 安装或升级
 
-- **Mac Apple Silicon** 打开 `sesshuttle-0.4.2-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
+- **Mac Apple Silicon** 打开 `sesshuttle-0.5.0-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
 - **Arch Linux x86_64** 在安装包所在目录运行下面两行，保持解压出的目录完整，在自己的图形桌面会话中启动。
-- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.4.2-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.4.2-linux-amd64.deb`。
+- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.5.0-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.5.0-linux-amd64.deb`。
 
 ```sh
-tar -xzf sesshuttle-0.4.2-linux-x64.tar.gz
-./sesshuttle-0.4.2-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.5.0-linux-x64.tar.gz
+./sesshuttle-0.5.0-linux-x64/sesshuttle
 ```
 
 升级时退出旧版，保留原有应用数据。两台电脑分别安装并登录要使用的 Codex 应用。项目代码通过 Git 或自己的文件传输方式准备。
@@ -63,6 +63,14 @@ busctl --user introspect org.freedesktop.secrets /org/freedesktop/secrets org.fr
 若服务缺失且希望使用 GNOME Keyring，可安装 `sudo pacman -S --needed gnome-keyring`，在应用内重试。如果安装后当前桌面会话仍找不到服务，重新登录图形桌面再试。仅在内存中的连接在退出后需重新加入同一空间。[Arch 软件包](https://archlinux.org/packages/extra/x86_64/gnome-keyring/)
 
 [用已有云端对话在 Arch 验收](linux-acceptance.md) · [兼容范围](../../compatibility/0.4.0.md)
+
+## 手动备份和清除记录
+
+启动后点击「刷新」读取对话。需要云端内容时，先在「设置」连接已保存的同步空间。预览、下载、导入和恢复都不会创建本机备份。
+
+前往「备份与恢复」，选择数据目录，点击「创建本机备份」并确认。创建时可以开着 Codex；如果这期间有历史变动，等写入结束后重试。列表显示手动创建或旧版原因未知，以及备份文件的磁盘占用。点「删除这份备份」只移除选中的恢复点。恢复会替换当前历史和索引，确认框会列出将移除的额外文件。
+
+在「同步记录」勾选后点「清除所选记录」，或用「清空记录」清理可清除的记录。对话、云端版本、备份和同步状态保留。要查看已删除的对话，到「备份与恢复」点「查看或刷新本机和云端回收站」。
 
 ## 删除对话或备份版本
 

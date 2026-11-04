@@ -1,16 +1,24 @@
-# Sesshuttle 0.4.2
+# Sesshuttle 0.5.0
 
 If your Linux device already shows the cloud chat, go straight to **Import and continue**. Keep the existing space, application data and recovery file when upgrading.
+
+## Manual backups and activity
+
+Click Refresh to scan chats. To include cloud chats, connect to your saved space in Settings first. Previews, downloads, imports and restores do not create local backups.
+
+Under Backups & recovery, choose a Codex data folder, click Create device backup and confirm. Codex can remain open. If history changes during the copy, retry when writes have stopped. Each row shows why the backup exists and how much disk space its files occupy. Deleting the selected backup removes that restore point. Restoring replaces history and indexes in the chosen directory. Review the extra files listed for removal before confirming.
+
+In Sync activity, select records to clear or click Clear all records. Chats, cloud versions, backups and sync status remain available. To find a deleted conversation, open Backups & recovery and click View or refresh device and cloud recycle bins.
 
 ## Install
 
 - On Apple Silicon, open the DMG and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.4.2-linux-amd64.deb` using your software installer.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.5.0-linux-amd64.deb` using your software installer.
 
 ```sh
-tar -xzf sesshuttle-0.4.2-linux-x64.tar.gz
-./sesshuttle-0.4.2-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.5.0-linux-x64.tar.gz
+./sesshuttle-0.5.0-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each device. Bring project files to each device separately. Fonts are bundled.
