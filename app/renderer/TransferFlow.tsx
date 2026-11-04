@@ -16,7 +16,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
  const direction=request.direction, uploading=direction!=='download', importing=direction!=='upload'||!!request.version;
  const entries=['desktop','cli','ide'], chosen=rows.filter((r:any)=>request.ids.includes(r.id));
  const needed=chosen.filter((r:any)=>direction==='download'?r.remote:direction==='upload'?r.local:true);
- const projects=[...new Map<string,any>(needed.filter((r:any)=>!r.busy&&(direction!=='download'||r.continuation!==false)).map((r:any)=>[r.projectId,r])).values()];
+ const projects=[...new Map<string,any>(needed.filter((r:any)=>(!r.busy||direction==='download')&&(direction!=='download'||r.continuation!==false)).map((r:any)=>[r.projectId,r])).values()];
  const homeGroups=[...new Set<string>(targets.map(e=>draft.targets[e]?.home).filter(Boolean))];
  const title=t(direction==='upload'?'uploadCloud':direction==='download'?'importLocal':'both');
  const requiresChoice=(r:any,h:string)=>!Object.prototype.hasOwnProperty.call(draft.nativeBindings?.[r.projectId]??{},h);
@@ -59,7 +59,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
   await rebuild(keys);
  }
  function approvedKeys():string[]{return plan?.selection?.approvedAttachments??[];}
- const issue=error&&<div className="notice error" role="alert"><strong>{t(error.code??'operation_failed')}</strong>{error.detail&&<details><summary>{t('details')}</summary>{error.detail}</details>}{['stale_plan','cloud_check_failed','storage_unavailable'].includes(error.code)&&<button disabled={!!pending} onClick={()=>run('refreshing',()=>recheck())}>{t('refreshAndRetry')}</button>}</div>;
+ const issue=error&&<div className="notice error" role="alert"><strong>{t(error.code??'operation_failed')}</strong>{error.detail&&<details><summary>{t('details')}</summary>{error.detail}</details>}{request.copyChoice&&error.code==='stale_plan'?<button onClick={()=>{onCopies(request.ids[0]);}}>{t('inspectCopies')}</button>:['stale_plan','cloud_check_failed','storage_unavailable'].includes(error.code)&&<button disabled={!!pending} onClick={()=>run('refreshing',()=>recheck())}>{t('refreshAndRetry')}</button>}</div>;
  return <>
  {plan?<SyncPlan key={plan.token} plan={plan} cfg={draft} busy={!!pending} t={t} size={size} feedback={<>{activity}{issue}{plan.items.filter((i:any)=>i.excludedReason==='duplicate_identity').map((i:any)=><button key={i.id} onClick={()=>run('checkingEntries',async()=>{await call('discardPlan',{token:plan.token});onCopies(i.id);})}>{t('inspectCopies')} · {i.title}</button>)}</>} onClose={()=>void close()}
    onBack={()=>run('checkingEntries',async()=>{await call('discardPlan',{token:plan.token});setPlan(null);if(importing)await inspect();})}

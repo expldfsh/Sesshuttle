@@ -13,12 +13,24 @@ export function copiesOf(rows,logical){
 }
 export const copyToken=copies=>hash(JSON.stringify(copies));
 
-// Keep the active database and all attachments intact. Only reconcile files in
-// one known history directory. A directory backup can undo the entire choice.
-export async function keepLocalCopy(engine,{logical,token,file}){
+function targetHomes(engine,entry){
+  if(!entry)return engine.config().sourceHomes;
+  const home=engine.config().targets?.[entry]?.home;
+  requireThat(['desktop','ide','cli'].includes(entry)&&home,'entry_home_missing');
+  return [home];
+}
+
+export async function inspectTarget(engine,entry,logical){
+  const homes=targetHomes(engine,entry),snapshot=await scan(homes);
+  const copies=copiesOf(snapshot.rows,logical);
+  return {id:logical,entry,home:homes[0],errors:snapshot.errors,copies,copyToken:copyToken(copies)};
+}
+
+// Keep the active database and attachments intact; the backup can undo this choice.
+export async function keepLocalCopy(engine,{logical,token,file,entry}){
   requireThat(!engine.running,'task_running');engine.running=true;
   try{
-    const homes=engine.config().sourceHomes;
+    const homes=targetHomes(engine,entry);
     const inspect=async()=>{
       const snapshot=await scan(homes);
       checkScope(snapshot,[logical],{allowDuplicateRemoval:true});

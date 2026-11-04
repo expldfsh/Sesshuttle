@@ -8,7 +8,7 @@ import {localProjects} from '../../core/local-projects.mjs';
 import {binaryVersion,assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
 import {downloadCopy} from '../../core/download-copy.mjs';
-import {keepLocalCopy} from '../../core/local-copies.mjs';
+import {keepLocalCopy,inspectTarget} from '../../core/local-copies.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
 import { pathToFileURL } from 'node:url';import { execFile,spawn } from 'node:child_process';import { promisify } from 'node:util';
@@ -206,6 +206,7 @@ async function request(method:string,args:any){switch(method){
    requireThat(!engine.running,'task_running');engine.running=true;
    try{return await downloadCopy(engine.vault,args.logical,args.version,picked.filePaths[0]);}finally{engine.running=false;}
  }
+ case 'inspectTarget':return inspectTarget(engine,args.entry,args.logical);
  case 'keepLocalCopy':return keepLocalCopy(engine,args);
  case 'reviewRemoval':return removals.preview(args);
  case 'retryRemovalPlan':return removals.retryPlan(args.id);
@@ -220,7 +221,7 @@ async function request(method:string,args:any){switch(method){
  case 'restore':requireThat(!engine.running,'task_running');engine.running=true;try{return await engine.importer.restore(args.id);}finally{engine.running=false;}
  case 'projectInfo':return projectInfo(args.project);
  case 'continue':requireThat(!engine.running,'task_running');return continueEntry(args);
- case 'diagnostics':return {version:app.getVersion(),platform:process.platform,arch:process.arch,scanErrors:engine.local.errors.map((e:any)=>({code:e.code})),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10).map((j:any)=>{return {startedAt:j.startedAt,status:j.status,items:j.items.map((i:any)=>({action:i.action,status:i.status,stage:i.stage,error:i.error?.code,targets:Object.fromEntries(Object.entries(i.targets??{}).map(([entry,r]:any)=>[entry,{status:r.status,error:r.error?.code}]))}))};})};
+ case 'diagnostics':return {version:app.getVersion(),platform:process.platform,arch:process.arch,scanErrors:engine.local.errors.map((e:any)=>({code:e.code})),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10).map((j:any)=>{return {startedAt:j.startedAt,status:j.status,items:j.items.map((i:any)=>({action:i.action,status:i.status,stage:i.stage,error:i.error?.code,targets:Object.fromEntries(Object.entries(i.targets??{}).map(([entry,r]:any)=>[entry,{status:r.status,stage:r.stage,error:r.error?.code}]))}))};})};
  default:throw new Fault('invalid_action');
 }}
 const primaryInstance=app.requestSingleInstanceLock();
@@ -239,7 +240,7 @@ if(primaryInstance)app.whenReady().then(async()=>{
  window=new BrowserWindow({width:1320,height:860,minWidth:780,minHeight:600,title:'sesshuttle',backgroundColor:getTheme(state.get('config')?.theme).colors.bg,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});
  let modifying=false;
- const exclusive=new Set(['execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','restoreConnection','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
+ const exclusive=new Set(['downloadCopy','keepLocalCopy','execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','restoreConnection','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');const guarded=exclusive.has(method);if(guarded){requireThat(!modifying,'task_running');modifying=true;}try{return {ok:true,data:await request(method,args)};}finally{if(guarded)modifying=false;}}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();if(!deletionActive)engine.cancel();window.webContents.send('sesshuttle:closePending',deletionActive);}});
  await window.loadFile(renderer);

@@ -966,6 +966,10 @@ const savingConnectionLabels:Record<string,[string,string]>={
 for(const [key,[cn,us]] of Object.entries(savingConnectionLabels)){zh[key]=cn;en[key]=us;}
 
 const scopedActions:Record<string,[string,string]>={
+ target_file_exists:['目标路径已被另一份历史占用。原文件已保留。请在「项目与入口」选择正确的数据目录后重新预览。','Another history already occupies the destination path. The original was preserved. Check the data directory under Projects and entries, then review again.'],
+ reviewAndRetry:['重新预览此对话','Review this conversation again'],
+ configureAndContinue:['配置导入位置并继续','Set the import destination and continue'],
+ scanFileError:['扫描器未能读取以下位置。请检查文件是否存在并对当前用户可读，再刷新。','The scanner could not read this location. Check that it exists and is readable by your account, then refresh.'],
  scanSummary:['查看扫描时遇到的问题','Review scanning issues'],
  inspectCopies:['比较本机历史副本','Compare local history copies'],
  copyInstructions:['比较路径和消息，选择要上传的副本。若希望继续导入，先选择在 Codex 中保留哪一份。','Compare the paths and messages to choose a copy for upload. To import into a conflicted history, first choose which copy Codex should use.'],

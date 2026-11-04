@@ -1,4 +1,12 @@
 import React,{useState} from 'react';
+const repairLabel=(code:string)=>{
+ if(code==='duplicate_identity')return 'inspectCopies';
+ if(code==='scan_incomplete')return 'scanSummary';
+ if(['recovery_required','import_needs_recovery','trash_recovery_required'].includes(code))return 'backups';
+ if(['entry_home_missing','entry_binary_missing','binary_unavailable','working_folder_missing','project_required'].includes(code))return 'configureAndContinue';
+ if(['storage_permission','storage_write_permission','storage_not_connected','decrypt_failed'].includes(code))return 'manageConnection';
+ return 'reviewAndRetry';
+};
 const ok=(v:any)=>v.status==='verified';
 export function TaskFeedback({job,t,size,onDismiss,onActivity,onRepair,onOpen}:any){
  const [expanded,setExpanded]=useState(false);
@@ -21,9 +29,9 @@ export function TaskFeedback({job,t,size,onDismiss,onActivity,onRepair,onOpen}:a
    {running?<progress aria-label={t('running')}/>:<>
     {(problems.length>0||warnings.length>0||expanded)&&<div className="task-items">{(expanded?items:[...new Set([...problems,...warnings])]).map((i:any)=><div key={i.id}>
       <b>{i.title}</b> · {t(i.status)} {i.cloudStatus&&<span>{t('cloud')} {t(i.cloudStatus)}</span>}
-      {i.historyReady&&<p>{t('historyReceived')}{i.status!=='downloaded'&&' · '+t('cacheRetryHint')}</p>}{i.error&&<p>{i.stage&&t(i.stage)+' · '}{t(i.error.code)} {i.error.detail}</p>}{Object.entries(i.targets??{}).map(([entry,r]:any)=><p key={entry}>{t(entry)} · {t(r.error?.code??(r.omittedAttachments?.length?'imported_missing_attachments':ok(r)?'entryReady':r.status==='imported'?'entryUnverified':r.status))}
-        {r.error?.detail&&<small>{r.error.detail}</small>}{r.nativeProjectName&&<small>{t('projectLabelVerified')} · {r.nativeProjectName}</small>}{!ok(r)&&<button onClick={()=>onRepair(i,entry)}>{t('fixAndRetry')}</button>}</p>)}
-      {i.status!=='running'&&!Object.keys(i.targets??{}).length&&!['uploaded','skip'].includes(i.status)&&<button onClick={()=>onRepair(i)}>{t('fixAndRetry')}</button>}
+      {i.historyReady&&<p>{t('historyReceived')}{i.status!=='downloaded'&&' · '+t('cacheRetryHint')}</p>}{i.error&&<p>{i.stage&&t(i.stage)+' · '}{t(i.error.code)} {i.error.detail}</p>}{Object.entries(i.targets??{}).map(([entry,r]:any)=><p key={entry}>{t(entry)} · {r.error&&r.stage&&t(r.stage)+' · '}{t(r.error?.code??(r.omittedAttachments?.length?'imported_missing_attachments':ok(r)?'entryReady':r.status==='imported'?'entryUnverified':r.status))}
+        {r.error?.detail&&<small>{r.error.detail}</small>}{r.nativeProjectName&&<small>{t('projectLabelVerified')} · {r.nativeProjectName}</small>}{!ok(r)&&<button onClick={()=>onRepair(i,entry)}>{t(repairLabel(r.error?.code))}</button>}</p>)}
+      {i.status!=='running'&&!Object.keys(i.targets??{}).length&&!['uploaded','skip'].includes(i.status)&&<button onClick={()=>onRepair(i)}>{t(repairLabel(i.error?.code))}</button>}
     </div>)}</div>}
     <div className="actions">{next&&<button onClick={()=>onOpen(next.i.id,next.entry)}>{t('continue')} · {t(next.entry)}</button>}
     <button className="text-button" onClick={()=>setExpanded(!expanded)}>{t(expanded?'collapseDetails':'progressDetails')}</button><button className="text-button" onClick={onActivity}>{t('activity')}</button></div>

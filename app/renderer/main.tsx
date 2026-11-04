@@ -14,6 +14,7 @@ function App(){
  const[removal,setRemoval]=useState<any>(null),[removalJob,setRemovalJob]=useState<any>(null),[removalJobs,setRemovalJobs]=useState<any[]>([]);
  const offeredRecovery=useRef(false);
  const[projectFilter,setProjectFilter]=useState('all');
+ const[targetIssue,setTargetIssue]=useState<any>(null);
  const[branches,setBranches]=useState<any>(null);
  const[question,setQuestion]=useState<any>(null);
  const[version,setVersion]=useState(''),[deviceName,setDeviceName]=useState(''),[connection,setConnection]=useState<any>({...emptyConnection});
@@ -36,7 +37,15 @@ function App(){
  }
  function fix(item:any,entry?:string){
   const e=entry?item.targets?.[entry]?.error?.code:item.error?.code;
-  if(e==='duplicate_identity'){showIssue(item.id);return;}
+  if(entry&&['scan_incomplete','duplicate_identity'].includes(e)){
+   const logical=e==='duplicate_identity'?item.targets[entry].error.detail||item.id:item.id;
+   void work(async()=>setTargetIssue({...await call('inspectTarget',{logical,entry}),retryId:item.id}),'checkingEntries');return;
+  }
+  if(e==='duplicate_identity'){showIssue(item.targets?.[entry??'']?.error?.detail||item.error?.detail||item.id);return;}
+  if(e==='scan_incomplete'){setPage('conversations');requestAnimationFrame(()=>{const d=document.querySelector<HTMLDetailsElement>('.scan-issues');if(d){d.open=true;d.scrollIntoView({block:'center'});}});return;}
+  if(['storage_permission','storage_write_permission','storage_not_connected','decrypt_failed'].includes(e)){
+   setDeferred({direction:entry?'download':item.requestedDirection??(item.action==='upload'?'upload':'download'),ids:[item.id],...(entry?{targets:[entry]}:{})});setPage('settings');return;
+  }
   if(e==='conflict'||item.status==='conflict'||item.status==='conflict_preserved'){void work(async()=>setBranches({id:item.id,options:await call('versionDetails',{id:item.id})}),'readingVersions');return;}
   if(['import_needs_recovery','recovery_required','trash_recovery_required'].includes(e)){setPage('backups');return;}
   startFlow(entry?'download':item.requestedDirection??(item.action==='upload'?'upload':item.action==='upload_import'?'both':'download'),[item.id],entry?{targets:[entry]}:{});
@@ -85,7 +94,7 @@ function App(){
  }
  async function keepCopy(record:any,file:string){
   if(!await ask(t('keepCopyConfirm')+'\n'+file+'\n\n'+t('copiesMoved')+'\n'+record.copies.filter((c:any)=>c.file!==file).map((c:any)=>c.file).join('\n')))return;
-  await call('keepLocalCopy',{logical:record.id,token:record.copyToken,file});await refresh();setNotice({text:t('copyKept')});
+  await call('keepLocalCopy',{logical:record.id,token:record.copyToken,file,entry:record.entry});await refresh();if(record.entry){setTargetIssue(null);startFlow('download',[record.retryId],{targets:[record.entry]});}setNotice({text:t('copyKept')});
  }
  function actions(items:any[]){
   const ids=items.map(r=>r.id);
@@ -105,7 +114,7 @@ function App(){
  {busy&&phase!=='transferRunning'&&<div role="status" className="working"><progress/>{t(phase)}</div>}
  {page==='conversations'&&<>
  {!init?.connected&&<div className="connect-banner"><span>{t('connectHint')}</span><button onClick={()=>setPage('settings')}>{t('configure')}</button></div>}
- {data.cloudError&&<div className="notice error">{t('cloudStale')} {t(data.cloudError.code)}</div>}{data.errors.length>0&&<div className="notice error"><details><summary>{t('scanSummary')} ({data.errors.length})</summary>{data.errors.map((e:any,i:number)=><div key={i}><b>{t(e.code)}</b><code>{e.file??e.home}</code>{e.id&&<button onClick={()=>showIssue(e.id)}>{t('inspectCopies')}</button>}</div>)}</details></div>}
+ {data.cloudError&&<div className="notice error">{t('cloudStale')} {t(data.cloudError.code)}</div>}{data.errors.length>0&&<div className="notice error"><details className="scan-issues"><summary>{t('scanSummary')} ({data.errors.length})</summary>{data.errors.map((e:any,i:number)=><div key={i}><b>{dict[e.code]??t('scanFileError')}</b>{!dict[e.code]&&<small>{e.code}</small>}<code>{e.file??e.home}</code>{e.code==='duplicate_identity'&&e.id&&<button onClick={()=>showIssue(e.id)}>{t('inspectCopies')}</button>}</div>)}</details></div>}
  <div className="stats"><div><span>{t('mainChats')}</span><strong>{data.rows.filter((r:any)=>r.kind!=='background').length}</strong></div><div><span>{t('backgroundChats')}</span><strong>{data.rows.filter((r:any)=>r.kind==='background').length}</strong></div><div><span>{t('local_changes')}</span><strong>{data.rows.filter((r:any)=>['local_only','local_changes'].includes(r.status)).length}</strong></div><div><span>{t('remote_changes')}</span><strong>{data.rows.filter((r:any)=>['remote_only','remote_changes'].includes(r.status)).length}</strong></div><div><span>{t('lastCheck')}</span><small>{date(data.checkedAt)}</small></div></div>
  {chosenRows.length>0&&<div className="selection-bar">
    <div><strong>{t('selectedScope')} {chosenRows.length}</strong>{hiddenCount>0&&<small>{t('hiddenSelection')} {hiddenCount}</small>}</div>
@@ -151,6 +160,11 @@ function App(){
      await reloadInit();await refresh();if(page==='backups')setBackupData(await call('backups'));
    },'removingNow');}}/>}
  {detection&&<DetectionPanel report={detection} cfg={cfg} t={t} onRetry={async()=>{const next=await call('detectPaths');setDetection(next);return next;}} onClose={()=>setDetection(null)} onApply={async(next:any)=>{await persist(next);setDetection(null);await refresh();setNotice({text:t('pathsApplied')});}}/>}
+ {targetIssue&&<div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label={t('scanSummary')}><div className="card-title"><h2>{t(targetIssue.entry)} · {t('scanSummary')}</h2><button disabled={busy} onClick={()=>setTargetIssue(null)}>{t('close')}</button></div><code>{targetIssue.home}</code>
+ {targetIssue.errors.map((e:any,i:number)=><p key={i}>{t(e.code)} <code>{e.file??e.home}</code></p>)}
+ {targetIssue.copies.length>1&&targetIssue.copies.map((c:any)=><div key={c.file} className="scope-file"><b>{c.title}</b><code>{c.file}</code><small>{size(c.bytes)} · {date(c.updatedAt)}</small><p>{c.sample}</p>{c.indexedFile&&c.indexedFile!==c.file?<p>{t('copies_indexed')}</p>:<button disabled={busy} onClick={()=>work(()=>keepCopy(targetIssue,c.file),'stageBackup')}>{t('keepThisCopy')}</button>}</div>)}
+ {notice?.error&&<p role="alert">{notice.text} {notice.detail}</p>}
+ <button disabled={busy} onClick={()=>{startFlow('download',[targetIssue.retryId],{targets:[targetIssue.entry]});setTargetIssue(null);}}>{t('reviewAndRetry')}</button></section></div>}
  {branches&&<div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label={t('compareVersions')}><div className="card-title"><h2>{t('compareVersions')}</h2><button onClick={()=>setBranches(null)}>{t('close')}</button></div><p>{t('versionHint')}</p>{branches.options.map((v:any)=><div className="scope-item" key={v.id}><b>{v.title}</b><p>{v.device} · {date(v.at)} · {size(v.bytes)} · {v.files} {t('historyFiles')}</p><small>{v.lastMessage}</small><button onClick={()=>{setBranches(null);startFlow('download',[branches.id],{version:v.id});}}>{t('chooseVersion')}</button></div>)}</section></div>}
  {question&&<div className="modal-backdrop"><div className="modal" role="dialog" aria-modal="true" aria-label={t('confirm')}><h2>{t('confirm')}</h2><p style={{whiteSpace:'pre-wrap'}}>{question.message}</p><div className="modal-actions"><button autoFocus onClick={()=>{question.resolve(false);setQuestion(null);}}>{t('cancel')}</button><button className="primary" onClick={()=>{question.resolve(true);setQuestion(null);}}>{t('confirm')}</button></div></div></div>}
  {diagnostic&&<div className="modal-backdrop"><div className="modal"><h2>{t('diagnostics')}</h2><p>{t('diagnosticHint')}</p><pre>{JSON.stringify(diagnostic,null,2)}</pre><button onClick={()=>setDiagnostic(null)}>{t('close')}</button></div></div>}

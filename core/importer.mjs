@@ -39,10 +39,10 @@ export class Importer {
   requireThat(!payload.issues?.length,'incomplete_history');const home=await this.guard(target.home);const project=await canonical(target.project);const runtime=await binaryVersion(target.binary);
   requireThat(!this.state.keys('import/').some(k=>{const t=this.state.get(k);return t.home===home&&['prepared','validating','needs_recovery'].includes(t.status); }),'recovery_required');
   const nativeProjectName=await checkLocalProject(home,target.nativeProjectId,runtime);
-  const current=await scan([home]);checkScope(current,payload.files.map(f=>f.id));const writes=[],nativeFiles=[];let allVerified=true;
+  const current=await scan([home]);checkScope(current,payload.files.map(f=>f.id),{allowUnrelatedFileErrors:true});const writes=[],nativeFiles=[];let allVerified=true;
   for(const f of payload.files){const original=Buffer.from(f.raw,'base64'),parsed=parseRollout(original);requireThat(parsed.issues.length===0&&!parsed.busy,'incomplete_history');requireThat(parsed.resources.every(p=>(payload.assets??[]).some(a=>a.path===p)),'incomplete_history');
    const found=current.rows.filter(r=>r.id===f.id);requireThat(found.length<=1,'duplicate_identity');const old=found[0];nativeFiles.push({...f,placementArchived:old?.archived??f.archived});
-   if(expectedHashes[f.id]!==undefined)requireThat((old?.hash??null)===expectedHashes[f.id],'stale_plan');
+   requireThat(!old?.busy,'busy',f.id);if(expectedHashes[f.id]!==undefined)requireThat((old?.hash??null)===expectedHashes[f.id],'stale_plan');
    const receipt=this.state.get(receiptKey(home,f.id));const existing=old?normalized(this.state,old,await stableRead(old.file)).raw:null;
    if(existing?.equals(original)&&old.archived===f.archived){allVerified&&=(!target.nativeProjectId || f.id!==payload.logicalId || (old?.originProject?.match==='id' && old.originProject.nativeId===target.nativeProjectId))&&!!receipt&&receipt.hash===old.hash&&receipt.project===project&&receipt.binary===target.binary&&receipt.runtime===runtime;continue;}
    allVerified=false;if(old&&!replace)requireThat(original.subarray(0,existing.length).equals(existing),'conflict');

@@ -71,7 +71,7 @@ export class Engine{
   if(direction!=='upload'||chosenVersion)for(const entry of targets){const t=this.config().targets[entry];if(!t?.home)continue;try{const home=await canonical(t.home);if(!targetSnapshots[home]){const scanResult=await scan([home]);targetSnapshots[home]={hashes:Object.fromEntries(scanResult.rows.map(r=>[r.id,r.hash])),errors:scanResult.errors.length};}}catch{}}
   const items=[];
   for(const logical of [...new Set(ids)]){const row=this.rows.find(x=>x.id===logical),local=uploadSource(this.local.rows,logical,copyChoice),head=this.remote.find(x=>x.logicalId===logical);let action='skip';
-   if(row.busy)action='busy';
+   if(row.busy&&direction!=='download')action='busy';
    else if(chosenVersion){requireThat(head?.versions.some(x=>x.id===chosenVersion),'invalid_selection');action='resolve';}
    else if(direction==='upload'&&local)action='upload';
    else if(direction==='download'&&head)action=head.tips.length>1?'conflict':'download';
@@ -140,7 +140,7 @@ export class Engine{
    const preserveAccepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.preserve??[]);
    try{if(item.excludedReason){result.requestedDirection=plan.direction;result.status='excluded';result.error={code:item.excludedReason};continue;}
     const current=await scan(this.config().sourceHomes);const local=uploadSource(current.rows,item.id,plan.copyChoice);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
-    const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;requireThat((local?this.signature(local,plan.selection):null)===item.expectedSignature,'stale_plan');
+    const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;requireThat(!local?.issues.includes('duplicate_identity')||item.action==='download','duplicate_identity',item.id);requireThat((local?this.signature(local,plan.selection):null)===item.expectedSignature,'stale_plan');
     let payload,importVersion=item.version,resolveEtag=head?.etag;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
       requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);assertAttachmentAcceptance(payload,accepted);
@@ -162,16 +162,16 @@ export class Engine{
       const received=()=>{result.historyReady=true;};
       if(payload.format===1)received();
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured',error:{code:target?.binary?'entry_home_missing':'entry_binary_missing'}};continue;}
-       try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project,onStage:step,onMaterialized:received,nativeProjectId:cfg.nativeBindings?.[payload.projectId??item.projectId]?.[target.home]??null}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',error:publicError(e)};}}
+       try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project,onStage:step,onMaterialized:received,nativeProjectId:cfg.nativeBindings?.[payload.projectId??item.projectId]?.[target.home]??null}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',stage:result.stage,error:publicError(e)};}}
       for(const group of grouped.values()){
        try{requireThat(new Set(group.map(g=>g.target.nativeProjectId)).size===1,'destinationAmbiguous');const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',vault:{readChunk:async digest=>{const chunk=plan.selection.replacements&&Object.keys(plan.selection.replacements).length?await this.vault.readForImport(digest,cache?.dir):await this.vault.readChunk(digest,cache?.dir);advance(chunk.length);return chunk;}},acceptedMissingAttachments:accepted,expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
         for(const {entry,target}of group){
          // Shared storage is written once; different runtime versions are still checked.
          let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){step('stageVerify');await this.importer.processGuard();if(!r.backup)r.backup=(await this.importer.backup(target.home)).id;nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
           result.targets[entry]={status:'verified',nativeProjectId:target.nativeProjectId,nativeProjectName:r.nativeProjectName,omittedAttachments:r.omittedAttachments??[],version:importVersion,home:target.home,project,binary:target.binary,backup:r.backup,checkedAt:new Date().toISOString()};
-         }catch(e){result.targets[entry]={status:'failed',error:publicError(e),backup:r.backup};if(nativeStarted){this.state.set('import/'+nativeTask,{status:'needs_recovery',backup:r.backup,home:target.home,error:e.code??'native_error'});for(const prior of Object.values(result.targets))if(prior.home===target.home&&prior.status==='verified')prior.status='imported';for(const remaining of group)result.targets[remaining.entry]??={status:'failed',error:{code:'recovery_required',detail:''},backup:r.backup};break;}}
+         }catch(e){result.targets[entry]={status:'failed',stage:result.stage,error:publicError(e),backup:r.backup};if(nativeStarted){this.state.set('import/'+nativeTask,{status:'needs_recovery',backup:r.backup,home:target.home,error:e.code??'native_error'});for(const prior of Object.values(result.targets))if(prior.home===target.home&&prior.status==='verified')prior.status='imported';for(const remaining of group)result.targets[remaining.entry]??={status:'failed',error:{code:'recovery_required',detail:''},backup:r.backup};break;}}
         }
-       }catch(e){for(const {entry}of group)result.targets[entry]??={status:'failed',error:publicError(e)};}
+       }catch(e){for(const {entry}of group)result.targets[entry]??={status:'failed',stage:result.stage,error:publicError(e)};}
       }
       this.local=await scan(this.config().sourceHomes);const importedLocal=this.local.rows.find(x=>x.id===item.id);if(importedLocal&&Object.values(result.targets).some(x=>x.status==='verified'&&x.home===importedLocal.home))this.rememberBaseline(importedLocal,importVersion);
       for(const f of payload.files)this.state.set('association/'+f.id,{importedOrigin:true,projectId:payload.projectId,source:f.source??payload.source,originProject:f.originProject?.nativeId?f.originProject:payload.originProject});
