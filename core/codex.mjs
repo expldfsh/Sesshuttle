@@ -47,7 +47,6 @@ export function parseRollout(raw) {
   if(text&&!/^<environment_context>|^# AGENTS.md|^<permissions/.test(text))messages.push({role:r.payload.role,text:text.slice(0,12000)});
  }
  
- if(!KNOWN_VERSIONS.includes(meta.cli_version))issues.push('unknown_version');
  return {meta,records,messages,issues:[...new Set(issues)],resources:[...new Set(resources)],busy:active.size>0};
 }
 export async function scan(homes) {return scanHistory(homes,{sourceOf,parseRollout,knownVersions:KNOWN_VERSIONS});}

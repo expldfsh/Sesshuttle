@@ -23,9 +23,9 @@ export async function localProjects(home) {
     return {supported, projects};
   } finally { db.close(); }
 }
-export async function checkLocalProject(home, projectId, runtime) {
+export async function checkLocalProject(home, projectId, supportsProjects) {
   if (!projectId) return;
-  requireThat(runtime.startsWith('0.166.0'), 'project_assignment_unsupported');
+  requireThat(supportsProjects===true, 'project_assignment_unsupported');
   const catalog = await localProjects(home);
   const match=catalog.projects.find(p=>p.id===projectId);
   requireThat(catalog.supported && match, 'destination_project_missing');

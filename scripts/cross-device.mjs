@@ -12,6 +12,8 @@ import {Importer} from '../core/importer.mjs';
 import {Vault} from '../core/vault.mjs';
 import {R2Store} from '../core/storage.mjs';
 import {newKey} from '../core/crypto.mjs';
+import {runtimeInfo} from '../core/runtime.mjs';
+import {verifyRuntime} from '../core/runtime-check.mjs';
 import {id} from '../core/util.mjs';
 
 const [mode,binary,exchange,port]=process.argv.slice(2);
@@ -36,6 +38,7 @@ try {
  const vault=new Vault(store,info.space,info.key);if(mode==='source')await vault.create();else await vault.open();
  state=new State(path.join(lab.root,'application'));const entry=process.platform==='linux'?'cli':'desktop';
  state.set('config',{sourceHomes:[lab.home],targets:{[entry]:{home:lab.home,binary}},bindings:info.sourceProject?{[info.sourceProject]:lab.project}:{},nativeBindings:lab.projectId?{[info.sourceProject]:{[lab.home]:lab.projectId}}:{}});
+ if(mode!=='source'&&(await runtimeInfo(binary,state)).status==='untested')await verifyRuntime(binary,state);
  const engine=new Engine(state,{vault,importer:new Importer(state,{testRoot:lab.root,processGuard:async()=>{}})});
  async function sync(direction){const checked=await engine.refresh();if(mode==='receive'&&process.env.SESSHUTTLE_DUPLICATE_TEST==='1')assert.ok(checked.errors.some(e=>e.code==='duplicate_identity'));const p=await engine.preview({ids:[lab.tid],direction,targets:direction==='upload'?[]:[entry]});const job=await engine.execute(p.token);assert.equal(job.status,'completed',JSON.stringify(job));}
  if(mode==='source'){

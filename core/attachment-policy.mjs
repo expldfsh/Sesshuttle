@@ -10,9 +10,9 @@ export function attachmentReview(payload){
    if(payload.format===2&&soft[a.status]&&typeof a.path==='string'&&a.sessionId===f.id&&a.key===hash(f.id+'\0'+a.path)&&!f.artifacts?.some(x=>x.kind==='asset'&&x.path===a.path)){valid.add(a);optional.push({...a,title:f.title});}
    else if(a.status!=='included')blocking.add(soft[a.status]??'incomplete_history');
   }
-  for(const issue of f.issues??[]){allIssues.add(issue);const matches=reports.filter(a=>soft[a.status]===issue);if(matches.length&&matches.every(a=>valid.has(a)))covered.add(issue);else blocking.add(issue);}
+  for(const issue of f.issues??[]){if(issue==='unknown_version')continue;allIssues.add(issue);const matches=reports.filter(a=>soft[a.status]===issue);if(matches.length&&matches.every(a=>valid.has(a)))covered.add(issue);else blocking.add(issue);}
  }
- for(const issue of allIssues)if(!covered.has(issue))blocking.add(issue);
+ for(const issue of allIssues)if(issue!=='unknown_version'&&!covered.has(issue))blocking.add(issue);
  return {optional,blockingIssues:[...blocking]};
 }
 export function assertAttachmentAcceptance(payload,accepted=[]){
