@@ -7,19 +7,21 @@ export function TaskFeedback({job,t,size,onDismiss,onActivity,onRepair,onOpen}:a
  const uploaded=items.filter((i:any)=>i.cloudStatus==='uploaded'&&!i.unchangedCloud).length;
  const existing=items.filter((i:any)=>i.unchangedCloud).length;
  const imported=items.filter((i:any)=>Object.values(i.targets??{}).some(ok)).length;
+ const received=items.filter((i:any)=>i.historyReady).length;
+ const entryCounts=['desktop','cli','ide'].map(entry=>({entry,count:items.filter((i:any)=>i.targets?.[entry]?.status==='verified').length}));
  const problems=items.filter((i:any)=>!['uploaded','downloaded','skip','running'].includes(i.status));
  const warnings=items.filter((i:any)=>i.omittedImages||Object.values(i.targets??{}).some((r:any)=>r.omittedAttachments?.length));
  const next=items.flatMap((i:any)=>Object.entries(i.targets??{}).filter(([,r])=>ok(r)).map(([entry])=>({i,entry})))[0];
  return <section className={'task-feedback '+(running?'active':problems.length||warnings.length?'attention':'success')} aria-label={t('taskResult')}>
    <div className="task-heading"><strong role="status" aria-live="polite">{running?t(progress?.stage??'stageCheck'):t(job.status==='attention'?(uploaded||imported||existing?'partial':'attention'):job.status==='completed'?'transferFinished':job.status)}</strong>
     {running&&progress&&<span>{progress.index} / {progress.total} · {progress.title} {progress.bytes>0?' · '+size(progress.bytes):''}</span>}
-    {!running&&<span>{uploaded>0&&<>{t('uploaded')} {uploaded}　</>}{existing>0&&<>{t('alreadyBackedUp')} {existing}　</>}{imported>0&&<>{t('downloaded')} {imported}　</>}{problems.length>0&&<>{t('issues')} {problems.length}　</>}{warnings.length>0&&t('someImagesMissing')}</span>}
+    {!running&&<span>{uploaded>0&&<>{t('uploaded')} {uploaded}　</>}{existing>0&&<>{t('alreadyBackedUp')} {existing}　</>}{received>0&&<>{t('historyReceived')} {received}　</>}{entryCounts.filter(x=>x.count).map(x=><span key={x.entry}>{t(x.entry)} · {t('entryReady')} {x.count}　</span>)}{problems.length>0&&<>{t('issues')} {problems.length}　</>}{warnings.length>0&&t('someImagesMissing')}</span>}
     {!running&&<button className="text-button" onClick={onDismiss} aria-label={t('close')}>×</button>}
    </div>
    {running?<progress aria-label={t('running')}/>:<>
     {(problems.length>0||warnings.length>0||expanded)&&<div className="task-items">{(expanded?items:[...new Set([...problems,...warnings])]).map((i:any)=><div key={i.id}>
       <b>{i.title}</b> · {t(i.status)} {i.cloudStatus&&<span>{t('cloud')} {t(i.cloudStatus)}</span>}
-      {i.error&&<p>{t(i.error.code)}</p>}{Object.entries(i.targets??{}).map(([entry,r]:any)=><p key={entry}>{t(entry)} · {t(r.error?.code??(r.omittedAttachments?.length?'imported_missing_attachments':r.status))}
+      {i.historyReady&&<p>{t('historyReceived')}{i.status!=='downloaded'&&' · '+t('cacheRetryHint')}</p>}{i.error&&<p>{t(i.error.code)}</p>}{Object.entries(i.targets??{}).map(([entry,r]:any)=><p key={entry}>{t(entry)} · {t(r.error?.code??(r.omittedAttachments?.length?'imported_missing_attachments':ok(r)?'entryReady':r.status==='imported'?'entryUnverified':r.status))}
         {r.nativeProjectName&&<small>{t('projectLabelVerified')} · {r.nativeProjectName}</small>}{!ok(r)&&<button onClick={()=>onRepair(i,entry)}>{t('fixAndRetry')}</button>}</p>)}
       {i.status!=='running'&&!Object.keys(i.targets??{}).length&&!['uploaded','skip'].includes(i.status)&&<button onClick={()=>onRepair(i)}>{t('fixAndRetry')}</button>}
     </div>)}</div>}

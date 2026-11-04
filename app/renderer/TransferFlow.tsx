@@ -10,12 +10,13 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
  const [report,setReport]=useState<any>(null),[plan,setPlan]=useState<any>(null);
  const [pending,setPending]=useState(''), [error,setError]=useState<any>(null);
  const [children,setChildren]=useState(false),[limit,setLimit]=useState(500),[incomplete,setIncomplete]=useState(false);
+ const [pathsApplied,setPathsApplied]=useState(false);
  const [connections,setConnections]=useState<Record<string,string>>({});
  const [editing,setEditing]=useState(''), lock=useRef(false);
  const direction=request.direction, uploading=direction!=='download', importing=direction!=='upload'||!!request.version;
  const entries=['desktop','cli','ide'], chosen=rows.filter((r:any)=>request.ids.includes(r.id));
  const needed=chosen.filter((r:any)=>direction==='download'?r.remote:direction==='upload'?r.local:true);
- const projects=[...new Map<string,any>(needed.map((r:any)=>[r.projectId,r])).values()];
+ const projects=[...new Map<string,any>(needed.filter((r:any)=>!r.busy&&(direction!=='download'||r.continuation!==false)).map((r:any)=>[r.projectId,r])).values()];
  const homeGroups=[...new Set<string>(targets.map(e=>draft.targets[e]?.home).filter(Boolean))];
  const title=t(direction==='upload'?'uploadCloud':direction==='download'?'importLocal':'both');
  const requiresChoice=(r:any,h:string)=>!Object.prototype.hasOwnProperty.call(draft.nativeBindings?.[r.projectId]??{},h);
@@ -65,13 +66,14 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
    onRebuild={(keys:string[])=>run('preparingPreview',()=>recheck(keys))}
    onLocate={(key:string,keys:string[])=>run('preparingPreview',async()=>{const path=await call('pickImage');if(path)await rebuild(keys,{...connections,[key]:path});})}
    onUndo={(key:string,keys:string[])=>run('preparingPreview',async()=>{const paths={...connections};delete paths[key];await rebuild(keys,paths);})}
-   onExecute={(large:boolean,omitted:string[])=>run('stageCheck',async()=>{if(plan.items.some((i:any)=>i.targets.length))await call('checkClosed');onStart(plan,large,omitted);})}/>
+   onExecute={(large:boolean,omitted:any,onlyEligible:boolean)=>run('stageCheck',async()=>{if(plan.items.some((i:any)=>!i.excludedReason&&i.targets.length))await call('checkClosed');onStart(plan,large,omitted,onlyEligible);})}/>
  :<div className="modal-backdrop"><section className="modal flow" role="dialog" aria-modal="true" aria-label={title}>
  <div className="card-title"><h2>{title}</h2><button disabled={!!pending} onClick={()=>void close()}>{t('close')}</button></div>
  <fieldset disabled={!!pending} className="flow-fields"><p>{t('selectedScope')} <strong>{needed.length} / {chosen.length}</strong> · {needed.length===1?needed[0].title:t('conversations')}</p>
  {chosen.length>needed.length&&<p className="warning-box">{t('skippedScope')} {chosen.filter((r:any)=>!needed.includes(r)).map((r:any)=>r.title).join('、')}</p>}
  {importing&&<>
  <div className="card-title"><h3>1. {t('chooseApp')}</h3><button disabled={!!pending} onClick={()=>run('checkingEntries',async()=>setReport(await call('detectPaths')))}>{t('detectEnvironment')}</button></div>
+ {pathsApplied&&<p className="notice" role="status">{t('detectedApplied')}</p>}
  <div className="entry-choices">{entries.map(entry=><label className="entry-choice" key={entry}><input type="checkbox" checked={targets.includes(entry)} onChange={e=>setTargets(e.target.checked?[...targets,entry]:targets.filter(v=>v!==entry))}/><b>{t(entry)}</b><small>{t(infoFor(entry)?.error??(infoFor(entry)?'configured':'needsCheck'))}</small></label>)}</div>
  {targets.some(e=>info[e]?.manualOpen)&&<p className="warning-box">{t('launchManualHint')}</p>}
  {targets.map(entry=><div key={entry}>{infoFor(entry)&&!infoFor(entry)?.error&&editing!==entry&&<button className="text-button" onClick={()=>setEditing(entry)}>{t('editPaths')} · {t(entry)}</button>}{(infoFor(entry)?.error||editing===entry||!infoFor(entry))&&<div className="setup-repair"><strong>{t(entry)} · {t(infoFor(entry)?.error??'needsCheck')}</strong>
@@ -104,6 +106,6 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
   await rebuild();
  })}>{t('reviewAction')}</button></div>
  </fieldset></section></div>}
- {report&&<DetectionPanel report={report} cfg={draft} t={t} onRetry={async()=>{const next=await call('detectPaths');setReport(next);return next;}} onClose={()=>setReport(null)} onApply={async(next:any)=>{await setConfig(next);setDraft(next);await inspect(next);setReport(null);}}/>}
+ {report&&<DetectionPanel inFlow report={report} cfg={draft} t={t} onRetry={async()=>{const next=await call('detectPaths');setReport(next);return next;}} onClose={()=>setReport(null)} onApply={async(next:any)=>{await setConfig(next);setDraft(next);await inspect(next);setPathsApplied(true);setReport(null);}}/>}
  </>;
 }

@@ -18,7 +18,7 @@ export function EntryFields({target,entry,t,pick,change}:Props){
     </span></div>)}{error&&<p role="alert" className="warning-box">{error}</p>}</div>;
 }
 
-export function DetectionPanel({report,cfg,t,onApply,onRetry,onClose}:any){
+export function DetectionPanel({report,cfg,t,onApply,onRetry,onClose,inFlow=false}:any){
   const entries=['desktop','cli','ide'];
   function suggestions(candidates:any[]) {
     const initial:Record<string,number>={};
@@ -46,6 +46,7 @@ export function DetectionPanel({report,cfg,t,onApply,onRetry,onClose}:any){
     <p>{t('detectApplyHint')}</p><button disabled={applying} onClick={async()=>{setApplying(true);try{const next=await onRetry();setChosen(suggestions(next.candidates));setHomes([]);setError('');}catch(e:any){setError(t(e.code??'operation_failed'));}finally{setApplying(false);}}}>{t('restartDetection')}</button>
     {entries.map(entry=><section className="candidate-group" key={entry}><h3>{t(entry)}</h3>
       {cfg.targets[entry]?.binary&&<small>{t('currentPath')} <code>{cfg.targets[entry].binary}</code><code>{cfg.targets[entry]?.home}</code></small>}
+      {entry==='desktop'&&report.launchers?.length>0&&<div><small>{t('detectedLauncher')}</small>{report.launchers.map((file:string)=><code key={file}>{file}</code>)}</div>}
       {!report.candidates.some((c:any)=>c.entry===entry)&&<p className="warning-box">{t(entry==='desktop'?'launchDesktopToDetect':'noCandidate')}</p>}
       {report.candidates.map((c:any,i:number)=>{
         if(c.entry!==entry)return null;
@@ -59,6 +60,6 @@ export function DetectionPanel({report,cfg,t,onApply,onRetry,onClose}:any){
       })}</section>)}
     {!count&&<small>{t('noChangesToApply')}</small>}<details><summary>{t('sourceHomes')}</summary>{report.sourceHomes.map((x:any)=><label className="check" key={x.path}><input type="checkbox" disabled={!x.available||cfg.sourceHomes.includes(x.path)} checked={cfg.sourceHomes.includes(x.path)||homes.includes(x.path)} onChange={e=>setHomes(e.target.checked?[...homes,x.path]:homes.filter(h=>h!==x.path))}/><code>{x.path}</code></label>)}</details>
     {error&&<p role="alert" className="warning-box">{error}</p>}
-    <div className="modal-actions"><button disabled={applying} onClick={onClose}>{t('returnManual')}</button><button disabled={applying||count===0} className="primary" onClick={apply}>{t(applying?'applying':'applySelected')} ({count})</button></div>
+    <div className="modal-actions"><button disabled={applying} onClick={onClose}>{t('returnManual')}</button><button disabled={applying||count===0} className="primary" onClick={apply}>{t(applying?'applying':inFlow?'saveAndReturn':'applySelected')} ({count})</button></div>
   </section></div>;
 }

@@ -99,7 +99,7 @@ async function connect(input:any){requireThat(!engine.running,'task_running');co
  const vault=new Vault(store,space,key,{installation:state.get('device').id,deviceName:state.get('device').name});if(input.mode==='create')await vault.create();else await vault.open();
  // If secure persistence is unavailable, keep the successful connection in memory
  // and return an explicit warning; never write plaintext credentials.
- secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space,accessKeyId:credentials.accessKeyId});recovery=null;
+ await engine.clearDownloads();secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space,accessKeyId:credentials.accessKeyId});recovery=null;
  state.set('credentialMethod','session');
  state.set('credentialError','credential_session_only');
  return {status:'connected',space};
@@ -180,7 +180,7 @@ async function request(method:string,args:any){switch(method){
   if(r.canceled)return null;attachmentPicks.add(r.filePaths[0]);return r.filePaths[0];
  }
  case 'connect':return connect(args);
- case 'disconnect':requireThat(!engine.running,'task_running');engine.vault=null;secrets=null;recovery=null;state.set('credentialError',null);state.set('connection',null);return {status:'disconnected'};
+ case 'disconnect':requireThat(!engine.running,'task_running');await engine.clearDownloads();engine.vault=null;secrets=null;recovery=null;state.set('credentialError',null);state.set('connection',null);return {status:'disconnected'};
  case 'importRecovery':{const r=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'sesshuttle',extensions:['json']}]});if(r.canceled)return null;
   const stat=await fs.stat(r.filePaths[0]);requireThat(stat.size<16384,'invalid_recovery_file');
   const x=readRecovery(await fs.readFile(r.filePaths[0],'utf8'),connectionForSettings(state.get('connection'),secrets));
@@ -195,12 +195,12 @@ async function request(method:string,args:any){switch(method){
   requireThat(Object.values(args.replacements??{}).every(p=>typeof p==='string'&&attachmentPicks.has(p)),'invalid_selection');
   return engine.preview(args);
  case 'discardPlan':return engine.discardPlan(args.token);
- case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true,acceptedMissingAttachments:args.acceptedMissingAttachments??[]});
+ case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true,acceptedByItem:args.acceptedByItem??{},onlyEligible:args.onlyEligible===true});
  case 'cancel':engine.cancel();return {status:'pausing'};
  case 'reviewRemoval':return removals.preview(args);
  case 'retryRemovalPlan':return removals.retryPlan(args.id);
  case 'reviseRemovalPlan':return removals.revise(args.id);
- case 'executeRemoval':deletionActive=true;try{return await removals.execute(args.token,args);}finally{deletionActive=false;}
+ case 'executeRemoval':deletionActive=true;try{await engine.clearDownloads();return await removals.execute(args.token,args);}finally{deletionActive=false;}
  case 'finishCloudRemoval':{
    requireThat(engine.vault&&args.storageKey===removals.storageKey(),'space_changed');
    deletionActive=true;engine.running=true;

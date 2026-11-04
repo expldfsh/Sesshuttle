@@ -12,14 +12,37 @@ export class Vault {
  async stageChunk(digest,data,stage){const object='blobs/'+digest;const file=path.join(stage,digest);this.staged??=new Map();if(this.staged.has(digest)&&await exists(this.staged.get(digest)))return;
   const sealed=seal({data:data.toString('base64')},this.key,this.space,object);const disk=await fs.statfs(stage);requireThat(disk.bavail*disk.bsize>sealed.length+256*1024*1024,'disk_space');await atomic(file,sealed);this.staged.set(digest,file);
  }
- async readForImport(digest){
+ async readForImport(digest,cacheDir){
   const staged=this.staged?.get(digest);
-  if(!staged)return this.readChunk(digest);
+  if(!staged)return this.readChunk(digest,cacheDir);
   const body=await fs.readFile(staged);
   const plain=Buffer.from(unseal(body,this.key,this.space,'blobs/'+digest).data,'base64');
   requireThat(hash(plain)===digest,'corrupt_data');return plain;
  }
- async readChunk(digest){requireThat(/^[0-9a-f]{64}$/.test(digest),'corrupt_data');const object='blobs/'+digest;const r=await this.store.get(this.prefix+object);requireThat(r,'missing_remote_object');const x=unseal(r.body,this.key,this.space,object);requireThat(typeof x.data==='string','corrupt_data');const b=Buffer.from(x.data,'base64');requireThat(b.length<=4*1024*1024&&hash(b)===digest,'corrupt_data');return b;}
+ async readChunk(digest,cacheDir){
+  requireThat(/^[0-9a-f]{64}$/.test(digest),'corrupt_data');
+  const object='blobs/'+digest, file=cacheDir&&path.join(cacheDir,digest);
+  const decode=body=>{
+   const value=unseal(body,this.key,this.space,object);
+   requireThat(typeof value.data==='string','corrupt_data');
+   const bytes=Buffer.from(value.data,'base64');
+   requireThat(bytes.length<=4*1024*1024&&hash(bytes)===digest,'corrupt_data');
+   return bytes;
+  };
+  if(file){
+   try{return decode(await fs.readFile(file));}
+   catch(e){if(!['ENOENT','corrupt_data','decrypt_failed'].includes(e.code))throw e;}
+  }
+  const remote=await this.store.get(this.prefix+object);
+  requireThat(remote,'missing_remote_object');
+  const bytes=decode(remote.body);
+  if(file){
+   const disk=await fs.statfs(cacheDir);
+   requireThat(disk.bavail*disk.bsize>remote.body.length+256*1024*1024,'disk_space');
+   await atomic(file,remote.body);
+  }
+  return bytes;
+ }
  async inventory(){const objects=await this.store.inventory(this.prefix);return {objects:new Map(objects.map(x=>[x.key,x.bytes])),bytes:objects.reduce((n,x)=>n+x.bytes,0)};}
  async estimate(payloads,inventory){const unique=new Set();let bytes=0;for(const p of payloads)if(p.format===2)for(const f of p.files)for(const a of f.artifacts)for(const c of a.chunks){if(unique.has(c.hash)||inventory.objects.has(this.prefix+'blobs/'+c.hash))continue;unique.add(c.hash);const file=this.staged?.get(c.hash);requireThat(file,'stale_plan');bytes+=(await fs.stat(file)).size;}return {bytes,objects:unique.size};}
  async uploadChunks(payload){const inventory=await this.inventory();for(const f of payload.files)for(const a of f.artifacts)for(const c of a.chunks){const key=this.prefix+'blobs/'+c.hash;if(inventory.objects.has(key))continue;const file=this.staged?.get(c.hash);requireThat(file,'stale_plan');const body=await fs.readFile(file);const plain=Buffer.from(unseal(body,this.key,this.space,'blobs/'+c.hash).data,'base64');requireThat(hash(plain)===c.hash&&plain.length===c.bytes,'corrupt_data');try{await this.put(key,body,null);}catch(e){if(e.code!=='concurrent_update')throw e;}inventory.objects.set(key,body.length);}}

@@ -13,7 +13,7 @@ async function verifyAttachments(payload,rows,approved){
  }
 }
 export class Engine{
- constructor(state,{vault=null,importer=null,onProgress=()=>{}}={}){this.state=state;this.vault=vault;this.importer=importer??new Importer(state);this.onProgress=onProgress;this.plans=new Map();this.cancelled=false;this.running=false;this.local={rows:[],errors:[]};this.remote=[];this.cloudError=null;}
+ constructor(state,{vault=null,importer=null,onProgress=()=>{}}={}){this.state=state;this.vault=vault;this.importer=importer??new Importer(state);this.onProgress=onProgress;this.plans=new Map();this.downloads=new Map();this.cancelled=false;this.running=false;this.local={rows:[],errors:[]};this.remote=[];this.cloudError=null;}
  config(){return this.state.get('config',{language:'zh-CN',sourceHomes:[path.join(os.homedir(),'.codex')],targets:{},bindings:{}});}
  scope(){return this.vault?.space??'offline';}
  association(row){const key='association/'+row.id;let x=this.state.get(key);if(!x){const pkey='project/'+hash(row.home+'\0'+(row.originProject?.nativeId??row.project));let projectId=this.state.get(pkey);if(!projectId)projectId=this.state.set(pkey,id());x=this.state.set(key,{projectId,source:row.source});}if(!x.importedOrigin&&(row.originProject?.nativeId||!x.originProject))x=this.state.set(key,{...x,originProject:row.originProject});return x;}
@@ -21,20 +21,36 @@ export class Engine{
  baselineKey(row){return 'baseline/'+this.scope()+'/'+hash(row.home)+'/'+row.id;}
  rememberBaseline(row,version,selection={}){this.state.set(this.baselineKey(row),{signature:this.signature(row,selection),version,selection});}
  async snapshot(row,stage,selection={}){const p=await captureBundle(row,this.local.rows,this.vault,stage,selection);const association=this.association(row);const base=this.state.get(this.baselineKey(row));return {...p,originProject:association.originProject??p.originProject,baseVersion:base?.version??null,projectId:association.projectId};}
+ async downloadFolder(logicalId,version){
+  const cacheKey=[this.scope(),logicalId,version].join('/');
+  let dir=this.downloads.get(cacheKey);
+  if(!dir){
+   dir=path.join(this.state.root,'downloads',id());
+   await fs.mkdir(dir,{recursive:true,mode:0o700});
+   this.downloads.set(cacheKey,dir);
+  }
+  return {cacheKey,dir};
+ }
+ async clearDownloads(keys=[...this.downloads.keys()]){
+  for(const k of keys){
+   const dir=this.downloads.get(k);if(!dir)continue;
+   await fs.rm(dir,{recursive:true,force:true});this.downloads.delete(k);
+  }
+ }
  async refresh(){requireThat(!this.running,'task_running');this.local=await scan(this.config().sourceHomes);this.cloudError=null;
   if(this.vault){try{this.remote=await this.vault.heads();this.state.set('cache/'+this.scope(),{heads:this.remote,checkedAt:new Date().toISOString()});}catch(e){this.cloudError=publicError(e);this.remote=this.state.get('cache/'+this.scope(),{heads:[]}).heads;}}
   else this.remote=[];
   const rows=[];
   for(const logical of new Set([...this.local.rows.map(x=>x.id),...this.remote.map(x=>x.logicalId)])){
    const local=this.local.rows.find(x=>x.id===logical),head=this.remote.find(x=>x.logicalId===logical);let status=local?(head?'unchecked':'local_only'):'remote_only';
-   if(local&&!head&&this.vault&&!this.cloudError&&this.vault.removedIds?.has(logical))status='cloud_removed';
-   if(local?.busy)status='busy';else if(head?.tips.length>1)status='conflict';else if(local&&head&&!this.cloudError){const base=this.state.get(this.baselineKey(local));status=base?(base.signature===this.signature(local,base.selection)?(head.tips.includes(base.version)?'synced':'remote_changes'):(head.tips.includes(base.version)?'local_changes':'conflict')):'conflict';}
+   const cloudRemoved=!!(local&&!head&&this.vault&&!this.cloudError&&this.vault.removedIds?.has(logical));
+   if(head?.tips.length>1)status='conflict';else if(local&&head&&!this.cloudError){const base=this.state.get(this.baselineKey(local));status=base?(base.signature===this.signature(local,base.selection)?(head.tips.includes(base.version)?'synced':'remote_changes'):(head.tips.includes(base.version)?'local_changes':'conflict')):'conflict';}
    const association=local?this.association(local):{projectId:head?.projectId,originProject:head?.originProject};
    rows.push({id:logical,title:local?.title??head.title,source:local?local.source:head.source,project:local?.project??head.project,originProject:association.originProject??local?.originProject??head?.originProject,projectId:association.projectId,
     continuation:local?.continuation??head?.continuation??true,kind:local?.kind??head?.kind??(head?.source==='subagent'?'background':'main'),parent:local?.parent??head?.parent,parentTitle:local?.parentTitle,agent:local?.agent??head?.agent,compressed:local?.compressed,historyBytes:local?.historyBytes,fileBytes:local?.fileBytes,databaseBytes:local?.databaseBytes,updatedAt:local?.updatedAt,cloudUpdatedAt:head?.versions.at(-1)?.at,device:head?.device,bytes:local?.bytes??head.bytes,archived:local?.archived??head?.archived??false,
-    issues:local?.issues??head?.issues??[],cloudOmittedImages:head?.omittedImageCount??0,status,local:!!local,remote:!!head,version:local?.version,
+    issues:local?.issues??head?.issues??[],cloudOmittedImages:head?.omittedImageCount??0,status,busy:!!local?.busy,cloudRemoved,local:!!local,remote:!!head,version:local?.version,
     messages:local?.messages??head?.messages??[],totalMessages:local?.totalMessages??0,
-    versions:head?.versions??[],tips:head?.tips??[],targets:Object.fromEntries(Object.entries(this.state.get('entries/'+this.scope()+'/'+logical,{})).map(([entry,value])=>[entry,{...value,syncStatus:head?(head.tips.includes(value.version)?'synced':'remote_changes'):(status==='cloud_removed'?'cloud_removed':'local_only')}]))});
+    versions:head?.versions??[],tips:head?.tips??[],targets:Object.fromEntries(Object.entries(this.state.get('entries/'+this.scope()+'/'+logical,{})).map(([entry,value])=>[entry,{...value,syncStatus:head?(head.tips.includes(value.version)?'synced':'remote_changes'):'local_only'}]))});
   }
   this.rows=rows.sort((a,b)=>(b.updatedAt??b.cloudUpdatedAt??'').localeCompare(a.updatedAt??a.cloudUpdatedAt??''));
   return {rows:this.rows,errors:this.local.errors,cloudError:this.cloudError,checkedAt:this.local.checkedAt,remoteCheckedAt:this.state.get('cache/'+this.scope())?.checkedAt};
@@ -52,7 +68,7 @@ export class Engine{
   if(direction!=='upload'||chosenVersion)for(const entry of targets){const t=this.config().targets[entry];if(!t?.home)continue;try{const home=await canonical(t.home);if(!targetSnapshots[home]){const scanResult=await scan([home]);targetSnapshots[home]={hashes:Object.fromEntries(scanResult.rows.map(r=>[r.id,r.hash])),errors:scanResult.errors.length};}}catch{}}
   const items=[];
   for(const logical of [...new Set(ids)]){const row=this.rows.find(x=>x.id===logical),local=this.local.rows.find(x=>x.id===logical),head=this.remote.find(x=>x.logicalId===logical);let action='skip';
-   if(row.status==='busy')action='busy';
+   if(row.busy)action='busy';
    else if(chosenVersion){requireThat(head?.versions.some(x=>x.id===chosenVersion),'invalid_selection');action='resolve';}
    else if(direction==='upload'&&local)action='upload';
    else if(direction==='download'&&head)action=head.tips.length>1?'conflict':'download';
@@ -64,11 +80,20 @@ export class Engine{
     if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
    if(preserve){fileCount+=preserve.files.length;assetCount+=preserve.files.reduce((n,f)=>n+(f.artifacts?.filter(a=>a.kind==='asset').length??0),0);bytes+=bundleBytes(preserve);issues=[...new Set([...issues,...preserve.issues])];}
-   const describe=(p,role)=>p?.files.map(f=>({id:f.id,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??p.originProject,bytes:f.artifacts?f.artifacts.reduce((n,a)=>n+a.bytes,0):Buffer.byteLength(f.raw,'base64'),reason:role==='preserve'?'preserveLocal':ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:(f.attachmentReport??[]).map(a=>({...a,role})),omittedAttachments:f.omittedAttachments??[],issues:f.issues??[],missingDependencies:(f.dependencies??[]).filter(dep=>!p.files.some(member=>member.id===dep))}))??[];
+   const describe=(p,role)=>p?.files.map(f=>({id:f.id,role,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??p.originProject,bytes:f.artifacts?f.artifacts.reduce((n,a)=>n+a.bytes,0):Buffer.byteLength(f.raw,'base64'),reason:role==='preserve'?'preserveLocal':ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:(f.attachmentReport??[]).map(a=>({...a,role})),omittedAttachments:f.omittedAttachments??[],issues:f.issues??[],missingDependencies:(f.dependencies??[]).filter(dep=>!p.files.some(member=>member.id===dep))}))??[];
+   const primaryReview=attachmentReview(payload),preserveReview=attachmentReview(preserve);
+   const blockingIssues=[...new Set([...primaryReview.blockingIssues,...preserveReview.blockingIssues])];
+   const optional=[...primaryReview.optional.map(a=>({...a,role:'primary'})),...preserveReview.optional.map(a=>({...a,role:'preserve'}))];
+   let excludedReason=null;
+   if(action==='blocked')excludedReason=issues.at(-1)??'incomplete_history';
+   else if(action==='busy'||action==='conflict')excludedReason=action;
+   else if(action==='skip')excludedReason=direction==='upload'?'noLocalForUpload':'noBackupToImport';
+   else if(blockingIssues.length)excludedReason=blockingIssues[0];
+   else if((payload?.continuation===false||preserve?.continuation===false)&&!(allowIncomplete&&action==='upload'))excludedReason='missing_rollout';
    items.push({id:logical,title:row.title,action,bytes,fileCount,assetCount,expectedHash:local?.hash??null,expectedSignature:local?this.signature(local,selection):null,expectedHead:head?.etag??null,
-     attachmentReview:{optional:[...attachmentReview(payload).optional,...attachmentReview(preserve).optional],blockingIssues:[...new Set([...attachmentReview(payload).blockingIssues,...attachmentReview(preserve).blockingIssues])]},version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:[...describe(payload,'primary'),...describe(preserve,'preserve')],payload,preserve});
+     excludedReason,attachmentReview:{optional,blockingIssues},version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:[...describe(payload,'primary'),...describe(preserve,'preserve')],payload,preserve});
   }
-  const uploads=items.flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const inventory=uploads.length?await this.vault.inventory():{objects:new Map(),bytes:0};const estimated=await this.vault.estimate(uploads,inventory);
+  const uploads=items.filter(x=>!x.excludedReason).flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const inventory=uploads.length?await this.vault.inventory():{objects:new Map(),bytes:0};const estimated=await this.vault.estimate(uploads,inventory);
   // Reserve a conservative upper bound for encrypted manifests and replacement heads.
   // Chunks have their exact encrypted size; metadata reserve avoids a false exact quota promise.
   const metadataReserve=uploads.reduce((n,p)=>n+4*Buffer.byteLength(JSON.stringify(p))+4*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
@@ -79,7 +104,21 @@ export class Engine{
  }
  async discardPlan(token){const plan=this.plans.get(token);if(plan){this.plans.delete(token);await fs.rm(plan.stage,{recursive:true,force:true});}}
  cancel(){this.cancelled=true;}
- async execute(token,{confirmLarge=false,acceptedMissingAttachments=[]}={}){const plan=this.plans.get(token);requireThat(plan&&plan.space===this.scope()&&plan.configHash===hash(JSON.stringify(this.config())),'stale_plan');requireThat(!this.running,'task_running');requireThat(!plan.overLimit,'upload_limit');requireThat(!plan.largeUpload||confirmLarge,'large_upload_confirmation');const eligible=plan.items.flatMap(i=>i.attachmentReview.optional);requireThat(Array.isArray(acceptedMissingAttachments)&&acceptedMissingAttachments.every(k=>typeof k==='string'&&eligible.some(a=>a.key===k)),'invalid_selection');this.plans.delete(token);this.running=true;this.cancelled=false;this.vault.writeBudget={remaining:plan.uploadBytes};
+ async execute(token,{confirmLarge=false,acceptedMissingAttachments=[],acceptedByItem,onlyEligible=false}={}){const plan=this.plans.get(token);requireThat(plan&&plan.space===this.scope()&&plan.configHash===hash(JSON.stringify(this.config())),'stale_plan');requireThat(!this.running,'task_running');requireThat(!plan.overLimit,'upload_limit');requireThat(!plan.largeUpload||confirmLarge,'large_upload_confirmation');const executable=plan.items.filter(i=>!i.excludedReason);
+  if(executable.length&&executable.length<plan.items.length)requireThat(onlyEligible===true,'partial_scope_confirmation');
+  function validateKeys(keys,optional){requireThat(Array.isArray(keys)&&keys.every(k=>typeof k==='string'&&optional.some(a=>a.key===k)),'invalid_selection');}
+  validateKeys(acceptedMissingAttachments,executable.flatMap(i=>i.attachmentReview.optional));
+  if(acceptedByItem!==undefined){
+    requireThat(acceptedByItem&&typeof acceptedByItem==='object'&&!Array.isArray(acceptedByItem),'invalid_selection');
+    for(const [logical,roles] of Object.entries(acceptedByItem)){
+      const item=executable.find(i=>i.id===logical);requireThat(item&&roles&&typeof roles==='object','invalid_selection');
+      for(const [role,keys] of Object.entries(roles)){
+        requireThat(['primary','preserve'].includes(role),'invalid_selection');
+        validateKeys(keys,item.attachmentReview.optional.filter(a=>a.role===role));
+      }
+    }
+  }
+  this.plans.delete(token);this.running=true;this.cancelled=false;this.vault.writeBudget={remaining:plan.uploadBytes};
   const job={id:id(),total:plan.items.length,startedAt:new Date().toISOString(),status:'running',items:[]};this.state.set('job/'+job.id,job);
   try{for(const item of plan.items){if(this.cancelled){job.status='paused';break;}const result={id:item.id,title:item.title,action:item.action,status:'running',targets:{}};job.items.push(result);
    const step=(stage)=>{job.progress={index:job.items.length,total:plan.items.length,title:item.title,stage,bytes:0};this.onProgress({...job});};
@@ -87,12 +126,14 @@ export class Engine{
    let lastEvent=0;
    const advance=n=>{job.progress.bytes+=n;if(Date.now()-lastEvent>150){lastEvent=Date.now();this.onProgress({...job});}};
    this.vault.onBytes=advance;
-   try{if(['skip','busy','conflict','blocked'].includes(item.action)){result.status=item.action;continue;}
+   const accepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.primary??[]);
+   const preserveAccepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.preserve??[]);
+   try{if(item.excludedReason){result.requestedDirection=plan.direction;result.status='excluded';result.error={code:item.excludedReason};continue;}
     const current=await scan(this.config().sourceHomes);const local=current.rows.find(x=>x.id===item.id);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
     const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;requireThat((local?this.signature(local,plan.selection):null)===item.expectedSignature,'stale_plan');
     let payload,importVersion=item.version,resolveEtag=head?.etag;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
-      requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);if(!plan.allowIncomplete)assertAttachmentAcceptance(payload,acceptedMissingAttachments);
+      requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);assertAttachmentAcceptance(payload,accepted);
       step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'),item.expectedHead);this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;
       if(item.action!=='upload_import'||published.conflict){result.status=published.conflict?'conflict_preserved':'uploaded';continue;}
       importVersion=published.version;payload=await this.vault.version(importVersion);
@@ -101,16 +142,19 @@ export class Engine{
       payload=item.payload;
       for(const f of payload.files)for(const a of f.attachmentReport??[])if(a.replacementPath&&plan.selection.replacements[a.key])requireThat(await attachmentUnchanged(a),'stale_plan');
     }
-    assertAttachmentAcceptance(payload,acceptedMissingAttachments);
+    assertAttachmentAcceptance(payload,accepted);
     requireThat(payload.continuation!==false,'missing_rollout');
     // Explicit branch selection first preserves the current local branch remotely.
-    if(item.action==='resolve'&&local){step('preservingVersion');assertAttachmentAcceptance(item.preserve,acceptedMissingAttachments);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'),item.expectedHead)).head.etag;}
+    if(item.action==='resolve'&&local){step('preservingVersion');assertAttachmentAcceptance(item.preserve,preserveAccepted);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'),item.expectedHead)).head.etag;}
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
+      const cache=payload.format===2?await this.downloadFolder(item.id,importVersion):null;
+      const received=()=>{result.historyReady=true;};
+      if(payload.format===1)received();
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured',error:{code:target?.binary?'entry_home_missing':'entry_binary_missing'}};continue;}
-       try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project,onStage:step,nativeProjectId:cfg.nativeBindings?.[payload.projectId??item.projectId]?.[target.home]??null}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',error:publicError(e)};}}
+       try{await binaryVersion(target.binary);const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,target:{...target,home,project,onStage:step,onMaterialized:received,nativeProjectId:cfg.nativeBindings?.[payload.projectId??item.projectId]?.[target.home]??null}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',error:publicError(e)};}}
       for(const group of grouped.values()){
-       try{requireThat(new Set(group.map(g=>g.target.nativeProjectId)).size===1,'destinationAmbiguous');const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',vault:{readChunk:async digest=>{const chunk=plan.selection.replacements&&Object.keys(plan.selection.replacements).length?await this.vault.readForImport(digest):await this.vault.readChunk(digest);advance(chunk.length);return chunk;}},acceptedMissingAttachments,expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
+       try{requireThat(new Set(group.map(g=>g.target.nativeProjectId)).size===1,'destinationAmbiguous');const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',vault:{readChunk:async digest=>{const chunk=plan.selection.replacements&&Object.keys(plan.selection.replacements).length?await this.vault.readForImport(digest,cache?.dir):await this.vault.readChunk(digest,cache?.dir);advance(chunk.length);return chunk;}},acceptedMissingAttachments:accepted,expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
         for(const {entry,target}of group){
          // Shared storage is written once; different runtime versions are still checked.
          let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){step('stageVerify');await this.importer.processGuard();if(!r.backup)r.backup=(await this.importer.backup(target.home)).id;nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
@@ -122,12 +166,14 @@ export class Engine{
       this.local=await scan(this.config().sourceHomes);const importedLocal=this.local.rows.find(x=>x.id===item.id);if(importedLocal&&Object.values(result.targets).some(x=>x.status==='verified'&&x.home===importedLocal.home))this.rememberBaseline(importedLocal,importVersion);
       for(const f of payload.files)this.state.set('association/'+f.id,{importedOrigin:true,projectId:payload.projectId,source:f.source??payload.source,originProject:f.originProject?.nativeId?f.originProject:payload.originProject});
       const key='entries/'+this.scope()+'/'+item.id;this.state.set(key,{...this.state.get(key,{}),...result.targets});
-      const values=Object.values(result.targets);if(item.action==='resolve'&&values.length&&values.every(x=>x.status==='verified'))await this.vault.choose(item.id,item.version,resolveEtag);result.status=values.every(x=>['verified','imported'].includes(x.status))?'downloaded':values.some(x=>['verified','imported'].includes(x.status))?'partial':'failed';
+      const values=Object.values(result.targets);
+      if(cache&&values.length&&values.every(x=>x.status==='verified'))await this.clearDownloads([cache.cacheKey]);
+      if(item.action==='resolve'&&values.length&&values.every(x=>x.status==='verified'))await this.vault.choose(item.id,item.version,resolveEtag);result.status=values.every(x=>['verified','imported'].includes(x.status))?'downloaded':values.some(x=>['verified','imported'].includes(x.status))?'partial':'failed';
     }
    }catch(e){result.status='failed';result.error=publicError(e);}
    finally{this.state.set('job/'+job.id,job);this.onProgress({...job});}
   }
-  if(job.status==='running')job.status=job.items.some(x=>['failed','partial','conflict','busy','blocked','conflict_preserved'].includes(x.status))?'attention':'completed';
+  if(job.status==='running')job.status=job.items.some(x=>['excluded','failed','partial','conflict','busy','blocked','conflict_preserved'].includes(x.status))?'attention':'completed';
   }finally{this.vault.writeBudget=null;this.vault.onBytes=null;delete job.progress;await fs.rm(plan.stage,{recursive:true,force:true}).catch(()=>{});this.running=false;job.finishedAt=new Date().toISOString();this.state.set('job/'+job.id,job);this.onProgress({...job});}
   return job;
  }

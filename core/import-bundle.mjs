@@ -41,7 +41,7 @@ export async function importBundle(importer,payload,target,{replace=false,expect
  }
  if(verified)return {status:'verified',nativeProjectName,backup:null,unchanged:true,runtime,omittedAttachments};
  const temp=path.join(importer.state.root,'downloads',id());await fs.mkdir(temp,{recursive:true,mode:0o700});const disk=await fs.statfs(temp);requireThat(disk.bavail*disk.bsize>bundleBytes(payload)+256*1024*1024,'disk_space');let taskId,backup;
- try{target.onStage?.('stageDownload');const staged=await materialize(payload,vault,temp),placements=new Map(),writes=[];staged.files=await remapHistory(staged.files,home,{acceptedMissingAttachments});
+ try{target.onStage?.('stageDownload');const staged=await materialize(payload,vault,temp),placements=new Map(),writes=[];target.onMaterialized?.();staged.files=await remapHistory(staged.files,home,{acceptedMissingAttachments});
   for(const f of staged.files){const old=before.rows.find(r=>r.id===f.id),rollout=f.artifacts.find(a=>a.kind==='rollout');f.placementArchived=f.artifacts.some(a=>a.kind==='database')?f.archived:(old?.archived??f.archived);const destination=(!f.artifacts.some(a=>a.kind==='database')||old?.archived===f.archived?old?.file?.replace(/\.zst$/,''):null)??path.join(home,f.archived?'archived_sessions':'sessions',`rollout-2026-01-01T00-00-00-${f.id}.jsonl`);await inside(home,destination);placements.set(f.id,destination);
    if(rollout)writes.push({source:rollout.file,target:destination,hash:rollout.remapped?undefined:rollout.hash,preservedOriginal:old?.file&&old.file!==destination?old.file:null});
    for(const a of f.artifacts.filter(a=>a.kind==='asset')){const dest=await inside(home,path.join(home,'sesshuttle_assets',a.hash));writes.push({source:a.file,target:dest,hash:a.hash});}

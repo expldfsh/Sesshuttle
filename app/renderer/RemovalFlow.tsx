@@ -24,7 +24,7 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
   const [pending,setPending]=useState(false),[error,setError]=useState<any>(null),[permanent,setPermanent]=useState(false),[upgrade,setUpgrade]=useState(false);
   const dialog=useRef<HTMLDialogElement>(null),title=useRef<HTMLHeadingElement>(null),lock=useRef(false);
   useEffect(()=>{const d=dialog.current;d?.showModal();return()=>d?.close();},[]);
-  useEffect(()=>{title.current?.focus();if(dialog.current)dialog.current.scrollTop=0;},[plan?.token]);
+  useEffect(()=>{title.current?.focus();if(dialog.current)dialog.current.scrollTop=0;},[!!plan]);
   const refresh=async(request:any,revise=false)=>{
     if(lock.current)return;lock.current=true;setPending(true);setError(null);setPermanent(false);setUpgrade(false);
     try{const next=revise?await call('reviseRemovalPlan',{id:plan.token}):await call('reviewRemoval',request);setQ(next.q);setPlan(next);setVersions({});}
@@ -45,8 +45,9 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
   function toggleVersion(row:any,version:string,checked:boolean){
     const original=row.versions.filter((v:any)=>v.selected).map((v:any)=>v.id);
     const current=versions[row.id]??original;
-    setVersions(old=>({...old,[row.id]:checked?[...new Set([...current,version])]:current.filter((v:string)=>v!==version)}));
-    setPermanent(false);setUpgrade(false);
+    const next={...versions,[row.id]:checked?[...new Set([...current,version])]:current.filter((v:string)=>v!==version)};
+    setVersions(next);
+    void refresh({...q,versions:{...q.versions,...next}});
   }
   const scopeAvailable=(s:string)=>s==='local'?initial.hasLocal:s==='cloud'?connected&&initial.hasCloud:connected&&initial.hasLocal&&initial.hasCloud;
   const wrongVersion=previous?.error?.code==='stale_plan';
@@ -95,8 +96,9 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
       {needPermanent&&<label className="check warning-box"><input type="checkbox" checked={permanent} onChange={e=>setPermanent(e.target.checked)}/>{t('permanentConsent')}</label>}
     </>}
     {pending&&<div className="flow-activity" role="status"><progress/>{t('readingRemoval')}</div>}
-    {changed&&<p className="warning-box" role="status">{t('versionSelectionChanged')}</p>}
+    {changed&&!pending&&<p className="warning-box" role="status">{t('versionSelectionChanged')}</p>}
     {noWork&&<p role="status">{t('nothing_to_remove')}</p>}
+    {!pending&&!changed&&plan&&!noWork&&!blocked&&((needPermanent&&!permanent)||(needUpgrade&&!upgrade))&&<p>{t('reviewConsentHint')}</p>}
     {error&&<div role="alert" className="notice error"><span>{t(error.code??'operation_failed')} {error.detail}</span>
       {['cloud_cleanup_pending','trash_recovery_required','storage_not_connected'].includes(error.code)&&<button onClick={()=>onRepair(error.code==='storage_not_connected'?'settings':'backups')}>{t(error.code==='storage_not_connected'?'settings':'backups')}</button>}</div>}
     <footer className="modal-actions">

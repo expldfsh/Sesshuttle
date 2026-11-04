@@ -67,6 +67,7 @@ export async function detectEnvironment({config={},testRoot=null,platform=proces
   const defaultHome = testRoot ? path.join(testRoot,'codex') : path.join(userHome,'.codex');
   const candidates = testRoot || platform!=='linux' ? [] : await liveLinuxTargets(proc);
   const add = (entry,binary,home,evidence,app='') => candidates.push({entry,binary,home,evidence,app});
+  const launchers=[...new Set(candidates.map(c=>c.app).filter(Boolean))];
   if (!testRoot) {
     const home = path.isAbsolute(env.CODEX_HOME??'') ? env.CODEX_HOME : defaultHome;
     for (const dir of [...(env.PATH??'').split(path.delimiter),'/opt/homebrew/bin','/usr/local/bin',path.join(userHome,'.local/bin')].filter(p=>path.isAbsolute(p))) {
@@ -75,8 +76,13 @@ export async function detectEnvironment({config={},testRoot=null,platform=proces
     const roots = platform==='darwin'
       ? ['/Applications/ChatGPT.app/Contents/Resources','/Applications/Codex.app/Contents/Resources']
       : ['/usr/lib/chatgpt','/opt/ChatGPT','/opt/chatgpt','/usr/lib/codex'];
-    for (const root of roots) for (const suffix of ['codex-cli/bin/codex','codex','resources/codex-cli/bin/codex','resources/codex','resources/app.asar.unpacked/codex-cli/bin/codex'])
-      add('desktop',path.join(root,suffix),home,'installedBinary');
+    for (const root of roots) {
+      const names=platform==='darwin'?['../MacOS/ChatGPT','../MacOS/Codex']:['ChatGPT','Codex'];
+      let launcher='';
+      for(const name of names){const file=path.resolve(root,name);if(await executable(file)){launcher=file;if(!launchers.includes(file))launchers.push(file);break;}}
+      for (const suffix of ['codex-cli/bin/codex','codex','resources/codex-cli/bin/codex','resources/codex','resources/app.asar.unpacked/codex-cli/bin/codex'])
+        add('desktop',path.join(root,suffix),home,'installedBinary',launcher);
+    }
     for (const editor of ['.vscode','.vscode-insiders','.vscode-oss','.cursor']) {
       const root=path.join(userHome,editor,'extensions');
       for(const e of await directories(root)) if(e.name.startsWith('openai.chatgpt-')){
@@ -103,5 +109,5 @@ export async function detectEnvironment({config={},testRoot=null,platform=proces
     if(!unique.has(key)) unique.set(key,{...c,home,canonicalBinary:bin,...versions.get(bin),homeAvailable:await directory(home),assumedHome:!c.home||c.evidence==='installedBinary'});
   }
   const homes = [...new Set([defaultHome,...(config.sourceHomes??[]),...[...unique.values()].map(x=>x.home)])];
-  return {candidates:[...unique.values()],sourceHomes:await Promise.all(homes.map(async home=>({path:home,available:await directory(home)})))};
+  return {launchers,candidates:[...unique.values()],sourceHomes:await Promise.all(homes.map(async home=>({path:home,available:await directory(home)})))};
 }

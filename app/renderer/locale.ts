@@ -824,3 +824,135 @@ const authorizationLabels:Record<string,[string,string]>={
  ]
 };
 for(const [key,[cn,us]] of Object.entries(authorizationLabels)){zh[key]=cn;en[key]=us;}
+
+const reviewLabels:Record<string,[string,string]>={
+ "excluded": [
+  "未执行",
+  "Not run"
+ ],
+ "batchEligibility": [
+  "本次可处理 {ready} 个，以下 {blocked} 个将跳过。",
+  "{ready} eligible. The following {blocked} will be left out."
+ ],
+ "onlyUploadEligible": [
+  "仅上传可用的 {n} 个对话",
+  "Upload only the {n} eligible conversations"
+ ],
+ "onlyImportEligible": [
+  "仅导入可用的 {n} 个对话",
+  "Import only the {n} eligible conversations"
+ ],
+ "onlySyncEligible": [
+  "仅同步可用的 {n} 个对话",
+  "Sync only the {n} eligible conversations"
+ ],
+ "partial_scope_confirmation": [
+  "部分对话无法执行。请先核对可用条目，再确认只处理这些对话。",
+  "Some conversations cannot proceed. Review the eligible list and confirm that subset."
+ ],
+ "noLocalForUpload": [
+  "这台电脑没有该对话可上传的本机副本。",
+  "There is no local copy on this device to upload."
+ ],
+ "noBackupToImport": [
+  "当前空间没有该对话可导入的备份。",
+  "There is no backup of this conversation in the current space to import."
+ ],
+ "acceptConversationImages": [
+  "接受此对话缺少这 {n} 张图片并继续",
+  "Continue without these {n} images in this conversation"
+ ],
+ "confirmImagesFor": [
+  "请为下列对话选择补上图片或接受缺图，再确认。",
+  "Locate the images or accept their omission for these conversations before continuing."
+ ],
+ "nothingEligible": [
+  "本次没有可执行的对话。请查看上方每个标题旁的原因，调整选择后重新预览。",
+  "No conversations can proceed. Review the reason beside each title above, adjust the selection and preview again."
+ ],
+ "cloudRemovalHistory": [
+  "这份云端备份已移除。若要重新备份，请选择「上传到云端」。",
+  "This backup was removed from the cloud. Choose Upload to cloud to back it up again."
+ ],
+ "incomplete": [
+  "只备份现有数据库记录（缺少续聊所需的历史文件）",
+  "Back up available database records only when the history file for continuing is missing"
+ ],
+ "historyReceived": [
+  "历史已下载",
+  "History downloaded"
+ ],
+ "cacheRetryHint": [
+  "本次运行中已下载的内容可用于重试。",
+  "Downloaded data can be reused for retries in this session."
+ ],
+ "entryReady": [
+  "已导入，可以继续",
+  "Imported and ready to continue"
+ ],
+ "entryUnverified": [
+  "历史已写入，续聊尚未验证",
+  "History written, continuation not verified"
+ ],
+ "entry_binary_missing": [
+  "还缺 Codex 可执行文件。点击检测或选择该应用使用的 Codex 程序。",
+  "The Codex executable is missing. Detect it or choose the Codex program used by this app."
+ ],
+ "entry_home_missing": [
+  "还缺保存对话历史的文件夹。点击检测，或选择本机的 Codex 数据目录。",
+  "Choose the folder that stores this app’s Codex history, or detect it here."
+ ],
+ "kernelProgram": [
+  "Codex 可执行文件",
+  "Codex executable"
+ ],
+ "kernelMeaning": [
+  "用于检查和打开导入的历史。例如 Codex 命令行程序。桌面启动器与它是两个文件。",
+  "The Codex program used to verify imported history. The desktop launcher is a separate file."
+ ],
+ "historyMeaning": [
+  "此入口保存 Codex 对话的目录，通常含 sessions 或 state 数据库。",
+  "The folder where this app stores Codex conversations, usually containing sessions or a state database."
+ ],
+ "project_assignment_unsupported": [
+  "此版本无法验证桌面项目归属。可选择「仅导入历史」，自行在应用内打开。",
+  "This version cannot verify the desktop project. Choose history only and open it in the app."
+ ],
+ "project_assignment_failed": [
+  "未能确认对话已归入所选项目。到「备份与恢复」查看本次导入，再决定是否恢复。",
+  "Project placement could not be verified. Review this import in Backups & recovery before restoring."
+ ],
+ "saveAndReturn": [
+  "保存所选路径并继续导入",
+  "Save selected paths and continue import"
+ ],
+ "detectedLauncher": [
+  "已找到桌面启动器。仍需确认该应用使用的 Codex 程序和历史目录。",
+  "Desktop launcher found. Its Codex executable and history folder must still be verified."
+ ],
+ "detectedApplied": [
+  "所选路径已保存。请继续选择本机项目。",
+  "Selected paths saved. Continue by choosing a project on this computer."
+ ],
+ "chooseVersionsHint": [
+  "默认选中全部版本。取消勾选要保留的版本，清单将自动更新。",
+  "All versions are selected initially. Untick versions you want to keep. The list updates automatically."
+ ],
+ "versionSelectionChanged": [
+  "版本选择已改变。更新清单后才能确认删除。",
+  "The version selection changed. Confirmation is available after the list updates."
+ ],
+ "reviewConsentHint": [
+  "请先勾选上方确认项，才能执行所列操作。",
+  "Check the acknowledgement above before proceeding."
+ ],
+ "busyReason": [
+  "Codex 正在写入此对话。请等写入结束，再刷新预览。",
+  "Codex is writing to this conversation. Wait for it to finish, then refresh the preview."
+ ],
+ "emptyFiltered": [
+  "当前筛选没有匹配的对话。可清除筛选查看其他记录。",
+  "No conversations match these filters. Clear the filters to see other records."
+ ]
+};
+for(const [key,[cn,us]] of Object.entries(reviewLabels)){zh[key]=cn;en[key]=us;}

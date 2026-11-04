@@ -68,7 +68,7 @@ for(const scope of ['local','cloud','both'])for(const mode of ['trash','purge'])
         const observer=new Engine(observerState,{vault:x.second});
         const beforeRefresh=await x.second.inventory(),observed=await observer.refresh();
         assert.ok(observed.rows.some(r=>r.id===x.a&&r.local));
-        if(scope!=='local')assert.equal(observed.rows.find(r=>r.id===x.a).status,'cloud_removed');
+        if(scope!=='local'){const retained=observed.rows.find(r=>r.id===x.a);assert.equal(retained.status,'local_only');assert.equal(retained.cloudRemoved,true);}
         assert.equal((await x.second.inventory()).bytes,beforeRefresh.bytes);
         assert.deepEqual(await fs.readFile(x.other+'/sessions/'+x.a+'.jsonl'),x.sample);
       }finally{observerState.close();}
