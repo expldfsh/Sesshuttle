@@ -1,3 +1,4 @@
+import {checkScope} from './scan-scope.mjs';
 import fs from 'node:fs/promises';
 import {scan} from './codex.mjs';
 import {Trash} from './trash.mjs';
@@ -48,7 +49,7 @@ export class Removals{
     }
     for(const home of homeList){
       if(onlyHomes&&!onlyHomes.includes(home))continue;
-      const result=await scan([home]);requireThat(!result.errors.length,'scan_incomplete');
+      const result=await scan([home]);checkScope(result,q.ids,{allowDuplicateRemoval:true});
       const ids=q.ids.filter(tid=>result.rows.some(r=>r.id===tid));if(!ids.length)continue;
       const p=await new Trash(this.state,this.engine.importer).preview([home],{ids,includeDependents:q.includeDependents},{ownershipHomes:homeList,snapshot:result});
       const entries=[];
@@ -93,7 +94,7 @@ export class Removals{
   }
   async execute(token,{permanent=false,upgrade=false}={}){
     const plan=this.plans.get(token)??this.state.get('removal-plan/'+token);
-    requireThat(plan&&uuid(token)&&!this.engine.running,'stale_plan');
+    requireThat(!this.engine.running,'task_running');requireThat(plan&&uuid(token),'stale_plan');
     const {q}=plan;
     requireThat(q.mode!=='purge'||permanent===true,'permanent_confirmation');
 
