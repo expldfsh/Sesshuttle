@@ -44,5 +44,6 @@ try {
  }else{
   await sync('download');child.stdin.write('continue\n');const proof=await next();console.log(JSON.stringify(proof));if(mode==='receive')await sync('upload');
  }
+ assert.equal(state.keys('backup/').length,0,'manual sync must not create a local backup');
  console.log('PASS '+mode+' on '+process.platform+' '+process.arch);
 }finally{child.stdin.end();state?.close();}

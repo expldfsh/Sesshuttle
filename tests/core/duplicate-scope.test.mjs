@@ -1,3 +1,4 @@
+import {restoreReview} from '../../core/manual-backups.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -49,9 +50,11 @@ test('a divergent pair does not prevent independent transfer, removal and restor
   const version=(await vault.head(conflict)).tips[0];
   const copy=await downloadCopy(vault,conflict,version,root);
   assert.deepEqual(await fs.readFile(path.join(copy,conflict,'rollout-'+(await vault.version(version)).files[0].artifacts[0].hash)),originals[1]);
+  const manual=await importer.backup(home);
   const resolved=await keepLocalCopy(engine,{logical:conflict,...choice});
   assert.deepEqual(await fs.readFile(b),originals[1]);assert.equal((await engine.refresh()).errors.length,0);
-  await importer.restore(resolved.backup);
+  assert.equal(resolved.backup,null);assert.equal(state.keys('backup/').length,1);
+  await importer.restore(manual.id,(await restoreReview(manual)).token);
   assert.deepEqual(await Promise.all([a,b,independent].map(f=>fs.readFile(f))),originals);
 });
 
