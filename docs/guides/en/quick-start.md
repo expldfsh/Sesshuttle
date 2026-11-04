@@ -1,4 +1,4 @@
-# Sesshuttle 0.4.0
+# Sesshuttle 0.4.1
 
 If your Linux device already shows the cloud chat, go straight to **Import and continue**. Keep the existing space, application data and recovery file when upgrading.
 
@@ -6,11 +6,11 @@ If your Linux device already shows the cloud chat, go straight to **Import and c
 
 - On Apple Silicon, open the DMG and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.4.0-linux-amd64.deb` using your software installer.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.4.1-linux-amd64.deb` using your software installer.
 
 ```sh
-tar -xzf sesshuttle-0.4.0-linux-x64.tar.gz
-./sesshuttle-0.4.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.4.1-linux-x64.tar.gz
+./sesshuttle-0.4.1-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each device. Bring project files to each device separately. Fonts are bundled.
@@ -31,7 +31,7 @@ To include a readable external image, approve it and update the preview. You can
 
 ## Import and continue
 
-1. Open the cloud chat title and choose **Import to this device…**. Select **GPT desktop**, CLI, VS Code or several destinations.
+1. Open the cloud chat title and choose **Import to this computer…**. Select **GPT desktop**, CLI, VS Code or several destinations.
 2. Use **Detect local Codex apps** right in the import window. Opening the Codex part of your GPT desktop app first can expose its running runtime and actual history database. Review the evidence and select **Apply selected settings**. Manual paths are shown alongside proposed changes.
 3. Choose the project in the destination app, even if it has no chats yet. Select your local working folder or use **Create a dedicated work folder**. The desktop executable such as `/usr/lib/chatgpt/ChatGPT`, its Codex runtime, its history folder and your working folder serve different purposes.
 4. Select **Review transfer**, check the destination app and project, then close Codex processes using the history before confirming. The task shows its current stage and reports cloud and per-app results separately. Use **Fix and retry** for an unsuccessful target.
@@ -40,7 +40,7 @@ To include a readable external image, approve it and update the preview. You can
 
 **More actions** includes two-way transfer. Use **Delete chats…** for removal. If both devices edited independently, compare the versions before choosing the one to import.
 
-[Compatibility](../../compatibility/0.4.0.md) · [Verification report](../../validation/0.4.0.md)
+[Compatibility](../../compatibility/0.4.0.md) · [Verification report](../../validation/0.4.1.md)
 
 ## Delete chats and manage recovery copies
 

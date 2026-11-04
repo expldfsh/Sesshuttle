@@ -1,16 +1,16 @@
-# Sesshuttle 0.4.0 使用指南
+# Sesshuttle 0.4.1 使用指南
 
 两台电脑都已连上 R2，并且 Linux 已经能看到云端对话时，从下面的「导入到 Linux」开始。恢复文件可以继续使用。
 
 ## 安装或升级
 
-- **Mac Apple Silicon** 打开 `sesshuttle-0.4.0-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
+- **Mac Apple Silicon** 打开 `sesshuttle-0.4.1-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
 - **Arch Linux x86_64** 在安装包所在目录运行下面两行，保持解压出的目录完整，在自己的图形桌面会话中启动。
-- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.4.0-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.4.0-linux-amd64.deb`。
+- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.4.1-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.4.1-linux-amd64.deb`。
 
 ```sh
-tar -xzf sesshuttle-0.4.0-linux-x64.tar.gz
-./sesshuttle-0.4.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.4.1-linux-x64.tar.gz
+./sesshuttle-0.4.1-linux-x64/sesshuttle
 ```
 
 升级时退出旧版，保留原有应用数据。两台电脑分别安装并登录要使用的 Codex 应用。项目代码通过 Git 或自己的文件传输方式准备。
@@ -32,7 +32,7 @@ tar -xzf sesshuttle-0.4.0-linux-x64.tar.gz
 
 ## 导入到 Linux
 
-1. 在「对话」点开已在云端的标题，点「导入到本机…」。要在 GPT 桌面侧栏继续，勾选「GPT 桌面端」。也可同时选择已安装的 CLI、VS Code。
+1. 在「对话」点开已在云端的标题，点「导入到这台电脑…」。要在 GPT 桌面侧栏继续，勾选「GPT 桌面端」。也可同时选择已安装的 CLI、VS Code。
 2. 首次配置时，在这个窗口点「检测本机 Codex 环境」。如果还未识别桌面端，先在 GPT 桌面程序打开 Codex 页面，再检测。核对候选来源，点「应用所选配置」即可保存。已有手动路径的替换需要主动选中。
 3. 在「导入到本机项目」选择 Linux 侧栏的项目，例如 `linux`。项目可以是空的。若它有一个已存在的本机工作目录，界面会带出路径。否则选择自己的代码文件夹，或点「创建并使用专用工作目录」。新目录开始时为空。
 4. 查看本次清单，核对目标项目、应用和附件。检测完成后，保存正在进行的 Codex 工作并退出使用历史的原生应用。确认导入，等待逐入口结果。共享历史目录的多个入口分别验证。
