@@ -11,7 +11,7 @@ export function ConversationActions({items,t,busy,open,remove,resume,versions}:a
   {single?.status==='conflict'&&<button className="primary" disabled={busy} onClick={versions}>{t('compareVersions')}</button>}
   {importFirst?<>{remote>0&&download}{local>0&&upload}</>:<>{local>0&&upload}{remote>0&&download}</>}
   <button className="danger-button" disabled={busy} onClick={remove}>{t('removeChats')}…</button>
-  <details className="more-actions"><summary>{t('moreActions')}</summary><div><button disabled={busy} onClick={()=>open('both')}>{t('both')}…</button>
-   </div></details>
+  {items.length>1&&local>0&&remote>0&&<details className="more-actions"><summary>{t('moreActions')}</summary><div><button disabled={busy} onClick={()=>open('both')}>{t('both')}…</button>
+   </div></details>}
  </div>;
 }

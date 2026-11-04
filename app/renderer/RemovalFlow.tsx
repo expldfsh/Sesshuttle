@@ -70,7 +70,7 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
       {groups.map((g:any)=><section key={g.home} className="removal-section"><h3>{t('thisDevice')} · {plan.device}</h3>
         {g.binPath&&<div><b>{t('binStorageFolder')}</b><code>{g.binPath}</code><small>{t('nativeHistoryLocation')}</small></div>}<code>{g.home}</code>{g.entries?.length>0&&<p>{t('sharingEntries')} {g.entries.map(t).join(' + ')}</p>}
         {q.kind==='bin'&&<p>{t('onlyBinCopy')}</p>}{(q.kind==='live'||q.mode==='restore')&&<p>{t('closeBeforeLocal')}</p>}
-        <ul>{g.rows.map((r:any)=><li key={r.id}><b>{r.title}</b> · {t(r.kind==='background'?'backgroundChats':'mainChats')} · {r.originProject?.name??'—'}{r.indexOnly&&<small>{t('indexOnlyRemoval')}</small>}</li>)}</ul>
+         {g.rows.length>new Set(g.rows.map((r:any)=>r.id)).size&&<p className="warning-box">{t('allCopiesRemoval')}</p>}<ul>{g.rows.map((r:any,index:number)=><li key={index}><b>{r.title}</b> · {t(r.kind==='background'?'backgroundChats':'mainChats')} · {r.originProject?.name??'—'}{r.indexOnly&&<small>{t('indexOnlyRemoval')}</small>}</li>)}</ul>
         <p>{t('listedFilesSize')} <b>{size(g.bytes)}</b> · {t(q.mode==='trash'?'binUsesSpace':q.mode==='purge'?'fileBytesHint':'restoreCopy')}</p>
         {!!g.blockers.length&&<div className="warning-box"><b>{t('trash_dependencies')}</b><ul>{g.blockers.map((b:any)=><li key={b.id}>{b.title}</li>)}</ul>
           <button disabled={pending||!!previous} onClick={()=>refresh({...q,includeDependents:true})}>{t('includeAndReview')}</button></div>}

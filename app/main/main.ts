@@ -7,6 +7,7 @@ import {detectEnvironment,liveLinuxTargets} from '../../core/discovery.mjs';
 import {localProjects} from '../../core/local-projects.mjs';
 import {binaryVersion,assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
+import {keepLocalCopy} from '../../core/local-copies.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
 import { pathToFileURL } from 'node:url';import { execFile,spawn } from 'node:child_process';import { promisify } from 'node:util';
@@ -148,7 +149,7 @@ async function request(method:string,args:any){switch(method){
  case 'detectPaths':return detectEnvironment({config:engine.config(),testRoot} as any);
  case 'destinationInfo':return destinationInfo(args.targets??engine.config().targets);
  case 'versionDetails':{
-  const head=engine.remote.find((h:any)=>h.logicalId===args.id);requireThat(head&&engine.vault,'storage_not_connected');
+  const head=engine.remote.find((h:any)=>h.logicalId===args.id);requireThat(engine.vault,'storage_not_connected');requireThat(head,'cloud_version_missing');
   return Promise.all(head.tips.map(async(v:string)=>{const p=await engine.vault.version(v);return {id:v,title:p.title,device:p.device?.name,at:p.uploadedAt,bytes:bundleBytes(p),files:p.files.length,lastMessage:p.messages?.at(-1)?.text?.slice(0,180)};}));
  }
  case 'checkClosed':if(!testRoot)await assertCodexClosed();return true;
@@ -197,6 +198,7 @@ async function request(method:string,args:any){switch(method){
  case 'discardPlan':return engine.discardPlan(args.token);
  case 'execute':return engine.execute(args.token,{confirmLarge:args.confirmLarge===true,acceptedByItem:args.acceptedByItem??{},onlyEligible:args.onlyEligible===true});
  case 'cancel':engine.cancel();return {status:'pausing'};
+ case 'keepLocalCopy':return keepLocalCopy(engine,args);
  case 'reviewRemoval':return removals.preview(args);
  case 'retryRemovalPlan':return removals.retryPlan(args.id);
  case 'reviseRemovalPlan':return removals.revise(args.id);
@@ -210,7 +212,7 @@ async function request(method:string,args:any){switch(method){
  case 'restore':requireThat(!engine.running,'task_running');engine.running=true;try{return await engine.importer.restore(args.id);}finally{engine.running=false;}
  case 'projectInfo':return projectInfo(args.project);
  case 'continue':requireThat(!engine.running,'task_running');return continueEntry(args);
- case 'diagnostics':return {version:app.getVersion(),platform:process.platform,arch:process.arch,scanErrors:engine.local.errors.map((e:any)=>({code:e.code})),jobs:state.keys('job/').slice(-10).map((k:string)=>{const j=state.get(k);return {startedAt:j.startedAt,status:j.status,items:j.items.map((i:any)=>({action:i.action,status:i.status,error:i.error?.code}))};})};
+ case 'diagnostics':return {version:app.getVersion(),platform:process.platform,arch:process.arch,scanErrors:engine.local.errors.map((e:any)=>({code:e.code})),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10).map((j:any)=>{return {startedAt:j.startedAt,status:j.status,items:j.items.map((i:any)=>({action:i.action,status:i.status,stage:i.stage,error:i.error?.code,targets:Object.fromEntries(Object.entries(i.targets??{}).map(([entry,r]:any)=>[entry,{status:r.status,error:r.error?.code}]))}))};})};
  default:throw new Fault('invalid_action');
 }}
 const primaryInstance=app.requestSingleInstanceLock();

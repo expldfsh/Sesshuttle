@@ -25,6 +25,7 @@ export function SyncPlan({plan,cfg,busy,t,size,feedback,onClose,onBack,onLocate,
  return <div className="modal-backdrop"><section className="modal sync-plan" role="dialog" aria-modal="true" aria-label={t('reviewAction')}>
   <div className="card-title"><h2>{t('reviewAction')}</h2><button disabled={busy} onClick={onClose}>{t('close')}</button></div>
   <p className="preview-state">{t('previewOnly')} · {plan.ids.length} {t('directSelections')} · {count} {t('actualScope')}</p>
+  {plan.copyChoice&&<p className="notice">{t('onlyChosenCopy')} <code>{plan.copyChoice.file}</code></p>}
   {excluded.length>0&&<div className="warning-box" role="status"><b>{t('batchEligibility').replace('{ready}',String(runnable.length)).replace('{blocked}',String(excluded.length))}</b>
     <ul>{excluded.map((i:any)=><li key={i.id}>{i.title} · {t(i.excludedReason==='busy'?'busyReason':i.excludedReason)}</li>)}</ul></div>}
   {hasImport&&<p>{t('previewHint')}</p>}

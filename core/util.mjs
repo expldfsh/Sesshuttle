@@ -45,5 +45,5 @@ export async function walk(root) {
 }
 export function publicError(e) {
   const localCodes = {EACCES:'local_permission_denied',EPERM:'local_permission_denied',EROFS:'read_only_disk',ENOSPC:'disk_space',ENOENT:'local_path_missing',EBUSY:'local_in_use',SQLITE_BUSY:'local_in_use'};
-  return {code:localCodes[e?.code]??(e?.code && /^[a-z_]+$/.test(e.code)?e.code:'operation_failed'),detail:e instanceof Fault?e.detail:''};
+  return {code:localCodes[e?.code]??(e?.code && /^[a-z_]+$/.test(e.code)?e.code:'operation_failed'),detail:e instanceof Fault?e.detail:(localCodes[e?.code]?String(e.path??''):'')};
 }

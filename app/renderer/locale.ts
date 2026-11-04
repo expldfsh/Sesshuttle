@@ -964,3 +964,28 @@ const savingConnectionLabels:Record<string,[string,string]>={
  ]
 };
 for(const [key,[cn,us]] of Object.entries(savingConnectionLabels)){zh[key]=cn;en[key]=us;}
+
+const scopedActions:Record<string,[string,string]>={
+ scanSummary:['查看扫描时遇到的问题','Review scanning issues'],
+ inspectCopies:['比较本机历史副本','Compare local history copies'],
+ copyInstructions:['比较路径和消息，选择要上传的副本。若希望继续导入，先选择在 Codex 中保留哪一份。','Compare the paths and messages to choose a copy for upload. To import into a conflicted history, first choose which copy Codex should use.'],
+ keepThisCopy:['在 Codex 中使用这一份…','Use this copy in Codex…'],
+ uploadThisCopy:['只上传这一份…','Upload this copy only…'],
+ keepCopyConfirm:['使用下面这份历史？操作前会备份整个 Codex 数据目录。','Use the following copy? The Codex history directory will be backed up first.'],
+ copiesMoved:['以下副本将移出 Codex 列表并保存在本机。附件、云端和其他设备均保留。','These copies will move out of the Codex list and remain on this computer. Attachments, cloud copies and other devices are preserved.'],
+ onlyChosenCopy:['只上传所选副本。所有本机原件保留。','Only this copy will be uploaded. All local originals are retained.'],
+ copyKept:['已保留所选历史供 Codex 使用。其他副本已保存在本机，可在「备份与恢复」查看此次目录备份。','Codex now uses the selected history. Other copies were preserved locally. See Backups for the directory snapshot.'],
+ copies_multiple_homes:['副本分布在不同数据目录。请分别备份所需副本；若要整理本机历史，请在设置中只选要处理的数据目录，再刷新。','The copies span separate data directories. Back up each copy you need. To reconcile one directory, select it as the scan location in Settings and refresh.'],
+ copies_indexed:['本机数据库关联的是另一份文件。请选路径与数据库记录一致的副本，以保留完整文字历史。','The local database points to another file. Choose the copy at its recorded path to keep the database history together.'],
+ allCopiesRemoval:['以下文件共用一个对话 ID。本次删除范围包含列出的全部本机历史副本。要保留其中一份，请取消并打开「比较本机历史副本」。','These files share one conversation ID. This removal includes every listed local copy. To keep one active, cancel and compare local history copies.'],
+ useReadyEntries:['仅导入到已配置的入口','Import into the configured apps only'],
+ duplicate_identity:['同一对话有内容不同的本机副本。在对话详情中比较副本，可选一份上传，或备份后整理本机历史。','Local copies of this conversation differ. Compare them in its details to upload one or back up and reconcile local history.'],
+ scan_incomplete:['无法安全确认本次操作涉及哪些历史。展开对话页的「查看扫描时遇到的问题」检查对应文件或目录，再刷新。','The affected histories could not be identified safely. Open scanning issues on Conversations, check the listed location, then refresh.'],
+ both:['按差异分别上传或导入','Upload or import each chat according to its changes'],
+ cloud_version_missing:['此版本已不在当前云端列表中。刷新后重新选择版本。','This version is no longer in the cloud list. Refresh and choose a version again.'],
+ operation_failed:['此步骤未完成。打开详情查看系统原因，再刷新检查本机和云端状态。','This step did not finish. Check the details and refresh the local and cloud status.'],
+ uploadCloud:['上传到云端','Upload to cloud'],
+ importLocal:['导入到这台电脑','Import to this computer'],
+ importNeedsApp:['选择对话后点「导入到这台电脑」，并勾选此入口。','Choose Import to this computer and select this app.'],
+};
+for(const [key,[cn,us]] of Object.entries(scopedActions)){zh[key]=cn;en[key]=us;}

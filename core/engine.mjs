@@ -1,3 +1,4 @@
+import {copiesOf,copyToken,uploadSource} from './local-copies.mjs';
 import {repairDownload} from './attachment-repair.mjs';
 import {attachmentReview,assertAttachmentAcceptance} from './attachment-policy.mjs';
 import {attachmentUnchanged,inspectAttachment} from './attachments.mjs';
@@ -46,7 +47,8 @@ export class Engine{
    const cloudRemoved=!!(local&&!head&&this.vault&&!this.cloudError&&this.vault.removedIds?.has(logical));
    if(head?.tips.length>1)status='conflict';else if(local&&head&&!this.cloudError){const base=this.state.get(this.baselineKey(local));status=base?(base.signature===this.signature(local,base.selection)?(head.tips.includes(base.version)?'synced':'remote_changes'):(head.tips.includes(base.version)?'local_changes':'conflict')):'conflict';}
    const association=local?this.association(local):{projectId:head?.projectId,originProject:head?.originProject};
-   rows.push({id:logical,title:local?.title??head.title,source:local?local.source:head.source,project:local?.project??head.project,originProject:association.originProject??local?.originProject??head?.originProject,projectId:association.projectId,
+   const copies=local?.issues.includes('duplicate_identity')?copiesOf(this.local.rows,logical):[];
+   rows.push({copies,copyToken:copies.length?copyToken(copies):null,id:logical,title:local?.title??head.title,source:local?local.source:head.source,project:local?.project??head.project,originProject:association.originProject??local?.originProject??head?.originProject,projectId:association.projectId,
     continuation:local?.continuation??head?.continuation??true,kind:local?.kind??head?.kind??(head?.source==='subagent'?'background':'main'),parent:local?.parent??head?.parent,parentTitle:local?.parentTitle,agent:local?.agent??head?.agent,compressed:local?.compressed,historyBytes:local?.historyBytes,fileBytes:local?.fileBytes,databaseBytes:local?.databaseBytes,updatedAt:local?.updatedAt,cloudUpdatedAt:head?.versions.at(-1)?.at,device:head?.device,bytes:local?.bytes??head.bytes,archived:local?.archived??head?.archived??false,
     issues:local?.issues??head?.issues??[],cloudOmittedImages:head?.omittedImageCount??0,status,busy:!!local?.busy,cloudRemoved,local:!!local,remote:!!head,version:local?.version,
     messages:local?.messages??head?.messages??[],totalMessages:local?.totalMessages??0,
@@ -55,19 +57,20 @@ export class Engine{
   this.rows=rows.sort((a,b)=>(b.updatedAt??b.cloudUpdatedAt??'').localeCompare(a.updatedAt??a.cloudUpdatedAt??''));
   return {rows:this.rows,errors:this.local.errors,cloudError:this.cloudError,checkedAt:this.local.checkedAt,remoteCheckedAt:this.state.get('cache/'+this.scope())?.checkedAt};
  }
- async preview({ids,direction,targets,allowIncomplete=false,chosenVersion=null,uploadLimitMiB=500,includeDescendants=false,approvedAttachments=[],replacements={}}){
+ async preview({ids,direction,targets,allowIncomplete=false,chosenVersion=null,uploadLimitMiB=500,includeDescendants=false,approvedAttachments=[],replacements={},copyChoice=null}){
   requireThat(!this.running,'task_running');requireThat(this.vault,'storage_not_connected');requireThat(!this.cloudError,'cloud_check_failed');
   requireThat(Array.isArray(ids)&&ids.length>0&&ids.length<=2000&&ids.every(x=>this.rows.some(r=>r.id===x)),'invalid_selection');
   requireThat(['upload','download','both'].includes(direction),'invalid_selection');allowIncomplete=allowIncomplete&&direction==='upload'&&!chosenVersion;requireThat(Array.isArray(targets)&&targets.every(x=>['desktop','cli','ide'].includes(x)),'invalid_selection');
   requireThat(direction==='upload'||targets.length>0,'target_required');
   requireThat(typeof includeDescendants==='boolean'&&Array.isArray(approvedAttachments)&&approvedAttachments.length<=10000&&approvedAttachments.every(k=>/^[0-9a-f]{64}$/.test(k)),'invalid_selection');requireThat(replacements&&typeof replacements==='object'&&Object.entries(replacements).every(([k,p])=>/^[0-9a-f]{64}$/.test(k)&&typeof p==='string'&&path.isAbsolute(p)),'invalid_selection');
+  requireThat(!copyChoice||(direction==='upload'&&ids.length===1&&!chosenVersion&&typeof copyChoice.file==='string'&&typeof copyChoice.token==='string'),'invalid_selection');
   const selection={includeDescendants,approvedAttachments,replacements};
   requireThat(Number.isFinite(uploadLimitMiB)&&uploadLimitMiB>=1&&uploadLimitMiB<=1048576,'invalid_settings');
   for(const old of this.plans.values())if(old.stage)await fs.rm(old.stage,{recursive:true,force:true});this.plans.clear();this.vault.staged=new Map();const token=id(),stage=path.join(this.state.root,'staging',token);await fs.mkdir(stage,{recursive:true,mode:0o700});
   const targetSnapshots={};
   if(direction!=='upload'||chosenVersion)for(const entry of targets){const t=this.config().targets[entry];if(!t?.home)continue;try{const home=await canonical(t.home);if(!targetSnapshots[home]){const scanResult=await scan([home]);targetSnapshots[home]={hashes:Object.fromEntries(scanResult.rows.map(r=>[r.id,r.hash])),errors:scanResult.errors.length};}}catch{}}
   const items=[];
-  for(const logical of [...new Set(ids)]){const row=this.rows.find(x=>x.id===logical),local=this.local.rows.find(x=>x.id===logical),head=this.remote.find(x=>x.logicalId===logical);let action='skip';
+  for(const logical of [...new Set(ids)]){const row=this.rows.find(x=>x.id===logical),local=uploadSource(this.local.rows,logical,copyChoice),head=this.remote.find(x=>x.logicalId===logical);let action='skip';
    if(row.busy)action='busy';
    else if(chosenVersion){requireThat(head?.versions.some(x=>x.id===chosenVersion),'invalid_selection');action='resolve';}
    else if(direction==='upload'&&local)action='upload';
@@ -76,6 +79,7 @@ export class Engine{
    let fileCount=1,assetCount=0,bytes=row.bytes,issues=row.issues,payload=null,preserve=null;
    try{payload=['download','resolve'].includes(action)?await this.vault.version(chosenVersion??head.tips[0]):!['skip','busy','conflict'].includes(action)&&local?await this.snapshot(local,stage,selection):null;
     if(payload && ['download','resolve'].includes(action))payload=await repairDownload(payload,replacements,this.vault,stage);
+    if(copyChoice&&payload)payload.baseVersion=null;
     if(action==='resolve'&&local)preserve=await this.snapshot(local,stage,selection);
     if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
@@ -98,7 +102,7 @@ export class Engine{
   // Chunks have their exact encrypted size; metadata reserve avoids a false exact quota promise.
   const metadataReserve=uploads.reduce((n,p)=>n+4*Buffer.byteLength(JSON.stringify(p))+4*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
   const uploadBytes=estimated.bytes+metadataReserve,uploadLimitBytes=Math.floor(uploadLimitMiB*1024*1024);
-  const plan={stage,targetSnapshots,token,ids:[...new Set(ids)],chosenVersion,selection,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString(),cloudBytes:inventory.bytes,chunkUploadBytes:estimated.bytes,metadataReserve,uploadBytes,uploadLimitBytes,overLimit:uploadBytes>uploadLimitBytes,largeUpload:uploadBytes>100*1024*1024||uploads.some(p=>bundleBytes(p)>100*1024*1024)};this.plans.set(token,plan);
+  const plan={copyChoice,stage,targetSnapshots,token,ids:[...new Set(ids)],chosenVersion,selection,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString(),cloudBytes:inventory.bytes,chunkUploadBytes:estimated.bytes,metadataReserve,uploadBytes,uploadLimitBytes,overLimit:uploadBytes>uploadLimitBytes,largeUpload:uploadBytes>100*1024*1024||uploads.some(p=>bundleBytes(p)>100*1024*1024)};this.plans.set(token,plan);
   return {...plan,stage:undefined,items:items.map(({payload,preserve,...x})=>x)};
 
  }
@@ -127,7 +131,7 @@ export class Engine{
   this.plans.delete(token);this.running=true;this.cancelled=false;this.vault.writeBudget={remaining:plan.uploadBytes};
   const job={id:id(),total:plan.items.length,startedAt:new Date().toISOString(),status:'running',items:[]};this.state.set('job/'+job.id,job);
   try{for(const item of plan.items){if(this.cancelled){job.status='paused';break;}const result={id:item.id,title:item.title,action:item.action,status:'running',targets:{}};job.items.push(result);
-   const step=(stage)=>{job.progress={index:job.items.length,total:plan.items.length,title:item.title,stage,bytes:0};this.onProgress({...job});};
+   const step=(stage)=>{result.stage=stage;job.progress={index:job.items.length,total:plan.items.length,title:item.title,stage,bytes:0};this.onProgress({...job});};
    step('stageCheck');
    let lastEvent=0;
    const advance=n=>{job.progress.bytes+=n;if(Date.now()-lastEvent>150){lastEvent=Date.now();this.onProgress({...job});}};
@@ -135,12 +139,12 @@ export class Engine{
    const accepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.primary??[]);
    const preserveAccepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.preserve??[]);
    try{if(item.excludedReason){result.requestedDirection=plan.direction;result.status='excluded';result.error={code:item.excludedReason};continue;}
-    const current=await scan(this.config().sourceHomes);const local=current.rows.find(x=>x.id===item.id);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
+    const current=await scan(this.config().sourceHomes);const local=uploadSource(current.rows,item.id,plan.copyChoice);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
     const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;requireThat((local?this.signature(local,plan.selection):null)===item.expectedSignature,'stale_plan');
     let payload,importVersion=item.version,resolveEtag=head?.etag;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
       requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);assertAttachmentAcceptance(payload,accepted);
-      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'),item.expectedHead);this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;
+      step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'),item.expectedHead);if(!plan.copyChoice)this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files.filter(f=>!plan.copyChoice||f.id!==item.id)){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;
       if(item.action!=='upload_import'||published.conflict){result.status=published.conflict?'conflict_preserved':'uploaded';continue;}
       importVersion=published.version;payload=await this.vault.version(importVersion);
     }else {

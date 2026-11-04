@@ -4,6 +4,14 @@ import {spawn} from 'node:child_process';import readline from 'node:readline';im
 import {State} from '../core/state.mjs';import {Engine} from '../core/engine.mjs';import {Importer} from '../core/importer.mjs';import {Vault} from '../core/vault.mjs';import {MemoryStore} from '../core/storage.mjs';import {newKey} from '../core/crypto.mjs';import {id} from '../core/util.mjs';
 const [source,target]=process.argv.slice(2);assert.ok(source&&target);const child=spawn('python3',['-u','-m','tools.codex_lab.product_bridge',source,target],{stdio:['pipe','pipe','inherit']});const lines=readline.createInterface({input:child.stdout});const queued=[],waiters=[];lines.on('line',l=>{const x=JSON.parse(l);if(waiters.length)waiters.shift()(x);else queued.push(x);});const next=()=>queued.length?Promise.resolve(queued.shift()):new Promise(r=>waiters.push(r));const states=[];
 try{const info=await next();assert.ok(info.root?.includes('/sesshuttle-lab-'));if(process.env.SESSHUTTLE_COMPRESSED==='1'){for(const file of await walk(path.join(info.a,'sessions'))){const raw=await fs.readFile(file);await fs.writeFile(file+'.zst',zstdCompressSync(raw));const kept=path.join(info.root,'original-source',path.basename(file));await fs.mkdir(path.dirname(kept),{recursive:true});await fs.rename(file,kept);}}if(process.env.SESSHUTTLE_DATABASE_ONLY==='1')await fs.rename(path.join(info.a,'sessions'),path.join(info.root,'source-rollouts-preserved'));const store=new MemoryStore(),space=id(),key=newKey(),va=new Vault(store,space,key),vb=new Vault(store,space,key);await va.create();
+ if(process.env.SESSHUTTLE_DUPLICATE_TEST==='1'){
+   const dir=path.join(info.b,'sessions','conflict-test');await fs.mkdir(dir,{recursive:true});
+   const logical=id();
+   for(const name of ['left','right']){
+     const lines=[{type:'session_meta',payload:{id:logical,source:'cli',cwd:info.pb,cli_version:'0.166.0'}},{type:'event_msg',payload:{type:'user_message',message:name}}];
+     await fs.writeFile(path.join(dir,name+'.jsonl'),lines.map(l=>JSON.stringify(l)).join('\n')+'\n');
+   }
+ }
  const sa=new State(path.join(info.root,'state-a')),sb=new State(path.join(info.root,'state-b'));states.push(sa,sb);
  sa.set('config',{sourceHomes:[info.a],targets:{desktop:{home:info.a,binary:source}},bindings:{}});sb.set('config',{sourceHomes:[info.b],targets:{cli:{home:info.b,binary:target}},bindings:{}});
  const a=new Engine(sa,{vault:va,importer:new Importer(sa,{testRoot:info.root,processGuard:async()=>{}})}),b=new Engine(sb,{vault:vb,importer:new Importer(sb,{testRoot:info.root,processGuard:async()=>{}})});

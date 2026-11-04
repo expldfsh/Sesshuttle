@@ -3,7 +3,7 @@ import {DetectionPanel,EntryFields} from './Environment';
 import {Select} from './Select';
 import {SyncPlan} from './SyncPlan';
 
-export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size,onClose,onStart}:any){
+export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size,onClose,onStart,onCopies}:any){
  const [draft,setDraft]=useState(()=>structuredClone(cfg));
  const [targets,setTargets]=useState<string[]>(request.targets??['desktop']);
  const [info,setInfo]=useState<Record<string,any>>({});
@@ -32,7 +32,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
   const checked=await call('destinationInfo',{targets:next.targets});setInfo(checked);return checked;
  }
  async function rebuild(approved:string[]=[],newPaths=connections,initial=draft){
-  const result=await call('preview',{ids:request.ids,direction,targets,chosenVersion:request.version??null,includeDescendants:children,uploadLimitMiB:limit,allowIncomplete:incomplete,approvedAttachments:approved,replacements:newPaths});
+  const result=await call('preview',{ids:request.ids,copyChoice:request.copyChoice,direction,targets,chosenVersion:request.version??null,includeDescendants:children,uploadLimitMiB:limit,allowIncomplete:incomplete,approvedAttachments:approved,replacements:newPaths});
   result.displayProjects=Object.fromEntries(projects.map(r=>[r.projectId,Object.fromEntries(targets.map(entry=>{
     const value=initial.nativeBindings?.[r.projectId]?.[initial.targets[entry]?.home];
     return [entry,info[entry]?.projects?.find((p:any)=>p.id===value)?.name??t('historyOnly')];
@@ -61,7 +61,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
  function approvedKeys():string[]{return plan?.selection?.approvedAttachments??[];}
  const issue=error&&<div className="notice error" role="alert"><strong>{t(error.code??'operation_failed')}</strong>{error.detail&&<details><summary>{t('details')}</summary>{error.detail}</details>}{['stale_plan','cloud_check_failed','storage_unavailable'].includes(error.code)&&<button disabled={!!pending} onClick={()=>run('refreshing',()=>recheck())}>{t('refreshAndRetry')}</button>}</div>;
  return <>
- {plan?<SyncPlan key={plan.token} plan={plan} cfg={draft} busy={!!pending} t={t} size={size} feedback={<>{activity}{issue}</>} onClose={()=>void close()}
+ {plan?<SyncPlan key={plan.token} plan={plan} cfg={draft} busy={!!pending} t={t} size={size} feedback={<>{activity}{issue}{plan.items.filter((i:any)=>i.excludedReason==='duplicate_identity').map((i:any)=><button key={i.id} onClick={()=>run('checkingEntries',async()=>{await call('discardPlan',{token:plan.token});onCopies(i.id);})}>{t('inspectCopies')} · {i.title}</button>)}</>} onClose={()=>void close()}
    onBack={()=>run('checkingEntries',async()=>{await call('discardPlan',{token:plan.token});setPlan(null);if(importing)await inspect();})}
    onRebuild={(keys:string[])=>run('preparingPreview',()=>recheck(keys))}
    onLocate={(key:string,keys:string[])=>run('preparingPreview',async()=>{const path=await call('pickImage');if(path)await rebuild(keys,{...connections,[key]:path});})}
@@ -79,6 +79,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
  {targets.map(entry=><div key={entry}>{infoFor(entry)&&!infoFor(entry)?.error&&editing!==entry&&<button className="text-button" onClick={()=>setEditing(entry)}>{t('editPaths')} · {t(entry)}</button>}{(infoFor(entry)?.error||editing===entry||!infoFor(entry))&&<div className="setup-repair"><strong>{t(entry)} · {t(infoFor(entry)?.error??'needsCheck')}</strong>
  <EntryFields t={t} entry={entry} target={draft.targets[entry]} pick={call} change={v=>setDraft({...draft,targets:{...draft.targets,[entry]:v}})}/>
  <button disabled={!!pending} onClick={()=>run('checkingEntries',async()=>{await inspect();setEditing('');})}>{t('checkAgain')}</button></div>}</div>)}
+ {missingEntry&&targets.some(e=>infoFor(e)&&!infoFor(e)?.error)&&<button onClick={()=>setTargets(targets.filter(e=>infoFor(e)&&!infoFor(e)?.error))}>{t('useReadyEntries')}</button>}
  <h3>2. {t('localProject')}</h3><small>{t('userHandoff')}</small>
  {projects.map(r=><section className="setup-project" key={r.projectId}><strong>{t('originProject')} · {r.originProject?.name||r.project}</strong>
  {homeGroups.map(home=>{
