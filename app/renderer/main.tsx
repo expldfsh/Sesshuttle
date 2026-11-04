@@ -65,7 +65,7 @@ function App(){
   setPhase('waitingAuthorization');
   await call('restoreConnection');
   const next=await reloadInit();
-  if(!next.connected)setPage('settings');
+  if(!next.connected){setPage('settings');setNotice({error:true,text:t(next.credentialError??'credentials_required')});return;}
   setNeedsRefresh(true);setData({rows:[],errors:[]});setNotice({text:t('manualRefreshHint')});
  }
  useEffect(()=>{work(async()=>{await reloadInit();});return window.sesshuttle.onProgress((x:any)=>{if(x.kind==='removal-progress')setRemovalJob({...x.job});else{setRemovalJob(null);setJob({...x});}});},[]);
@@ -110,7 +110,7 @@ function App(){
  }
  async function keepCopy(record:any,file:string){
   if(!await ask(t('keepCopyConfirm')+'\n'+file+'\n\n'+t('copiesMoved')+'\n'+record.copies.filter((c:any)=>c.file!==file).map((c:any)=>c.file).join('\n')))return;
-  await call('keepLocalCopy',{logical:record.id,token:record.copyToken,file,entry:record.entry});setNeedsRefresh(true);setTargetIssue(null);setNotice({text:t('copyKept')});
+  const moved=await call('keepLocalCopy',{logical:record.id,token:record.copyToken,file,entry:record.entry});setNeedsRefresh(true);setTargetIssue(null);setNotice({text:t('copyKept'),detail:moved.location});
  }
  function actions(items:any[]){
   const ids=items.map(r=>r.id);

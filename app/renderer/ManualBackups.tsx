@@ -24,7 +24,7 @@ export function ManualBackups({data,cfg,t,date,size,busy,ask,work,call,reload,ch
  <button className="primary" disabled={busy||!home} onClick={()=>work(create,'creatingBackup')}>{t('createBackup')}</button></div>
  {data.imports.filter((x:any)=>x.status==='needs_recovery').map((x:any,i:number)=><p className="warning-box" key={i}>{t('import_needs_recovery')} · {x.home} · {x.backup}</p>)}
  {!data.backups.length&&<p>{t('noBackups')}</p>}
- {data.backups.slice().sort((a:any,b:any)=>b.createdAt.localeCompare(a.createdAt)).map((b:any)=><div className="backup-row" key={b.id}><div><strong>{date(b.createdAt)} · {t(b.reason==='manual'?'manualReason':'legacyReason')}</strong><small>{b.home}</small><small>{b.count} {t('files')} · {t('diskUsed')} {size(b.diskBytes)}</small></div>
+ {data.backups.slice().sort((a:any,b:any)=>b.createdAt.localeCompare(a.createdAt)).map((b:any)=><div className="backup-row" key={b.id}><div><strong>{date(b.createdAt)} · {t(b.reason==='manual'?'manualReason':'legacyReason')}</strong><small>{b.home}</small>{b.restorePending&&<p className="warning-box">{t('restore_pending')}</p>}<small>{b.count} {t('files')} · {t('diskUsed')} {size(b.diskBytes)}</small></div>
  <button disabled={busy} onClick={()=>work(()=>restore(b),'restoreActive')}>{t('restore')}</button>
  <button disabled={busy} className="danger" onClick={()=>work(()=>discard(b),'deletingBackup')}>{t('deleteBackup')}</button></div>)}</section>;
 }

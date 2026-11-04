@@ -21,7 +21,8 @@ test('missing image confirmation protects upload and import; restored image inva
  const payload=await vault.version((await vault.head(tid)).tips[0]);let guarded=0;const importer=new Importer(state,{testRoot:root,processGuard:async()=>{guarded++;throw Object.assign(Error(),{code:'test_guard'});}});
  await assert.rejects(importer.import(payload,{home:target,project},{vault}),{code:'attachment_confirmation_required'});assert.equal(guarded,0);
  await assert.rejects(importer.import({...payload,issues:[...payload.issues,'missing_dependency']},{home:target,project},{vault,acceptedMissingAttachments:[key]}),{code:'incomplete_history'});assert.equal(guarded,0);
- await assert.rejects(importer.import(payload,{home:target,project},{vault,acceptedMissingAttachments:[key]}),{code:'test_guard'});assert.equal(guarded,1);assert.deepEqual(await fs.readdir(target),[]);
+ const binary=path.join(root,'fixture-codex');await fs.writeFile(binary,'#!/bin/sh\necho codex-cli 0.166.0\n',{mode:0o700});
+ await assert.rejects(importer.import(payload,{home:target,project,binary},{vault,acceptedMissingAttachments:[key]}),{code:'test_guard'});assert.equal(guarded,1);assert.deepEqual(await fs.readdir(target),[]);
  const staged=await materialize(payload,vault,path.join(root,'download'));await remapHistory(staged.files,target,{acceptedMissingAttachments:[key]});const mapped=staged.files[0].artifacts[0].file;const data=(await fs.readFile(mapped,'utf8')).trim().split('\n').map(JSON.parse);assert.equal(data[1].payload.item.content[0].text,'Keep every original word.');assert.equal(data[1].payload.item.content[1].type,'text');assert.match(data[1].payload.item.content[1].text,/Image not included/);const refs=await referencesFor({id:tid,file:mapped});assert.deepEqual(refs.resources,[]);assert.equal(refs.omittedAttachments[0].path,image);assert.equal(await fs.readFile(file,'utf8'),raw);
  }finally{state?.close();await fs.rm(root,{recursive:true,force:true});}
 });

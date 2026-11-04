@@ -63,7 +63,7 @@ export async function keepLocalCopy(engine,{logical,token,file,entry}){
       }
       const after=await scan([home]);checkScope(after,[logical]);
       requireThat(after.rows.filter(r=>r.id===logical).length===1,'duplicate_identity');
-      engine.state.set('import/'+task,{...journal,status:'verified'});return {backup:null};
+      engine.state.set('import/'+task,{...journal,status:'verified'});return {backup:null,location:path.join(engine.state.root,'recovered',operationId)};
     }catch(e){
       engine.state.set('import/'+task,{...journal,status:'failed'});
       throw e;

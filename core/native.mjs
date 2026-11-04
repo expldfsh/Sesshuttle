@@ -12,7 +12,7 @@ export async function assertCodexClosed(home){
  const windows=process.platform==='win32';
  try{output=(await exec(windows?'tasklist':'ps',windows?['/FO','CSV','/NH']:['-axo','pid=,comm='],{timeout:8000,maxBuffer:4*1024*1024})).stdout;}catch{throw new Fault('process_check_failed');}
  for(const line of output.split('\n')){
-  if(!/(?:^|[\/\\\s"])(?:codex(?:\.exe)?|codex-app-server)(?:[\s",]|$)/i.test(line))continue;
+  if(!/(?:^|[\/\\\s"])(?:codex(?:\.exe)?|codex-app-server|codex-app-serve)(?:[\s",]|$)/i.test(line))continue;
   // Linux exposes the launch environment per PID. An explicitly separate
   // data directory is evidence a different instance may stay open.
   const pid=line.trim().match(/^(\d+)\s/)?.[1];

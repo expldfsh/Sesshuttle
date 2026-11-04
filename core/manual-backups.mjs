@@ -47,7 +47,7 @@ export async function backupSummary(state,info){
   const root=await inside(state.root,path.join(state.root,'backups',info.id));
   let diskBytes=0;
   for(const file of await walk(root)){const s=await fs.stat(file);diskBytes+=s.blocks*512;}
-  return {id:info.id,home:info.home,reason:info.reason,createdAt:info.createdAt,count:info.files.length,diskBytes};
+  return {id:info.id,home:info.home,reason:info.reason,createdAt:info.createdAt,count:info.files.length,restorePending:state.get('restore/'+info.id)?.status==='prepared',diskBytes};
 }
 export async function deleteBackup(state,backupId){
   const info=state.get('backup/'+backupId);

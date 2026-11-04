@@ -983,7 +983,7 @@ const scopedActions:Record<string,[string,string]>={
  copies_indexed:['本机数据库关联的是另一份文件。请选路径与数据库记录一致的副本，以保留完整文字历史。','The local database points to another file. Choose the copy at its recorded path to keep the database history together.'],
  allCopiesRemoval:['以下文件共用一个对话 ID。本次删除范围包含列出的全部本机历史副本。要保留其中一份，请取消并打开「比较本机历史副本」。','These files share one conversation ID. This removal includes every listed local copy. To keep one active, cancel and compare local history copies.'],
  useReadyEntries:['仅导入到已配置的入口','Import into the configured apps only'],
- duplicate_identity:['同一对话有内容不同的本机副本。在对话详情中比较副本，可选一份上传，或备份后整理本机历史。','Local copies of this conversation differ. Compare them in its details to upload one or back up and reconcile local history.'],
+ duplicate_identity:['同一对话有内容不同的本机副本。在对话详情中比较副本，可选一份上传，或确认后整理本机历史。','Local copies of this conversation differ. Compare them in its details to upload one or review and reconcile local history.'],
  scan_incomplete:['无法安全确认本次操作涉及哪些历史。展开对话页的「查看扫描时遇到的问题」检查对应文件或目录，再刷新。','The affected histories could not be identified safely. Open scanning issues on Conversations, check the listed location, then refresh.'],
  both:['按差异分别上传或导入','Upload or import each chat according to its changes'],
  cloud_version_missing:['此版本已不在当前云端列表中。刷新后重新选择版本。','This version is no longer in the cloud list. Refresh and choose a version again.'],
@@ -1127,7 +1127,7 @@ const manualOperations:Record<string,[string,string]>={
   "Use this copy in Codex? No directory backup will be created."
  ],
  "copyKept": [
-  "已使用所选历史，其余原件已移至确认单所述的本机保留位置。",
+  "已使用所选历史，其余原件已移至下面的本机目录。",
   "Selected copy is active. Other originals were moved aside on this device."
  ],
  "codex_running": [
