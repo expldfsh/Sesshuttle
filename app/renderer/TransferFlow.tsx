@@ -66,7 +66,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
    onRebuild={(keys:string[])=>run('preparingPreview',()=>recheck(keys))}
    onLocate={(key:string,keys:string[])=>run('preparingPreview',async()=>{const path=await call('pickImage');if(path)await rebuild(keys,{...connections,[key]:path});})}
    onUndo={(key:string,keys:string[])=>run('preparingPreview',async()=>{const paths={...connections};delete paths[key];await rebuild(keys,paths);})}
-   onExecute={(large:boolean,omitted:any,onlyEligible:boolean)=>run('stageCheck',async()=>{if(plan.items.some((i:any)=>!i.excludedReason&&i.targets.length))await call('checkClosed');onStart(plan,large,omitted,onlyEligible);})}/>
+   onExecute={(large:boolean,omitted:any,onlyEligible:boolean)=>run('stageCheck',async()=>{onStart(plan,large,omitted,onlyEligible);})}/>
  :<div className="modal-backdrop"><section className="modal flow" role="dialog" aria-modal="true" aria-label={title}>
  <div className="card-title"><h2>{title}</h2><button disabled={!!pending} onClick={()=>void close()}>{t('close')}</button></div>
  <fieldset disabled={!!pending} className="flow-fields"><p>{t('selectedScope')} <strong>{needed.length} / {chosen.length}</strong> · {needed.length===1?needed[0].title:t('conversations')}</p>

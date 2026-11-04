@@ -1,3 +1,5 @@
+import {clearActivity} from '../../core/activity.mjs';
+import {backupSummary,deleteBackup,restoreReview} from '../../core/manual-backups.mjs';
 import {readRecovery,writeRecovery} from '../../core/recovery-file.mjs';
 import {Removals} from '../../core/removals.mjs';
 import {changeCloud} from '../../core/cloud-trash.mjs';
@@ -145,7 +147,7 @@ function connectionForSettings(connection:any, activeSecrets:any){
  return {...connection,accessKeyId:activeSecrets?.credentials?.accessKeyId??connection.accessKeyId??''};
 }
 async function request(method:string,args:any){switch(method){
- case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,canRestore:!!state.get('connection')&&!testRoot&&state.get('credentialMethod')!=='session',credentialMethod:state.get('credentialMethod'),credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,removalJobs:removals.jobs().slice(0,30),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
+ case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,canRestore:!!state.get('connection')&&!testRoot&&state.get('credentialMethod')!=='session',credentialMethod:state.get('credentialMethod'),credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,removalJobs:removals.jobs(),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt))};
  case 'saveConfig':return saveConfig(args);
  case 'detectPaths':return detectEnvironment({config:engine.config(),testRoot} as any);
  case 'destinationInfo':return destinationInfo(args.targets??engine.config().targets);
@@ -217,8 +219,21 @@ async function request(method:string,args:any){switch(method){
    deletionActive=true;engine.running=true;
    try{await changeCloud(engine.vault,null,null,args.id);return true;}finally{engine.running=false;deletionActive=false;}
  }
- case 'backups':return {removalData:{...await removals.bins(),storageKey:removals.storageKey()},backups:state.keys('backup/').map((k:string)=>state.get(k)),imports:state.keys('import/').map((k:string)=>state.get(k))};
- case 'restore':requireThat(!engine.running,'task_running');engine.running=true;try{return await engine.importer.restore(args.id);}finally{engine.running=false;}
+ case 'clearActivity':return clearActivity(state,args.keys);
+ case 'backupBins':return {...await removals.bins(),storageKey:removals.storageKey()};
+ case 'backups':return {backups:await Promise.all(state.keys('backup/').map((k:string)=>backupSummary(state,state.get(k)))),imports:state.keys('import/').map((k:string)=>state.get(k))};
+ case 'reviewRestore':{const info=state.get('backup/'+args.id);requireThat(info,'backup_not_found');return restoreReview(info);}
+ case 'createBackup':
+ case 'deleteBackup':
+ case 'restore':{
+   requireThat(!engine.running,'task_running');engine.running=true;
+   try{
+    if(method==='restore')return await engine.importer.restore(args.id,args.token);
+    if(method==='deleteBackup'){await deleteBackup(state,args.id);return true;}
+    const cfg=engine.config();requireThat([...cfg.sourceHomes,...Object.values(cfg.targets).map((t:any)=>t.home)].includes(args.home),'invalid_path');
+    return (await engine.importer.backup(args.home)).id;
+   }finally{engine.running=false;}
+ }
  case 'projectInfo':return projectInfo(args.project);
  case 'continue':requireThat(!engine.running,'task_running');return continueEntry(args);
  case 'diagnostics':return {version:app.getVersion(),platform:process.platform,arch:process.arch,scanErrors:engine.local.errors.map((e:any)=>({code:e.code})),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10).map((j:any)=>{return {startedAt:j.startedAt,status:j.status,items:j.items.map((i:any)=>({action:i.action,status:i.status,stage:i.stage,error:i.error?.code,targets:Object.fromEntries(Object.entries(i.targets??{}).map(([entry,r]:any)=>[entry,{status:r.status,stage:r.stage,error:r.error?.code}]))}))};})};
@@ -232,7 +247,7 @@ if(primaryInstance)app.whenReady().then(async()=>{
  state=new State(app.getPath('userData'));for(const name of ['staging','downloads']){const root=path.join(state.root,name);if(await exists(root))for(const entry of await fs.readdir(root))if(/^[0-9a-f-]{36}$/.test(entry))await fs.rm(path.join(root,entry),{recursive:true,force:true});}if(!state.get('config'))state.set('config',await discover());
  const importer=new Importer(state,(testRoot?{testRoot,processGuard:async()=>{}}:{}) as any);
  for(const k of state.keys('job/')){const j=state.get(k);if(j.status==='running')state.set(k,{...j,status:'interrupted'});}
- for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:'needs_recovery'});}
+ for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:task.backup?'needs_recovery':'interrupted'});}
  trash=new Trash(state,importer);for(const info of trash.list())if(['prepared','removing','restoring'].includes(info.status))await trash.mark(info,'needs_recovery');
  engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);removals=new Removals(engine,trash,{onProgress:(job:any)=>window?.webContents.send('sesshuttle:progress',{kind:'removal-progress',job})} as any);
  updateMenu();updateTheme();
@@ -240,7 +255,7 @@ if(primaryInstance)app.whenReady().then(async()=>{
  window=new BrowserWindow({width:1320,height:860,minWidth:780,minHeight:600,title:'sesshuttle',backgroundColor:getTheme(state.get('config')?.theme).colors.bg,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});
  let modifying=false;
- const exclusive=new Set(['downloadCopy','keepLocalCopy','execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','restoreConnection','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
+ const exclusive=new Set(['createBackup','deleteBackup','clearActivity','downloadCopy','keepLocalCopy','execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','restoreConnection','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');const guarded=exclusive.has(method);if(guarded){requireThat(!modifying,'task_running');modifying=true;}try{return {ok:true,data:await request(method,args)};}finally{if(guarded)modifying=false;}}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();if(!deletionActive)engine.cancel();window.webContents.send('sesshuttle:closePending',deletionActive);}});
  await window.loadFile(renderer);

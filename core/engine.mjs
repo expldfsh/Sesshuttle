@@ -80,7 +80,7 @@ export class Engine{
    try{payload=['download','resolve'].includes(action)?await this.vault.version(chosenVersion??head.tips[0]):!['skip','busy','conflict'].includes(action)&&local?await this.snapshot(local,stage,selection):null;
     if(payload && ['download','resolve'].includes(action))payload=await repairDownload(payload,replacements,this.vault,stage);
     if(copyChoice&&payload)payload.baseVersion=null;
-    if(action==='resolve'&&local)preserve=await this.snapshot(local,stage,selection);
+    
     if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
    if(preserve){fileCount+=preserve.files.length;assetCount+=preserve.files.reduce((n,f)=>n+(f.artifacts?.filter(a=>a.kind==='asset').length??0),0);bytes+=bundleBytes(preserve);issues=[...new Set([...issues,...preserve.issues])];}
@@ -154,8 +154,6 @@ export class Engine{
     }
     assertAttachmentAcceptance(payload,accepted);
     requireThat(payload.continuation!==false,'missing_rollout');
-    // Explicit branch selection first preserves the current local branch remotely.
-    if(item.action==='resolve'&&local){step('preservingVersion');assertAttachmentAcceptance(item.preserve,preserveAccepted);await verifyAttachments(item.preserve,current.rows,plan.selection.approvedAttachments);resolveEtag=(await this.vault.publish(item.preserve,this.state.get('device'),item.expectedHead)).head.etag;}
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
       const cache=payload.format===2?await this.downloadFolder(item.id,importVersion):null;
@@ -167,9 +165,9 @@ export class Engine{
        try{requireThat(new Set(group.map(g=>g.target.nativeProjectId)).size===1,'destinationAmbiguous');const first=group[0];const r=await this.importer.import(payload,first.target,{replace:item.action==='resolve',vault:{readChunk:async digest=>{const chunk=plan.selection.replacements&&Object.keys(plan.selection.replacements).length?await this.vault.readForImport(digest,cache?.dir):await this.vault.readChunk(digest,cache?.dir);advance(chunk.length);return chunk;}},acceptedMissingAttachments:accepted,expectedHashes:Object.fromEntries(payload.files.map(f=>[f.id,plan.targetSnapshots[first.target.home]?.hashes[f.id]??null]))});
         for(const {entry,target}of group){
          // Shared storage is written once; different runtime versions are still checked.
-         let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){step('stageVerify');await this.importer.processGuard();if(!r.backup)r.backup=(await this.importer.backup(target.home)).id;nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
+         let nativeStarted=false,nativeTask=null;try{if(entry!==first.entry&&target.binary!==first.target.binary){step('stageVerify');await this.importer.processGuard(target.home);nativeTask=id();this.state.set('import/'+nativeTask,{status:'validating',backup:r.backup,home:target.home});nativeStarted=true;await this.importer.native({binary:target.binary,home:target.home,project,files:payload.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.importer.record(payload,target.home,project,target.binary,await binaryVersion(target.binary));this.state.set('import/'+nativeTask,{status:'verified',backup:r.backup,home:target.home});}
           result.targets[entry]={status:'verified',nativeProjectId:target.nativeProjectId,nativeProjectName:r.nativeProjectName,omittedAttachments:r.omittedAttachments??[],version:importVersion,home:target.home,project,binary:target.binary,backup:r.backup,checkedAt:new Date().toISOString()};
-         }catch(e){result.targets[entry]={status:'failed',stage:result.stage,error:publicError(e),backup:r.backup};if(nativeStarted){this.state.set('import/'+nativeTask,{status:'needs_recovery',backup:r.backup,home:target.home,error:e.code??'native_error'});for(const prior of Object.values(result.targets))if(prior.home===target.home&&prior.status==='verified')prior.status='imported';for(const remaining of group)result.targets[remaining.entry]??={status:'failed',error:{code:'recovery_required',detail:''},backup:r.backup};break;}}
+         }catch(e){result.targets[entry]={status:'failed',stage:result.stage,error:publicError(e),backup:r.backup};if(nativeStarted){this.state.set('import/'+nativeTask,{status:'failed',backup:r.backup,home:target.home,error:e.code??'native_error'});for(const prior of Object.values(result.targets))if(prior.home===target.home&&prior.status==='verified')prior.status='imported';for(const remaining of group)result.targets[remaining.entry]??={status:'failed',error:{code:'recovery_required',detail:''},backup:r.backup};break;}}
         }
        }catch(e){for(const {entry}of group)result.targets[entry]??={status:'failed',stage:result.stage,error:publicError(e)};}
       }
@@ -178,7 +176,7 @@ export class Engine{
       const key='entries/'+this.scope()+'/'+item.id;this.state.set(key,{...this.state.get(key,{}),...result.targets});
       const values=Object.values(result.targets);
       if(cache&&values.length&&values.every(x=>x.status==='verified'))await this.clearDownloads([cache.cacheKey]);
-      if(item.action==='resolve'&&values.length&&values.every(x=>x.status==='verified'))await this.vault.choose(item.id,item.version,resolveEtag);result.status=values.every(x=>['verified','imported'].includes(x.status))?'downloaded':values.some(x=>['verified','imported'].includes(x.status))?'partial':'failed';
+      result.status=values.every(x=>['verified','imported'].includes(x.status))?'downloaded':values.some(x=>['verified','imported'].includes(x.status))?'partial':'failed';
     }
    }catch(e){result.status='failed';result.error=publicError(e);}
    finally{this.state.set('job/'+job.id,job);this.onProgress({...job});}

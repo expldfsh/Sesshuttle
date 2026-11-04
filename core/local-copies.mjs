@@ -52,21 +52,21 @@ export async function keepLocalCopy(engine,{logical,token,file,entry}){
     };
     const home=await engine.importer.guard((await inspect()).home);
     requireThat(!engine.state.keys('import/').some(k=>{const r=engine.state.get(k);return r.home===home&&['prepared','validating','needs_recovery'].includes(r.status); }),'recovery_required');
-    const backup=await engine.importer.backup(home);
-    await engine.importer.processGuard();const {copies}=await inspect();
-    const task=id(),journal={backup:backup.id,home};engine.state.set('import/'+task,{...journal,status:'prepared'});
+    const operationId=id();
+    await engine.importer.processGuard(home);const {copies}=await inspect();
+    const task=id(),journal={backup:null,home};engine.state.set('import/'+task,{...journal,status:'prepared'});
     try{
       for(const copy of copies){
         if(copy.file===file)continue;
-        const dest=path.join(engine.state.root,'recovered',backup.id,path.relative(home,copy.file));
+        const dest=path.join(engine.state.root,'recovered',operationId,path.relative(home,copy.file));
         await fs.mkdir(path.dirname(dest),{recursive:true,mode:0o700});await fs.rename(copy.file,dest);
       }
       const after=await scan([home]);checkScope(after,[logical]);
       requireThat(after.rows.filter(r=>r.id===logical).length===1,'duplicate_identity');
-      engine.state.set('import/'+task,{...journal,status:'verified'});return {backup:backup.id};
+      engine.state.set('import/'+task,{...journal,status:'verified'});return {backup:null};
     }catch(e){
-      engine.state.set('import/'+task,{...journal,status:'needs_recovery'});
-      requireThat(false,'import_needs_recovery',backup.id);
+      engine.state.set('import/'+task,{...journal,status:'failed'});
+      throw e;
     }
   }finally{engine.running=false;}
 }

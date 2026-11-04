@@ -1,3 +1,4 @@
+import {createBackup,restoreReview} from './manual-backups.mjs';
 import {checkScope,checkUnchanged} from './scan-scope.mjs';
 import {checkLocalProject} from './local-projects.mjs';
 import {importBundle,recordBundle} from './import-bundle.mjs';
@@ -9,28 +10,20 @@ import { assertCodexClosed,prepareNative,binaryVersion } from './native.mjs';
 import { normalized,remember,receiptKey } from './receipts.mjs';
 export class Importer {
  constructor(state,{testRoot=null,processGuard=assertCodexClosed,native=prepareNative}={}){this.state=state;this.testRoot=testRoot;this.processGuard=processGuard;this.native=native;}
- async guard(home,{allowTrashRecovery=false}={}){home=await canonical(home);requireThat(allowTrashRecovery||!this.state.keys('trash/').some(k=>{const t=this.state.get(k);return t?.home===home&&['prepared','removing','restoring','needs_recovery'].includes(t.status);}),'trash_recovery_required');if(this.testRoot)await inside(this.testRoot,path.join(home,'target-check'));await this.processGuard();return home;}
- async backup(home){const backupId=id(),root=path.join(this.state.root,'backups',backupId);await fs.mkdir(root,{recursive:true,mode:0o700});
-  const files=[];for(const dir of ['sessions','archived_sessions','sesshuttle_assets'])files.push(...await walk(path.join(home,dir)));
-  for(const e of await fs.readdir(home,{withFileTypes:true}))if(e.isFile()&&/^((state|thread_history)_\d+\.sqlite(?:-wal|-shm)?|session_index\.jsonl)$/.test(e.name))files.push(path.join(home,e.name));
-  let total=0;const manifest=[];
-  for(const file of files){await inside(home,file);const info=await digestFile(file);total+=info.bytes;const free=await fs.statfs(root);requireThat(free.bavail*free.bsize>info.bytes+256*1024*1024,'disk_space');const rel=path.relative(home,file);await copyVerified(file,path.join(root,'data',rel),info.hash);manifest.push({path:rel,hash:info.hash,bytes:info.bytes});}
-  const info={id:backupId,home,createdAt:new Date().toISOString(),files:manifest,created:[],status:'ready'};await atomic(path.join(root,'manifest.json'),JSON.stringify(info));this.state.set('backup/'+backupId,info);return info;
- }
- async restore(backupId){const info=this.state.get('backup/'+backupId);requireThat(info,'backup_not_found');const home=await this.guard(info.home),root=path.join(this.state.root,'backups',backupId);const staged=[];
+ async guard(home,{allowTrashRecovery=false,allowRestore=false}={}){home=await canonical(home);requireThat(allowTrashRecovery||!this.state.keys('trash/').some(k=>{const t=this.state.get(k);return t?.home===home&&['prepared','removing','restoring','needs_recovery'].includes(t.status);}),'trash_recovery_required');requireThat(!this.state.keys('restore/').some(k=>this.state.get(k)?.status==='prepared'&&this.state.get('backup/'+k.slice(8))?.home===home&&!allowRestore),'restore_pending');if(this.testRoot)await inside(this.testRoot,path.join(home,'target-check'));await this.processGuard(home);return home;}
+ async backup(home){return createBackup(this,home);}
+ async restore(backupId,reviewToken){const info=this.state.get('backup/'+backupId);requireThat(info,'backup_not_found');const home=await this.guard(info.home,{allowRestore:true}),root=path.join(this.state.root,'backups',backupId);const staged=[];
   for(const f of info.files){const target=await inside(home,path.join(home,f.path));const file=await inside(root,path.join(root,'data',f.path));requireThat((await digestFile(file)).hash===f.hash,'corrupt_backup');staged.push({target,file,hash:f.hash});}
-  const safety=await this.backup(home);this.state.set('restore/'+backupId,{status:'prepared',safety:safety.id});await this.processGuard();
-  const originals=new Set(info.files.map(f=>f.path));
-  // Preserve new records and attachments outside Codex discovery before restoring its index.
-  const current=[];for(const dir of ['sessions','archived_sessions','sesshuttle_assets'])current.push(...await walk(path.join(home,dir)));
-  for(const e of await fs.readdir(home))if(/^((state|thread_history)_\d+\.sqlite(?:-wal|-shm)?|session_index\.jsonl)$/.test(e))current.push(path.join(home,e));
-  for(const file of current){const rel=path.relative(home,file);if(!originals.has(rel)){await inside(home,file);const dest=path.join(this.state.root,'recovered',safety.id,rel);await fs.mkdir(path.dirname(dest),{recursive:true});await fs.rename(file,dest);}}
+  await this.processGuard(home);
+  const review=await restoreReview(info);requireThat(review.token===reviewToken,'stale_plan');
+  this.state.set('restore/'+backupId,{status:'prepared'});
   for(const {target,file,hash:expected}of staged)await copyVerified(file,target,expected);
+  for(const rel of review.remove)await fs.unlink(await inside(home,path.join(home,rel)));
   for(const key of this.state.keys('bundle-receipt/'+hash(home)+'/'))this.state.set(key,null);
   for(const key of this.state.keys('receipt/'+hash(home)+'/'))this.state.set(key,null);
   for(const key of this.state.keys('entries/')){const entries=this.state.get(key);let changed=false;for(const r of Object.values(entries))if(r.home===home){r.status='restored_needs_validation';changed=true;}if(changed)this.state.set(key,entries);}
   for(const key of this.state.keys('import/')){const task=this.state.get(key);if(task.home===home&&['prepared','validating','needs_recovery'].includes(task.status))this.state.set(key,{...task,status:'restored'});}
-  this.state.set('restore/'+backupId,{status:'restored',safety:safety.id});return {status:'restored_needs_validation',safety:safety.id};
+  this.state.set('restore/'+backupId,{status:'restored'});return {status:'restored_needs_validation'};
  }
  async record(payload,home,project,binary,runtime){if(payload.format===2)return recordBundle(this,payload,home,project,binary,runtime);const rows=(await scan([home])).rows;await remember(this.state,payload,rows,home,project);for(const f of payload.files){const key=receiptKey(home,f.id),r=this.state.get(key);if(r)this.state.set(key,{...r,binary,runtime});}}
  async import(payload,target,{replace=false,expectedHashes={},vault=null,acceptedMissingAttachments=[]}={}){
@@ -52,14 +45,13 @@ export class Importer {
   }
   if(allVerified)return {status:'verified',nativeProjectName,backup:null,unchanged:true,runtime};
   for(const asset of payload.assets??[]){const file=await inside(home,path.join(home,'sesshuttle_assets',asset.hash+'.'+asset.ext));if(await exists(file)){requireThat(hash(await stableRead(file))===asset.hash,'corrupt_data');}else writes.push({file,raw:Buffer.from(asset.data,'base64'),created:true});}
-  target.onStage?.('stageBackup');const backup=await this.backup(home);backup.created=writes.filter(w=>w.created).map(w=>path.relative(home,w.file));this.state.set('backup/'+backup.id,backup);await atomic(path.join(this.state.root,'backups',backup.id,'manifest.json'),JSON.stringify(backup));
-  await this.processGuard();checkUnchanged(current,await scan([home]),payload.files.map(f=>f.id));
-  const taskId=id();this.state.set('import/'+taskId,{status:'prepared',backup:backup.id,home});
+  await this.processGuard(home);checkUnchanged(current,await scan([home]),payload.files.map(f=>f.id));
+  const taskId=id();this.state.set('import/'+taskId,{status:'prepared',backup:null,home});
   try{
    target.onStage?.('stageWrite');for(const w of writes){await inside(home,w.file);if(w.created)requireThat(!await exists(w.file),'stale_plan');await atomic(w.file,w.raw);}
-   this.state.set('import/'+taskId,{status:'validating',backup:backup.id,home});
+   this.state.set('import/'+taskId,{status:'validating',backup:null,home});
    target.onStage?.('stageVerify');await this.native({binary:target.binary,home,project,files:nativeFiles,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await this.record(payload,home,project,target.binary,runtime);
-   this.state.set('import/'+taskId,{status:'verified',backup:backup.id,home});return {status:'verified',nativeProjectName,backup:backup.id,runtime};
-  }catch(e){this.state.set('import/'+taskId,{status:'needs_recovery',backup:backup.id,home,error:e.code??'operation_failed'});throw new Fault('import_needs_recovery',backup.id);}
+   this.state.set('import/'+taskId,{status:'verified',backup:null,home});return {status:'verified',nativeProjectName,backup:null,runtime};
+  }catch(e){this.state.set('import/'+taskId,{status:'failed',backup:null,home,error:e.code??'operation_failed'});throw e;}
  }
 }

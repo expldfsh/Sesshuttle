@@ -14,5 +14,6 @@ export class State {
   get(k,fallback=null) {const row=this.getStatement.get(k); return row?JSON.parse(row.value):fallback;}
   set(k,v) {this.putStatement.run(k,JSON.stringify(v));return v;}
   keys(prefix) {return this.db.prepare('SELECT key FROM kv WHERE key LIKE ? ORDER BY key').all(prefix+'%').map(x=>x.key);}
+  remove(key){this.db.prepare('DELETE FROM kv WHERE key=?').run(key);}
   close(){this.db.close();}
 }

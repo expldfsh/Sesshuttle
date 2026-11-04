@@ -7,11 +7,24 @@ import os from 'node:os';
 import { Fault,requireThat,canonical } from './util.mjs';
 import { KNOWN_VERSIONS } from './codex.mjs';
 const exec=promisify(execFile);
-export async function assertCodexClosed(){
+export async function assertCodexClosed(home){
  let output;
- try{output=(await exec(process.platform==='win32'?'tasklist':'ps',process.platform==='win32'?['/FO','CSV','/NH']:['-axo','comm='],{timeout:8000,maxBuffer:4*1024*1024})).stdout;}catch{throw new Fault('process_check_failed');}
- const busy=output.split('\n').some(line=>/(?:^|[\/\\\s"])(?:codex(?:\.exe)?|codex-app-server)(?:[\s",]|$)/i.test(line));
- requireThat(!busy,'codex_running');
+ const windows=process.platform==='win32';
+ try{output=(await exec(windows?'tasklist':'ps',windows?['/FO','CSV','/NH']:['-axo','pid=,comm='],{timeout:8000,maxBuffer:4*1024*1024})).stdout;}catch{throw new Fault('process_check_failed');}
+ for(const line of output.split('\n')){
+  if(!/(?:^|[\/\\\s"])(?:codex(?:\.exe)?|codex-app-server)(?:[\s",]|$)/i.test(line))continue;
+  // Linux exposes the launch environment per PID. An explicitly separate
+  // data directory is evidence a different instance may stay open.
+  const pid=line.trim().match(/^(\d+)\s/)?.[1];
+  if(process.platform==='linux'&&pid&&home){
+   try{
+    const env=(await fs.readFile('/proc/'+pid+'/environ','utf8')).split('\0');
+    const configured=env.find(v=>v.startsWith('CODEX_HOME='))?.slice(11);
+    if(configured&&path.isAbsolute(configured)&&await canonical(configured)!==home)continue;
+   }catch(e){if(e.code==='ENOENT'&&!await fs.stat('/proc/'+pid).catch(()=>null))continue;}
+  }
+  throw new Fault('codex_running',home??'');
+ }
 }
 export async function binaryVersion(binary){requireThat(typeof binary==='string'&&path.isAbsolute(binary),'binary_required');
  try{const {stdout}=await exec(binary,['--version'],{timeout:5000,env:{...process.env},maxBuffer:2048});const v=stdout.trim().replace(/^codex-cli /,'');requireThat(KNOWN_VERSIONS.includes(v),'unknown_version',v);return v;}catch(e){if(e instanceof Fault)throw e;throw new Fault('binary_unavailable');}}
