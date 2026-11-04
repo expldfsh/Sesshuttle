@@ -7,7 +7,7 @@ import {KNOWN_VERSIONS} from './codex.mjs';
 import {Fault,hash,requireThat} from './util.mjs';
 
 const exec=promisify(execFile);
-const rule=1;
+const rule=2;
 const versions=new Map();
 
 // Official npm installations may keep the JS launcher across native package upgrades.
@@ -51,17 +51,22 @@ export async function runtimeInfo(binary,state){
  const info=await identity(binary);
  const builtin=KNOWN_VERSIONS.includes(info.version),saved=state?.get(info.key);
  return {...info,status:builtin?'builtin':saved?.passed?'verified':'untested',
-  projects:builtin?info.version.startsWith('0.166.0'):!!saved?.projects,checkedAt:saved?.checkedAt};
+  projects:builtin?info.version.startsWith('0.166.0'):!!saved?.projects,requiresSourceProvider:!!saved?.requiresSourceProvider,checkedAt:saved?.checkedAt};
 }
 export async function requireRuntime(binary,state){
  const info=await runtimeInfo(binary,state);
  requireThat(info.status!=='untested','runtime_check_needed',info.version);
  return info;
 }
-export async function rememberRuntime(binary,state,expected,projects){
+export function receiptMatchesRuntime(receipt,identity){
+ if(receipt?.runtime!==identity.version)return false;
+ return receipt.runtimeKey?receipt.runtimeKey===identity.key:identity.status==='builtin';
+}
+export async function rememberRuntime(binary,state,expected,{projects,requiresSourceProvider},signal){
  const fresh=await runtimeInfo(binary,state);
  requireThat(fresh.key===expected.key,'runtime_changed');
  requireThat(!fresh.script,'runtime_launcher');
- state.set(fresh.key,{passed:true,projects,checkedAt:new Date().toISOString()});
+ signal?.throwIfAborted();
+ state.set(fresh.key,{passed:true,projects,requiresSourceProvider,checkedAt:new Date().toISOString()});
  return runtimeInfo(binary,state);
 }

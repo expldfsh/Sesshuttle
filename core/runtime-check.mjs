@@ -64,7 +64,7 @@ stream_max_retries = 0
  return home;
 }
 
-export async function verifyRuntime(binary,state,{signal,onStage=()=>{},timeoutMs=90000}={}){
+export async function verifyRuntime(binary,state,{signal,onStage=()=>{},timeoutMs=30000}={}){
  const info=await runtimeInfo(binary,state);
  if(info.status!=='untested')return {...info,reused:true};
  requireThat(!info.script,'runtime_launcher');
@@ -97,7 +97,7 @@ export async function verifyRuntime(binary,state,{signal,onStage=()=>{},timeoutM
   const opts={cwd:project,sandbox:'read-only',approvalPolicy:'on-request'};
   async function turn(c,tid,text){
    let completed;
-   fixture.notify=m=>{if(m.method==='turn/completed'&&m.params?.threadId===tid)completed=m.params.turn;};
+   fixture.notify=m=>{if(m.method==='turn/completed'&&(!m.params?.threadId||m.params.threadId===tid))completed=m.params.turn;};
    try{
     const started=await c.rpc('turn/start',{threadId:tid,input:[{type:'text',text}]});
     while(!completed){lifetime.signal.throwIfAborted();requireThat(!c.closed,'native_unavailable');await pause(30,undefined,{signal:lifetime.signal});}
@@ -146,7 +146,21 @@ export async function verifyRuntime(binary,state,{signal,onStage=()=>{},timeoutM
    }catch{}finally{clearTimeout(optional);}
   });
   lifetime.signal.throwIfAborted();
-  return await rememberRuntime(binary,state,info,projects);
+  // Some runtimes insist that the original provider is installed even when
+  // resume explicitly selects a different provider. Observe this independently.
+  const configPath=path.join(target,'config.toml');
+  const alt='sesshuttle_other_fixture';
+  await fs.writeFile(configPath,(await fs.readFile(configPath,'utf8')).replaceAll('sesshuttle_fixture',alt));
+  let requiresSourceProvider=false;
+  const changed=new NativeClient(info.file,target,project,{fixture});
+  const optional=setTimeout(()=>changed.process.kill('SIGKILL'),1500);
+  try{
+   await changed.init(target);
+   await changed.rpc('thread/resume',{...opts,threadId:tid,modelProvider:alt,excludeTurns:true});
+  }catch(e){requiresSourceProvider=e.code==='native_provider_missing'&&e.detail==='sesshuttle_fixture';}
+  finally{clearTimeout(optional);await changed.close();}
+  lifetime.signal.throwIfAborted();
+  return await rememberRuntime(binary,state,info,{projects,requiresSourceProvider},lifetime.signal);
  }catch(error){
   if(lifetime.signal.aborted)throw lifetime.signal.reason;
   const detail=[stage,error.code??error.message,error.detail].filter(Boolean).join(' · ').slice(0,400);

@@ -7,10 +7,11 @@ import {validateBundle,bundleIdentity,bundleBytes,materialize} from './bundle.mj
 import {dbPaths,tableColumns,TABLES} from './catalog.mjs';
 import {records,copyVerified,writeStream} from './stream.mjs';
 import {id,hash,requireThat,inside,exists,Fault} from './util.mjs';
+import {receiptMatchesRuntime} from './runtime.mjs';
 import {scan} from './codex.mjs';
-import {NativeClient} from './native.mjs';
+import {NativeClient,checkSourceProviders} from './native.mjs';
 const key=(home,tid)=>'bundle-receipt/'+hash(home)+'/'+tid;
-export async function recordBundle(importer,payload,home,project,binary,runtime){const rows=(await scan([home])).rows;for(const f of payload.files){const r=rows.find(x=>x.id===f.id);if(r)importer.state.set(key(home,f.id),{identity:bundleIdentity(payload),hash:r.hash,project,binary,runtime,checkedAt:new Date().toISOString()});}}
+export async function recordBundle(importer,payload,home,project,binary,runtime,runtimeKey){const rows=(await scan([home])).rows;for(const f of payload.files){const r=rows.find(x=>x.id===f.id);if(r)importer.state.set(key(home,f.id),{identity:bundleIdentity(payload),hash:r.hash,project,binary,runtime,runtimeKey,checkedAt:new Date().toISOString()});}}
 async function initialize(binary,home,project,root,fixture){const client=new NativeClient(binary,home,project,{fixture});try{await client.init(home);}finally{await client.close();}
  if(!(await dbPaths(home)).history){
   // Ask this exact runtime to create its own schema in a disposable application
@@ -36,7 +37,7 @@ export async function importBundle(importer,payload,target,{replace=false,expect
  const omittedAttachments=[...assertAttachmentAcceptance(payload,acceptedMissingAttachments),...inheritedOmissions(payload)];const home=await importer.guard(target.home,{checkProcess:false}),project=await fs.realpath(target.project),identity=await importer.authorize(target.binary),runtime=identity.version;
  const nativeProjectName=await checkLocalProject(home,target.nativeProjectId,identity.projects);
  requireThat(!importer.state.keys('import/').some(k=>{const t=importer.state.get(k);return t.home===home&&['prepared','validating','needs_recovery'].includes(t.status); }),'recovery_required');
- const before=await scan([home]);checkScope(before,payload.files.map(f=>f.id),{allowUnrelatedFileErrors:true});let verified=true;for(const f of payload.files){const old=before.rows.find(r=>r.id===f.id);requireThat(!old?.busy,'busy',f.id);if(expectedHashes[f.id]!==undefined)requireThat((old?.hash??null)===expectedHashes[f.id],'stale_plan');const receipt=importer.state.get(key(home,f.id));const identical=receipt&&receipt.hash===old?.hash&&receipt.identity===bundleIdentity(payload);verified&&=(!target.nativeProjectId || f.id!==payload.logicalId || (old?.originProject?.match==='id' && old.originProject.nativeId===target.nativeProjectId))&&!!identical&&receipt.project===project&&receipt.binary===target.binary&&receipt.runtime===runtime;
+ const before=await scan([home]);checkScope(before,payload.files.map(f=>f.id),{allowUnrelatedFileErrors:true});let verified=true;for(const f of payload.files){const old=before.rows.find(r=>r.id===f.id);requireThat(!old?.busy,'busy',f.id);if(expectedHashes[f.id]!==undefined)requireThat((old?.hash??null)===expectedHashes[f.id],'stale_plan');const receipt=importer.state.get(key(home,f.id));const identical=receipt&&receipt.hash===old?.hash&&receipt.identity===bundleIdentity(payload);verified&&=(!target.nativeProjectId || f.id!==payload.logicalId || (old?.originProject?.match==='id' && old.originProject.nativeId===target.nativeProjectId))&&!!identical&&receipt.project===project&&receipt.binary===target.binary&&receiptMatchesRuntime(receipt,identity);
   const raw=f.artifacts.find(a=>a.kind==='rollout'),db=f.artifacts.find(a=>a.kind==='database');const exact=old&&(old.rawHash??null)===(raw?.hash??null)&&(old.dbHash??null)===(db?.hash??null);
   if(old&&!replace&&!exact)requireThat(receipt?.hash===old.hash,'conflict');
  }
@@ -49,10 +50,11 @@ export async function importBundle(importer,payload,target,{replace=false,expect
    if(rollout)writes.push({source:rollout.file,target:destination,created:old?.file!==destination,hash:rollout.remapped?undefined:rollout.hash,preservedOriginal:old?.file&&old.file!==destination?old.file:null});
    for(const a of f.artifacts.filter(a=>a.kind==='asset')){const dest=await inside(home,path.join(home,'sesshuttle_assets',a.hash));writes.push({source:a.file,target:dest,hash:a.hash});}
   }
+  await checkSourceProviders(identity,home,project,staged.files,importer.fixture);
   await importer.processGuard(home);const fresh=await scan([home]);checkUnchanged(before,fresh,payload.files.map(f=>f.id));
   requireThat((await importer.authorize(target.binary)).key===identity.key,'runtime_changed');
   taskId=id();importer.state.set('import/'+taskId,{status:'prepared',backup:null,home});target.onStage?.('stageWrite');for(const w of writes){await inside(home,w.target);if(w.created)requireThat(!await exists(w.target),'target_file_exists',w.target);await copyVerified(w.source,w.target,w.hash);if(w.preservedOriginal)await fs.unlink(await inside(home,w.preservedOriginal));}
   if(staged.files.some(f=>f.artifacts.some(a=>a.kind==='database'))){await initialize(identity.file,home,project,temp,importer.fixture);await mergeDatabases(home,staged.files,placements,project);}
-  importer.state.set('import/'+taskId,{status:'validating',backup:null,home});target.onStage?.('stageVerify');await importer.native({binary:target.binary,home,project,files:staged.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await recordBundle(importer,payload,home,project,target.binary,runtime);importer.state.set('import/'+taskId,{status:'verified',backup:null,home});return {status:'verified',nativeProjectName,backup:null,runtime,omittedAttachments};
+  importer.state.set('import/'+taskId,{status:'validating',backup:null,home});target.onStage?.('stageVerify');await importer.native({expectedKey:identity.key,binary:target.binary,home,project,files:staged.files,logicalId:payload.logicalId,nativeProjectId:target.nativeProjectId});await recordBundle(importer,payload,home,project,target.binary,runtime,identity.key);importer.state.set('import/'+taskId,{status:'verified',backup:null,home});return {status:'verified',nativeProjectName,backup:null,runtime,omittedAttachments};
  }catch(e){if(taskId){importer.state.set('import/'+taskId,{status:'failed',backup:null,home,error:e.code??'operation_failed'});throw e;}throw e;}finally{await fs.rm(temp,{recursive:true,force:true});}
 }

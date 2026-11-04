@@ -88,7 +88,7 @@ export function TransferFlow({request,rows,cfg,setConfig,call,refreshRows,t,size
  <EntryFields t={t} entry={entry} target={draft.targets[entry]} pick={call} change={v=>setDraft({...draft,targets:{...draft.targets,[entry]:v}})}/>
  <button disabled={!!pending||!!checking} onClick={()=>run('checkingEntries',async()=>{await inspect();setEditing('');})}>{t('checkAgain')}</button></div>}</div>)}
  {(missingEntry||untested.length>0)&&ready.length>0&&<button disabled={!!checking} onClick={()=>setTargets(ready)}>{t('useReadyEntries')} · {ready.map(t).join(' + ')}</button>}
- {(missingEntry||untested.length>0)&&needed.filter((r:any)=>r.remote&&(request.version||r.tips?.length===1)).map((r:any)=><button key={r.id} disabled={!!checking} onClick={()=>run('stageDownload',async()=>{
+ {(request.offerCopy||missingEntry||untested.length>0)&&needed.filter((r:any)=>r.remote&&(request.version||r.tips?.length===1)).map((r:any)=><button key={r.id} disabled={!!checking} onClick={()=>run('stageDownload',async()=>{
   const folder=await call('downloadCopy',{logical:r.id,version:request.version??r.tips[0]});if(folder)setCopyResult(folder);
  })}>{t('downloadFolderOnly')} · {r.title}</button>)}
  {copyResult&&<p role="status" className="notice">{t('savedCopyAt')} {copyResult}</p>}

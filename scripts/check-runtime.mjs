@@ -12,7 +12,7 @@ try{
  assert.equal((await runtimeInfo(binary,state)).status,'untested');
  const start=Date.now(),onStage=s=>console.log(s,Date.now()-start);
  const result=await verifyRuntime(binary,state,{onStage});assert.equal(result.status,'verified');
- console.log(JSON.stringify({version:result.version,platform:process.platform,arch:process.arch,elapsedMs:Date.now()-start,projects:result.projects}));
+ console.log(JSON.stringify({version:result.version,platform:process.platform,arch:process.arch,elapsedMs:Date.now()-start,projects:result.projects,requiresSourceProvider:result.requiresSourceProvider}));
  state.close();state=new State(root);
  const repeat=await verifyRuntime(binary,state,{onStage:()=>assert.fail('cached result reran')});
  assert.ok(repeat.reused);console.log('PASS persisted proof');

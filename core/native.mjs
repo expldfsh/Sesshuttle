@@ -27,6 +27,12 @@ export async function assertCodexClosed(home){
  }
 }
 export const binaryVersion=readVersion;
+function rpcFault(method,error){
+ const message=String(error.message??'');
+ const provider=method==='thread/resume'&&message.match(/model provider [“"`']([^”"`']{1,160})[”"`'],? which is no longer configured/i)?.[1];
+ if(provider)return new Fault('native_provider_missing',provider);
+ return new Fault(error.code===-32601?'native_method_missing':'native_error',(method+' · '+message).slice(0,300));
+}
 export class NativeClient{
  constructor(binary,home,project,{confine=true,disabledServers=[],fixture}={}){this.next=0;this.waiting=new Map();this.closed=false;
   const args=['app-server','-c','analytics.enabled=false','-c','cli_auth_credentials_store="file"','-c','mcp_servers={}','-c','hooks={}','-c','features.plugins=false','-c','features.shell_snapshot=false'];
@@ -55,7 +61,7 @@ export class NativeClient{
   this.reader.on('line',line=>{let m;try{m=JSON.parse(line);}catch{return;}
    if(m.method&&m.id!==undefined){this.send({id:m.id,error:{code:-32603,message:'Permission requests are disabled during migration'}});return;}
    if(m.method&&m.id===undefined){fixture?.notify?.(m);return;}
-   const w=this.waiting.get(m.id);if(w){clearTimeout(w.timer);this.waiting.delete(m.id);m.error?w.reject(new Fault(m.error.code===-32601?'native_method_missing':'native_error',(w.method+' · '+(m.error.message??'')).slice(0,300))):w.resolve(m.result);}
+   const w=this.waiting.get(m.id);if(w){clearTimeout(w.timer);this.waiting.delete(m.id);m.error?w.reject(rpcFault(w.method,m.error)):w.resolve(m.result);}
   });
   this.process.on('error',()=>this.fail());this.process.on('exit',()=>this.fail());
  }
@@ -69,8 +75,26 @@ export class NativeClient{
   try{await this.exited;}finally{clearTimeout(timer);this.reader.close();this.fail();}
  }
 }
-export async function prepareNative({binary,home,project,files,logicalId,nativeProjectId,authorize=requireRuntime,fixture}){
- const identity=await authorize(binary);binary=identity.file;home=await canonical(home);project=await canonical(project);
+// Only a runtime observed rejecting absent source providers gets this preflight.
+// An unavailable optional catalog leaves the native resume check in charge.
+export async function checkSourceProviders(identity,home,project,files,fixture){
+ const providers=new Set(files.filter(f=>!f.artifacts||f.artifacts.some(a=>a.kind==='rollout')).map(f=>f.sourceProvider).filter(p=>typeof p==='string'&&p&&p!=='openai'));
+ if(!identity.requiresSourceProvider||!providers.size)return;
+ const client=new NativeClient(identity.file,home,project,{fixture});
+ try{
+  await client.init(home);
+  let list,config;
+  try{
+   list=await client.rpc('modelProvider/list',{});
+   config=(await client.rpc('config/read',{includeLayers:false})).config;
+  }catch{return;}
+  if(!Array.isArray(list?.data)||!list.data.length||list.nextCursor||!config)return;
+  const available=new Set([...list.data.map(p=>p.id),...Object.keys(config.model_providers??{}),config.model_provider,list.defaultProviderId]);
+  for(const name of providers)requireThat(available.has(name),'native_provider_missing',name);
+ }finally{await client.close();}
+}
+export async function prepareNative({binary,home,project,files,logicalId,nativeProjectId,authorize=requireRuntime,fixture,expectedKey}){
+ const identity=await authorize(binary);requireThat(!expectedKey||identity.key===expectedKey,'runtime_changed');binary=identity.file;home=await canonical(home);project=await canonical(project);
  // Read effective target configuration without creating/resuming a thread. Empty
  // tables merge with user configuration, so every configured server needs an
  // explicit disabled flag. Hook arrays are explicitly replaced in both clients.

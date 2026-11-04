@@ -1,5 +1,6 @@
 import React,{useState} from 'react';
 const repairLabel=(code:string)=>{
+ if(code==='native_provider_missing')return 'retryProviderImport';
  if(code==='duplicate_identity')return 'inspectCopies';
  if(code==='scan_incomplete')return 'scanSummary';
  if(['recovery_required','import_needs_recovery','trash_recovery_required'].includes(code))return 'backups';

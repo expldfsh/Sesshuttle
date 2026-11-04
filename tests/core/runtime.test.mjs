@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {State} from '../../core/state.mjs';
-import {requireRuntime,runtimeInfo} from '../../core/runtime.mjs';
+import {requireRuntime,runtimeInfo,receiptMatchesRuntime} from '../../core/runtime.mjs';
 import {verifyRuntime} from '../../core/runtime-check.mjs';
 import {attachmentReview} from '../../core/attachment-policy.mjs';
 
@@ -35,4 +35,13 @@ test('discovery is distinct from permission to import, and a replacement binary 
  await assert.rejects(requireRuntime(alias,state),{code:'runtime_check_needed'});
  await fs.writeFile(file,'#!/bin/sh\necho "warning" >&2\necho "codex-cli 0.166.0"\n');
  assert.equal((await requireRuntime(file,state)).status,'builtin');
+});
+
+test('old receipts survive a known-version upgrade path, but do not attest a replacement unlisted executable',()=>{
+ const legacy={runtime:'0.166.0'},proof={...legacy,runtimeKey:'first-build'};
+ const identity={version:legacy.runtime,key:'first-build',status:'verified'};
+ assert.ok(receiptMatchesRuntime(legacy,{...identity,status:'builtin'}));
+ assert.equal(receiptMatchesRuntime(legacy,identity),false);
+ assert.ok(receiptMatchesRuntime(proof,identity));
+ assert.equal(receiptMatchesRuntime(proof,{...identity,key:'replacement'}),false);
 });

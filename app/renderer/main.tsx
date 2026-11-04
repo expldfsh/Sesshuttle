@@ -53,7 +53,7 @@ function App(){
   }
   if(e==='conflict'||item.status==='conflict'||item.status==='conflict_preserved'){void work(async()=>setBranches({id:item.id,options:await call('versionDetails',{id:item.id})}),'readingVersions');return;}
   if(['import_needs_recovery','recovery_required','trash_recovery_required'].includes(e)){setPage('backups');return;}
-  startFlow(entry?'download':item.requestedDirection??(item.action==='upload'?'upload':item.action==='upload_import'?'both':'download'),[item.id],entry?{targets:[entry]}:{});
+  startFlow(entry?'download':item.requestedDirection??(item.action==='upload'?'upload':item.action==='upload_import'?'both':'download'),[item.id],entry?{targets:[entry],offerCopy:e==='native_provider_missing'}:{});
  }
  async function openNative(id:string,entry:string){
   const value=data.rows.find((r:any)=>r.id===id)?.targets?.[entry];if(!value)return;
