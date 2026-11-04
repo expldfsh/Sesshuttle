@@ -62,7 +62,7 @@ busctl --user introspect org.freedesktop.secrets /org/freedesktop/secrets org.fr
 
 若服务缺失且希望使用 GNOME Keyring，可安装 `sudo pacman -S --needed gnome-keyring`，在应用内重试。如果安装后当前桌面会话仍找不到服务，重新登录图形桌面再试。仅在内存中的连接在退出后需重新加入同一空间。[Arch 软件包](https://archlinux.org/packages/extra/x86_64/gnome-keyring/)
 
-[用已有云端对话在 Arch 验收](linux-acceptance.md) · [兼容范围](../../compatibility/0.3.0.md)
+[用已有云端对话在 Arch 验收](linux-acceptance.md) · [兼容范围](../../compatibility/0.4.0.md)
 
 ## 删除对话或备份版本
 

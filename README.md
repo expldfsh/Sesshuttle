@@ -21,7 +21,7 @@
 
 「在这台电脑记住连接」默认开启。加入成功后，如果 Linux 系统密码库已锁定，按系统弹窗授权。取消后本次仍可同步，可在「设置」点「记住连接…」重试。若提示找不到密码库，点「检查凭据存储」查看适用步骤。
 
-[中文配置和操作指南](docs/guides/zh-CN/quick-start.md) · [用已有云端对话在 Arch 验收](docs/guides/zh-CN/linux-acceptance.md) · [English guide](docs/guides/en/quick-start.md) · [支持范围](docs/compatibility/0.3.0.md)
+[中文配置和操作指南](docs/guides/zh-CN/quick-start.md) · [用已有云端对话在 Arch 验收](docs/guides/zh-CN/linux-acceptance.md) · [English guide](docs/guides/en/quick-start.md) · [支持范围](docs/compatibility/0.4.0.md)
 
 ## 删除与恢复
 

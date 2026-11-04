@@ -40,7 +40,7 @@ To include a readable external image, approve it and update the preview. You can
 
 **More actions** includes two-way transfer. Use **Delete chats…** for removal. If both devices edited independently, compare the versions before choosing the one to import.
 
-[Compatibility](../../compatibility/0.3.0.md) · [Verification report](../../validation/0.4.0.md)
+[Compatibility](../../compatibility/0.4.0.md) · [Verification report](../../validation/0.4.0.md)
 
 ## Delete chats and manage recovery copies
 
