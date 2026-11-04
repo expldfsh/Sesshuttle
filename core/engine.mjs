@@ -76,34 +76,34 @@ export class Engine{
    else if(direction==='upload'&&local)action='upload';
    else if(direction==='download'&&head)action=head.tips.length>1?'conflict':'download';
    else if(direction==='both'){if(['local_only','local_changes'].includes(row.status))action='upload_import';else if(['remote_only','remote_changes','synced'].includes(row.status))action='download';else if(row.status==='conflict')action='preserve_conflict';}
-   let fileCount=1,assetCount=0,bytes=row.bytes,issues=row.issues,payload=null,preserve=null;
+   let fileCount=1,assetCount=0,bytes=row.bytes,issues=row.issues,payload=null;
    try{payload=['download','resolve'].includes(action)?await this.vault.version(chosenVersion??head.tips[0]):!['skip','busy','conflict'].includes(action)&&local?await this.snapshot(local,stage,selection):null;
     if(payload && ['download','resolve'].includes(action))payload=await repairDownload(payload,replacements,this.vault,stage);
     if(copyChoice&&payload)payload.baseVersion=null;
     
     if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
-   if(preserve){fileCount+=preserve.files.length;assetCount+=preserve.files.reduce((n,f)=>n+(f.artifacts?.filter(a=>a.kind==='asset').length??0),0);bytes+=bundleBytes(preserve);issues=[...new Set([...issues,...preserve.issues])];}
+
    const describe=(p,role)=>p?.files.map(f=>({id:f.id,role,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??p.originProject,bytes:f.artifacts?f.artifacts.reduce((n,a)=>n+a.bytes,0):Buffer.byteLength(f.raw,'base64'),reason:role==='preserve'?'preserveLocal':ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:(f.attachmentReport??[]).map(a=>({...a,role})),omittedAttachments:f.omittedAttachments??[],issues:f.issues??[],missingDependencies:(f.dependencies??[]).filter(dep=>!p.files.some(member=>member.id===dep))}))??[];
-   const primaryReview=attachmentReview(payload),preserveReview=attachmentReview(preserve);
-   const blockingIssues=[...new Set([...primaryReview.blockingIssues,...preserveReview.blockingIssues])];
-   const optional=[...primaryReview.optional.map(a=>({...a,role:'primary'})),...preserveReview.optional.map(a=>({...a,role:'preserve'}))];
+   const primaryReview=attachmentReview(payload);
+   const blockingIssues=primaryReview.blockingIssues;
+   const optional=[...primaryReview.optional.map(a=>({...a,role:'primary'}))];
    let excludedReason=null;
    if(action==='blocked')excludedReason=issues.at(-1)??'incomplete_history';
    else if(action==='busy'||action==='conflict')excludedReason=action;
    else if(action==='skip')excludedReason=direction==='upload'?'noLocalForUpload':'noBackupToImport';
    else if(blockingIssues.length)excludedReason=blockingIssues[0];
-   else if((payload?.continuation===false||preserve?.continuation===false)&&!(allowIncomplete&&action==='upload'))excludedReason='missing_rollout';
+   else if((payload?.continuation===false)&&!(allowIncomplete&&action==='upload'))excludedReason='missing_rollout';
    items.push({id:logical,title:row.title,action,bytes,fileCount,assetCount,expectedHash:local?.hash??null,expectedSignature:local?this.signature(local,selection):null,expectedHead:head?.etag??null,
-     excludedReason,attachmentReview:{optional,blockingIssues},version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:[...describe(payload,'primary'),...describe(preserve,'preserve')],payload,preserve});
+     excludedReason,attachmentReview:{optional,blockingIssues},version:chosenVersion??head?.tips[0]??null,issues,continuation:payload?.continuation??row.continuation,targets:['download','resolve','upload_import'].includes(action)?targets:[],projectId:row.projectId,originProject:row.originProject,files:describe(payload,'primary'),payload});
   }
-  const uploads=items.filter(x=>!x.excludedReason).flatMap(x=>[...(['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload?[x.payload]:[]),...(x.preserve?[x.preserve]:[])]);const inventory=uploads.length?await this.vault.inventory():{objects:new Map(),bytes:0};const estimated=await this.vault.estimate(uploads,inventory);
+  const uploads=items.filter(x=>!x.excludedReason).filter(x=>['upload','upload_import','preserve_conflict'].includes(x.action)&&x.payload).map(x=>x.payload);const inventory=uploads.length?await this.vault.inventory():{objects:new Map(),bytes:0};const estimated=await this.vault.estimate(uploads,inventory);
   // Reserve a conservative upper bound for encrypted manifests and replacement heads.
   // Chunks have their exact encrypted size; metadata reserve avoids a false exact quota promise.
   const metadataReserve=uploads.reduce((n,p)=>n+4*Buffer.byteLength(JSON.stringify(p))+4*Buffer.byteLength(JSON.stringify(this.remote.find(h=>h.logicalId===p.logicalId)??{}))+65536,0);
   const uploadBytes=estimated.bytes+metadataReserve,uploadLimitBytes=Math.floor(uploadLimitMiB*1024*1024);
   const plan={copyChoice,stage,targetSnapshots,token,ids:[...new Set(ids)],chosenVersion,selection,space:this.scope(),configHash:hash(JSON.stringify(this.config())),direction,targets,allowIncomplete,items,createdAt:new Date().toISOString(),cloudBytes:inventory.bytes,chunkUploadBytes:estimated.bytes,metadataReserve,uploadBytes,uploadLimitBytes,overLimit:uploadBytes>uploadLimitBytes,largeUpload:uploadBytes>100*1024*1024||uploads.some(p=>bundleBytes(p)>100*1024*1024)};this.plans.set(token,plan);
-  return {...plan,stage:undefined,items:items.map(({payload,preserve,...x})=>x)};
+  return {...plan,stage:undefined,items:items.map(({payload,...x})=>x)};
 
  }
  async discardPlan(token){const plan=this.plans.get(token);if(plan){this.plans.delete(token);await fs.rm(plan.stage,{recursive:true,force:true});}}
@@ -137,11 +137,10 @@ export class Engine{
    const advance=n=>{job.progress.bytes+=n;if(Date.now()-lastEvent>150){lastEvent=Date.now();this.onProgress({...job});}};
    this.vault.onBytes=advance;
    const accepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.primary??[]);
-   const preserveAccepted=acceptedByItem===undefined?acceptedMissingAttachments:(acceptedByItem[item.id]?.preserve??[]);
    try{if(item.excludedReason){result.requestedDirection=plan.direction;result.status='excluded';result.error={code:item.excludedReason};continue;}
     const current=await scan(this.config().sourceHomes);const local=uploadSource(current.rows,item.id,plan.copyChoice);requireThat((local?.hash??null)===item.expectedHash,'stale_plan');
     const head=await this.vault.head(item.id);requireThat((head?.etag??null)===item.expectedHead,'stale_plan');this.local=current;requireThat(!local?.issues.includes('duplicate_identity')||item.action==='download','duplicate_identity',item.id);requireThat((local?this.signature(local,plan.selection):null)===item.expectedSignature,'stale_plan');
-    let payload,importVersion=item.version,resolveEtag=head?.etag;
+    let payload,importVersion=item.version;
     if(['upload','upload_import','preserve_conflict'].includes(item.action)){
       requireThat(local,'stale_plan');payload=item.payload;await verifyAttachments(payload,current.rows,plan.selection.approvedAttachments);assertAttachmentAcceptance(payload,accepted);
       step('stageUpload');const published=await this.vault.publish(payload,this.state.get('device'),item.expectedHead);if(!plan.copyChoice)this.rememberBaseline(local,published.version,plan.selection);for(const f of payload.files.filter(f=>!plan.copyChoice||f.id!==item.id)){const r=this.local.rows.find(x=>x.id===f.id);if(r){const k='bundle-receipt/'+hash(r.home)+'/'+r.id;this.state.set(k,{hash:r.hash,identity:bundleIdentity(payload)});}}result.cloudStatus='uploaded';result.unchangedCloud=!!published.unchanged;result.omittedImages=attachmentReview(payload).optional.length;

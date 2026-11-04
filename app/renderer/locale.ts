@@ -996,3 +996,143 @@ const scopedActions:Record<string,[string,string]>={
  importNeedsApp:['选择对话后点「导入到这台电脑」，并勾选此入口。','Choose Import to this computer and select this app.'],
 };
 for(const [key,[cn,us]] of Object.entries(scopedActions)){zh[key]=cn;en[key]=us;}
+
+const manualOperations:Record<string,[string,string]>={
+ "localBackups": [
+  "本机手动备份",
+  "Manual device backups"
+ ],
+ "manualBackupHint": [
+  "选择 Codex 数据目录，将其中的对话历史、索引及已导入的附件备份到本机。只有你确认创建时才会备份。",
+  "Choose a Codex data folder to copy its history, indexes and imported attachments to this computer. Backups are created only on request."
+ ],
+ "createBackup": [
+  "创建本机备份",
+  "Create device backup"
+ ],
+ "createBackupConfirm": [
+  "为下面的目录创建一份本机备份？不会上传到云端。",
+  "Create a backup of this folder on this device? Nothing will be uploaded."
+ ],
+ "creatingBackup": [
+  "正在复制并校验备份…",
+  "Copying and verifying backup…"
+ ],
+ "backupCreated": [
+  "本机备份已创建。",
+  "Device backup created."
+ ],
+ "backupDeleted": [
+  "已删除所选备份。当前对话和云端副本已保留。",
+  "Backup deleted. Current chats and cloud copies are unchanged."
+ ],
+ "restoreFiles": [
+  "备份中的文件数",
+  "Files in this backup"
+ ],
+ "removeFiles": [
+  "恢复时将移除以下文件（数量）",
+  "Current files to remove (count)"
+ ],
+ "deleteBackup": [
+  "删除这份备份",
+  "Delete this backup"
+ ],
+ "deleteBackupConfirm": [
+  "永久删除下面这份本机备份？将无法再用它恢复。当前对话、云端及其他备份都会保留。",
+  "Permanently delete this device backup? You can no longer restore it. Current chats, cloud copies and other backups will remain."
+ ],
+ "deletingBackup": [
+  "正在删除所选备份…",
+  "Deleting selected backup…"
+ ],
+ "manualReason": [
+  "手动创建",
+  "Created manually"
+ ],
+ "legacyReason": [
+  "旧版备份，原因未记录",
+  "Earlier backup · reason not recorded"
+ ],
+ "diskUsed": [
+  "文件占用磁盘",
+  "File space on disk"
+ ],
+ "manualRefreshHint": [
+  "点击「刷新」读取对话。需要云端对话时，请先在设置中连接同步空间。",
+  "Click Refresh to read chats. To include cloud chats, connect to your space in Settings first."
+ ],
+ "clearLogConfirm": [
+  "确认清除以下数量的本机操作记录？本机对话、云端副本、备份及同步状态都会保留。",
+  "Clear this many activity records on this device? Chats, cloud copies, backups and sync status will remain."
+ ],
+ "clearedLogs": [
+  "已清除的记录数",
+  "Records cleared"
+ ],
+ "selectLog": [
+  "选择此记录",
+  "Select this record"
+ ],
+ "clearSelectedLogs": [
+  "清除所选记录",
+  "Clear selected records"
+ ],
+ "clearAllLogs": [
+  "清空记录",
+  "Clear all records"
+ ],
+ "clearLogHint": [
+  "只清除这台电脑的操作记录。进行中的任务和仍可继续处理的删除任务会保留。",
+  "Clear activity on this device only. Running tasks and removal tasks awaiting action are kept."
+ ],
+ "refreshBins": [
+  "查看或刷新本机和云端回收站",
+  "View or refresh device and cloud recycle bins"
+ ],
+ "backup_changed": [
+  "备份期间历史发生变化，未创建备份。请等写入结束后重试。",
+  "History changed while copying. No backup was created. Wait for writes to finish and retry."
+ ],
+ "backup_in_use": [
+  "这份备份仍用于中断的导入或恢复。先完成恢复，再删除备份。",
+  "An interrupted import or restore still needs this backup. Finish recovery before deleting it."
+ ],
+ "restore_pending": [
+  "此前恢复中断。请到「备份与恢复」，重新确认恢复这份备份。",
+  "A restore was interrupted. Open Backups and confirm the restore again."
+ ],
+ "activity_pending": [
+  "该任务仍在运行或等待恢复。请先完成任务。",
+  "This task is running or awaiting recovery. Finish it before clearing the record."
+ ],
+ "restoreConfirm": [
+  "将该目录的历史和索引替换为备份内容。下面列出的额外文件会被移除。当前状态不会自动备份。",
+  "Replace history and indexes with this backup and remove the extra files listed below. No backup of the current state will be created."
+ ],
+ "previewHint": [
+  "仅导入列出的对话。已有历史可能被更新，不会自动备份。",
+  "Import only the listed chats. Existing history may be updated without a backup."
+ ],
+ "versionHint": [
+  "所选版本将导入本机，替换对应历史。本机当前版本不会自动备份或上传。",
+  "The selected version replaces the corresponding local history. The current local version will not be backed up or uploaded."
+ ],
+ "noBackups": [
+  "这台电脑还没有本机备份。",
+  "No backups on this device yet."
+ ],
+ "keepCopyConfirm": [
+  "让 Codex 使用下面这份历史？不会创建目录备份。",
+  "Use this copy in Codex? No directory backup will be created."
+ ],
+ "copyKept": [
+  "已使用所选历史，其余原件已移至确认单所述的本机保留位置。",
+  "Selected copy is active. Other originals were moved aside on this device."
+ ],
+ "codex_running": [
+  "无法确认目标目录空闲。请退出使用此目录的 Codex 桌面端、CLI 或编辑器扩展，再重试此次写入。上传和下载到普通文件夹仍可用。",
+  "The destination may be in use. Close the Codex app, CLI or extension using this folder, then retry this write. Uploads and downloads to an ordinary folder remain available."
+ ]
+};
+for(const [key,[cn,us]] of Object.entries(manualOperations)){zh[key]=cn;en[key]=us;}

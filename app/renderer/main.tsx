@@ -1,3 +1,4 @@
+import {ManualBackups} from './ManualBackups';
 import {ConnectionForm,emptyConnection} from './ConnectionForm';
 import {RemovalFlow,RemovalBins,RemovalResult} from './RemovalFlow';
 import {TransferFlow} from './TransferFlow';
@@ -12,9 +13,12 @@ function App(){
  const[init,setInit]=useState<any>(null),[cfg,setCfg]=useState<any>(null),[data,setData]=useState<any>({rows:[],errors:[]}),[page,setPage]=useState('conversations'),[filter,setFilter]=useState('main'),[status,setStatus]=useState('all'),[query,setQuery]=useState(''),[selected,setSelected]=useState<string[]>([]),[focus,setFocus]=useState<string|null>(null),[busy,setBusy]=useState(false),[notice,setNotice]=useState<any>(null),[flow,setFlow]=useState<any>(null),[job,setJob]=useState<any>(null),[jobs,setJobs]=useState<any[]>([]),[backupData,setBackupData]=useState<any>({backups:[],imports:[]}),[diagnostic,setDiagnostic]=useState<any>(null),[git,setGit]=useState<any>(null);
  const[detection,setDetection]=useState<any>(null),[phase,setPhase]=useState(''),[deferred,setDeferred]=useState<any>(null);const lock=useRef(false);
  const[removal,setRemoval]=useState<any>(null),[removalJob,setRemovalJob]=useState<any>(null),[removalJobs,setRemovalJobs]=useState<any[]>([]);
+ const [logKeys,setLogKeys]=useState<string[]>([]);
+ const [bins,setBins]=useState<any>(null);
  const offeredRecovery=useRef(false);
  const[projectFilter,setProjectFilter]=useState('all');
  const[targetIssue,setTargetIssue]=useState<any>(null);
+ const[needsRefresh,setNeedsRefresh]=useState(true);
  const[branches,setBranches]=useState<any>(null);
  const[question,setQuestion]=useState<any>(null);
  const[version,setVersion]=useState(''),[deviceName,setDeviceName]=useState(''),[connection,setConnection]=useState<any>({...emptyConnection});
@@ -29,7 +33,7 @@ function App(){
   finally{lock.current=false;setPhase('');setBusy(false);}
  }
  async function persist(next:any){await call('saveConfig',{...next,deviceName});setCfg(next);setInit((old:any)=>({...old,config:next,device:{...old.device,name:deviceName}}));}
- function viewCloud(){setPage('conversations');setFilter('cloud');setStatus('all');setProjectFilter('all');setQuery('');setFocus(null);}
+ function viewCloud(){setPage('conversations');setFilter('cloud');setStatus('all');setProjectFilter('all');setQuery('');setFocus(null);void work(refresh,'refreshing');}
  function startFlow(direction:string,ids:string[],extra:any={}){
   const request={direction,ids,...extra};
   if(!init.connected){setDeferred(request);setPage('settings');setNotice({text:t('connectThenReturn')});return;}
@@ -55,19 +59,31 @@ function App(){
   if(!await ask(t('nativeConfirm')+'\n'+value.project))return;
   await call('continue',{logicalId:id,entry});setNotice({text:t('launchRequested')+' · '+t(entry)});
  }
- async function refresh(){const x=await call('refresh');setData(x);}
+ async function refresh(){const x=await call('refresh');setData(x);setNeedsRefresh(false);}
  async function reloadInit(){const x=await call('init');setInit(x);setCfg(x.config);setDeviceName(x.device.name);setJobs(x.jobs??[]);setRemovalJobs(x.removalJobs??[]);if(!offeredRecovery.current){offeredRecovery.current=true;const pending=x.removalJobs?.find((j:any)=>['interrupted','partial','attention'].includes(j.status));if(pending)setRemovalJob(pending);}if(x.connection)setConnection((c:any)=>c.recoveryToken?c:{...c,...x.connection,mode:'join'});return x;}
  async function restoreSaved(){
   setPhase('waitingAuthorization');
   await call('restoreConnection');
   const next=await reloadInit();
   if(!next.connected)setPage('settings');
-  await refresh();
+  setNeedsRefresh(true);setData({rows:[],errors:[]});setNotice({text:t('manualRefreshHint')});
  }
- useEffect(()=>{work(async()=>{const x=await reloadInit();if(x.canRestore&&!x.connected)await restoreSaved();else await refresh();});return window.sesshuttle.onProgress((x:any)=>{if(x.kind==='removal-progress')setRemovalJob({...x.job});else{setRemovalJob(null);setJob({...x});}});},[]);
+ useEffect(()=>{work(async()=>{await reloadInit();});return window.sesshuttle.onProgress((x:any)=>{if(x.kind==='removal-progress')setRemovalJob({...x.job});else{setRemovalJob(null);setJob({...x});}});},[]);
  useEffect(()=>applyTheme(cfg?.theme),[cfg?.theme]);
  useEffect(()=>window.sesshuttle.onClosePending((deleting?:boolean)=>setNotice({text:t(deleting?'closeAfterRemoval':'closePending')})),[locale]);
  useEffect(()=>{let active=true;if(page==='backups')call('backups').then(result=>{if(active)setBackupData(result);}).catch(e=>{if(active)setNotice({error:true,text:t(e.code??'operation_failed')});});return()=>{active=false;};},[page]);
+ const clearable=[...jobs.filter(j=>j.status!=='running').map(j=>'job/'+j.id),...removalJobs.filter(j=>j.status==='completed').map(j=>'removal/'+j.id)];
+ function logCheck(key:string){
+  return <input type="checkbox" disabled={busy||!clearable.includes(key)} aria-label={t('selectLog')} checked={logKeys.includes(key)} onChange={e=>setLogKeys(e.target.checked?[...logKeys,key]:logKeys.filter(k=>k!==key))}/>;
+ }
+ async function clearLogs(all:boolean){
+  const keys=all?clearable:clearable.filter(k=>logKeys.includes(k));
+  if(!keys.length||!await ask(t('clearLogConfirm')+' ('+keys.length+')'))return;
+  const count=await call('clearActivity',{keys});
+  if(keys.includes('job/'+job?.id))setJob(null);
+  if(keys.includes('removal/'+removalJob?.id))setRemovalJob(null);
+  setLogKeys([]);await reloadInit();setNotice({text:t('clearedLogs')+' '+count});
+ }
  function update(key:string,value:any){setCfg({...cfg,[key]:value});}
  async function save(){await persist(cfg);setNotice({text:t('saved')});}
  const entries=['desktop','cli','ide'];
@@ -94,7 +110,7 @@ function App(){
  }
  async function keepCopy(record:any,file:string){
   if(!await ask(t('keepCopyConfirm')+'\n'+file+'\n\n'+t('copiesMoved')+'\n'+record.copies.filter((c:any)=>c.file!==file).map((c:any)=>c.file).join('\n')))return;
-  await call('keepLocalCopy',{logical:record.id,token:record.copyToken,file,entry:record.entry});await refresh();if(record.entry){setTargetIssue(null);startFlow('download',[record.retryId],{targets:[record.entry]});}setNotice({text:t('copyKept')});
+  await call('keepLocalCopy',{logical:record.id,token:record.copyToken,file,entry:record.entry});setNeedsRefresh(true);setTargetIssue(null);setNotice({text:t('copyKept')});
  }
  function actions(items:any[]){
   const ids=items.map(r=>r.id);
@@ -107,12 +123,13 @@ function App(){
  const field=(label:string,value:string,change:(v:string)=>void,type='text',placeholder='')=><label className="field"><span>{t(label)}</span><input type={type} value={value??''} onChange={e=>change(e.target.value)} placeholder={placeholder} autoComplete="off"/></label>;
  if(!cfg)return <div className="loading"><p>{notice?.text??t('loading')}</p>{notice?.error&&<button onClick={()=>work(async()=>{await reloadInit();await refresh();},'refreshing')}>{t('checkAgain')}</button>}</div>;
  return <div className="shell"><aside className="sidebar"><div className="brand">sesshuttle</div><nav>{['conversations','projects','activity','backups','settings'].map(name=><button key={name} className={page===name?'active':''} onClick={()=>{setPage(name);}}>{t(name)}</button>)}</nav><div className="sidebar-bottom"><strong>{deviceName}</strong><span className="version">v{init?.version}</span></div></aside>
- <main><header className="topbar"><h1>{t(page)}</h1><div className="top-right">{init?.testMode&&<span className="badge amber">{t('testMode')}</span>}<span className={`connection-state ${init?.connected?'on':''}`}>{t(init?.connected?'connected':'offline')}</span><Select label={t('language')} value={locale} options={[{value:'zh-CN',label:'简体中文'},{value:'en',label:'English'}]} onChange={language=>work(async()=>{await call('saveConfig',{...init.config,language});setInit({...init,config:{...init.config,language}});setCfg({...cfg,language});setNotice({text:(language==='en'?en:zh).languageSaved});},'applying')}/>{page==='conversations'?<button disabled={busy} onClick={()=>work(async()=>{const result=await call('refresh');setData(result);setNotice({error:!!result.cloudError,text:t(result.cloudError?'cloudStale':'refreshDone')});},'refreshing')}>{t('refresh')}</button>:page==='projects'||page==='settings'?saveButton:null}</div></header>
+ <main><header className="topbar"><h1>{t(page)}</h1><div className="top-right">{init?.testMode&&<span className="badge amber">{t('testMode')}</span>}<span className={`connection-state ${init?.connected?'on':''}`}>{t(init?.connected?'connected':'offline')}</span><Select label={t('language')} value={locale} options={[{value:'zh-CN',label:'简体中文'},{value:'en',label:'English'}]} onChange={language=>work(async()=>{await call('saveConfig',{...init.config,language});setInit({...init,config:{...init.config,language}});setCfg({...cfg,language});setNotice({text:(language==='en'?en:zh).languageSaved});},'applying')}/>{page==='conversations'?<button disabled={busy} onClick={()=>work(async()=>{const result=await call('refresh');setData(result);setNeedsRefresh(false);setNotice({error:!!result.cloudError,text:t(result.cloudError?'cloudStale':'refreshDone')});},'refreshing')}>{t('refresh')}</button>:page==='projects'||page==='settings'?saveButton:null}</div></header>
  <div className="content">
  {notice&&<div role="alert" className={`notice ${notice.error?'error':''}`}><span>{notice.text}{notice.detail&&<small>{notice.detail}</small>}</span>{notice.go&&<button onClick={()=>setPage(notice.go)}>{t(notice.go)}</button>}<button className="notice-dismiss" aria-label={t('close')} onClick={()=>setNotice(null)}>×</button></div>}
  {init?.credentialError&&page!=='settings'&&<div className="credential-strip"><strong>{t(init.connected?'spaceJoined':'signInAgain')}</strong> {t(init.connected?(init.credentialError==='credential_save_pending'?'credential_save_pending':'onlyThisSession'):init.canRestore?init.credentialError:'reconnectAfterSession')} <button onClick={()=>setPage('settings')}>{t(init.connected?'manageConnection':'openConnection')}</button></div>}
  {busy&&phase!=='transferRunning'&&<div role="status" className="working"><progress/>{t(phase)}</div>}
  {page==='conversations'&&<>
+ {needsRefresh&&<div className="notice"><span>{t('manualRefreshHint')}</span><button disabled={busy} onClick={()=>work(refresh,'refreshing')}>{t('refresh')}</button></div>}
  {!init?.connected&&<div className="connect-banner"><span>{t('connectHint')}</span><button onClick={()=>setPage('settings')}>{t('configure')}</button></div>}
  {data.cloudError&&<div className="notice error">{t('cloudStale')} {t(data.cloudError.code)}</div>}{data.errors.length>0&&<div className="notice error"><details className="scan-issues" open={data.errors.length===1}><summary>{t('scanSummary')} ({data.errors.length})</summary>{data.errors.map((e:any,i:number)=><div className="scan-issue" key={i}><b>{dict[e.code]??t('scanFileError')}</b>{!dict[e.code]&&<small>{e.code}</small>}<code>{e.file??e.home}</code>{e.code==='duplicate_identity'&&e.id&&<button onClick={()=>showIssue(e.id)}>{t('inspectCopies')}</button>}</div>)}</details></div>}
  <div className="stats"><div><span>{t('mainChats')}</span><strong>{data.rows.filter((r:any)=>r.kind!=='background').length}</strong></div><div><span>{t('backgroundChats')}</span><strong>{data.rows.filter((r:any)=>r.kind==='background').length}</strong></div><div><span>{t('local_changes')}</span><strong>{data.rows.filter((r:any)=>['local_only','local_changes'].includes(r.status)).length}</strong></div><div><span>{t('remote_changes')}</span><strong>{data.rows.filter((r:any)=>['remote_only','remote_changes'].includes(r.status)).length}</strong></div><div><span>{t('lastCheck')}</span><small>{date(data.checkedAt)}</small></div></div>
@@ -137,29 +154,32 @@ function App(){
   setConnection({...emptyConnection});
   await reloadInit();
   if(connection.remember){setPhase('waitingAuthorization');await call('retryCredentialSave');await reloadInit();}
-  setPhase('refreshing');await refresh();setNotice({text:t('spaceJoined')});
-  if(deferred){setFlow(deferred);setDeferred(null);}
+  setNeedsRefresh(true);setData({rows:[],errors:[]});setBins(null);setNotice({text:t('spaceJoined')+' '+t('manualRefreshHint')});
+  if(deferred){setDeferred(null);setPage('conversations');}
  },'joiningSpace')}/>}
- {init.connected&&<div className="recovery"><p>{t('keyHint')}</p><label>{t('space')}<input value={init.connection?.space??''} readOnly/></label><label>{t('accessKey')}<input value={init.connection?.accessKeyId??''} readOnly/></label><button onClick={()=>work(async()=>{if(await call('exportRecovery'))setNotice({text:t('recoverySaved')});})}>{t('exportKey')}</button><button className="text-button" onClick={()=>work(async()=>{await call('disconnect');setConnection({...emptyConnection});await reloadInit();await refresh();setNotice({text:t('credential_reset')});})}>{t('disconnect')}</button><small>{t('disconnectHint')}</small></div>}</section></div></>}
+ {init.connected&&<div className="recovery"><p>{t('keyHint')}</p><label>{t('space')}<input value={init.connection?.space??''} readOnly/></label><label>{t('accessKey')}<input value={init.connection?.accessKeyId??''} readOnly/></label><button onClick={()=>work(async()=>{if(await call('exportRecovery'))setNotice({text:t('recoverySaved')});})}>{t('exportKey')}</button><button className="text-button" onClick={()=>work(async()=>{await call('disconnect');setConnection({...emptyConnection});await reloadInit();setNeedsRefresh(true);setData({rows:[],errors:[]});setBins(null);setNotice({text:t('credential_reset')});})}>{t('disconnect')}</button><small>{t('disconnectHint')}</small></div>}</section></div></>}
  {page==='projects'&&<><div className="actions"><button className="primary" disabled={busy} onClick={()=>work(async()=>setDetection(await call('detectPaths')),'checkingEntries')}>{t('detectEnvironment')}</button><small>{t('projectMappingHint')}</small></div><section className="card"><h2>{t('projectPath')}</h2>{Object.entries(Object.fromEntries(data.rows.filter((r:any)=>r.projectId).map((r:any)=>[r.projectId,r]))).map(([projectId,value]:any)=><div className="project-row" key={projectId}><div><strong>{projectLabel(value)}</strong><small>{value.project}</small></div><input value={cfg.bindings[projectId]??''} placeholder={t('chooseProject')} onChange={e=>update('bindings',{...cfg.bindings,[projectId]:e.target.value})}/><button onClick={()=>work(()=>pick(p=>update('bindings',{...cfg.bindings,[projectId]:p})))}>{t('bind')}</button><button disabled={!cfg.bindings[projectId]} onClick={()=>work(async()=>setGit(await call('projectInfo',{project:cfg.bindings[projectId]})))}>{t('gitInfo')}</button></div>)}{!data.rows.length&&<p>{t('noProjects')}</p>}{git&&<div className="notice">{git.git===false?t('noGit'):`${t('branch')}: ${git.branch} · ${t('commit')}: ${git.commit?.slice(0,12)} · ${t('changes')}: ${git.changes}`}</div>}</section><section className="card"><h2>{t('targets')}</h2><p className="muted">{t('entryHint')}</p>{entries.map(entry=><div className="target-card" key={entry}><h3>{t(entry)}</h3><EntryFields entry={entry} target={cfg.targets[entry]} t={t} pick={method=>work(()=>call(method))} change={value=>update('targets',{...cfg.targets,[entry]:value})}/></div>)}<p className="muted">{t('readOnlyNotice')}</p></section></>}
- {page==='backups'&&<><RemovalBins t={t} data={backupData.removalData} connected={init.connected} date={date} busy={busy} open={setRemoval} settings={()=>setPage('settings')} resume={(id:string,storageKey:string)=>work(async()=>{if(await ask(t('finishPendingHint'))){await call('finishCloudRemoval',{id,storageKey});await refresh();setBackupData(await call('backups'));await reloadInit();setNotice({text:t('cloudFinishDone')});}},'removingNow')}/><section className="card">{backupData.imports.filter((x:any)=>x.status==='needs_recovery').map((x:any,i:number)=><div className="notice error" key={i}>{t('import_needs_recovery')}<small>{x.backup}</small></div>)}{backupData.backups.length?backupData.backups.slice().sort((a:any,b:any)=>b.createdAt.localeCompare(a.createdAt)).map((b:any)=><div className="backup-row" key={b.id}><div><strong>{date(b.createdAt)}</strong><small>{b.home}</small><small>{b.files.length} {t('files')} · {b.id.slice(0,8)}</small></div><button disabled={busy} onClick={()=>work(async()=>{if(await ask(t('restoreConfirm'))){await call('restore',{id:b.id});setNotice({text:t('restoreDone')});setBackupData(await call('backups'));await refresh();}},'restoreActive')}>{t('restore')}</button></div>):<div className="empty"><p>{t('noBackups')}</p></div>}</section></>}
- {page==='activity'&&removalJobs.length>0&&<section className="card"><h2>{t('removalActivity')}</h2>{removalJobs.map((j:any)=><RemovalResult key={j.id} job={j} t={t} busy={busy} onRetry={reviewRemaining} onBackups={()=>setPage('backups')}/>)}</section>}
- {page==='activity'&&<section className="card">{[job,...jobs.filter(j=>j.id!==job?.id)].filter(Boolean).map((j:any)=><div className="job-card" key={j.id}><div className="card-title"><h3>{date(j.startedAt)}</h3>{badge(j.status)}</div>{j.items.map((x:any,i:number)=><div className="job-item" key={i}><strong>{x.title}</strong>{badge(x.status)}{x.cloudStatus&&<small>{t('cloud')}: {t(x.cloudStatus)}</small>}{x.historyReady&&<small>{t('historyReceived')}</small>}{x.error&&<p className="error-text">{t(x.error.code)} {x.error.detail}</p>}{!Object.keys(x.targets??{}).length&&['failed','excluded','busy','blocked','conflict','conflict_preserved'].includes(x.status)&&<button disabled={busy} onClick={()=>fix(x)}>{t('fixAndRetry')}</button>}<div className="target-results">{Object.entries(x.targets??{}).map(([entry,r]:any)=><span key={entry}>{t(entry)}: {t(r.status==='verified'&&r.omittedAttachments?.length?'imported_missing_attachments':r.status)}{r.error&&<small>{t(r.error.code)}</small>}{r.nativeProjectName&&<small>{t('projectLabelVerified')} · {r.nativeProjectName}</small>}{['failed','not_configured','imported'].includes(r.status)&&<button disabled={busy} onClick={()=>fix(x,entry)}>{t('retryEntry')}</button>}</span>)}</div></div>)}</div>)}{!job&&!jobs.length&&!removalJobs.length&&<div className="empty"><p>{t('noJobs')}</p></div>}</section>}
+ {page==='backups'&&<><ManualBackups data={backupData} cfg={cfg} t={t} date={date} size={size} busy={busy} ask={ask} work={work} call={call} reload={async()=>setBackupData(await call('backups'))} changed={()=>setNeedsRefresh(true)} notify={(text:string)=>setNotice({text})}/>
+ <button disabled={busy} onClick={()=>work(async()=>setBins(await call('backupBins')),'refreshing')}>{t('refreshBins')}</button>
+ {bins&&<RemovalBins t={t} data={bins} connected={init.connected} date={date} busy={busy} open={setRemoval} settings={()=>setPage('settings')} resume={(id:string,storageKey:string)=>work(async()=>{if(await ask(t('finishPendingHint'))){await call('finishCloudRemoval',{id,storageKey});setBins(await call('backupBins'));await reloadInit();setNotice({text:t('cloudFinishDone')});}},'removingNow')}/>}</>}
+ {page==='activity'&&<section className="card"><p>{t('clearLogHint')}</p><div className="actions"><button disabled={busy||!clearable.some(k=>logKeys.includes(k))} onClick={()=>work(()=>clearLogs(false))}>{t('clearSelectedLogs')} ({clearable.filter(k=>logKeys.includes(k)).length})</button><button disabled={busy||!clearable.length} onClick={()=>work(()=>clearLogs(true))}>{t('clearAllLogs')}</button></div></section>}
+ {page==='activity'&&removalJobs.length>0&&<section className="card"><h2>{t('removalActivity')}</h2>{removalJobs.map((j:any)=><div key={j.id}>{logCheck('removal/'+j.id)}<RemovalResult job={j} t={t} busy={busy} onRetry={reviewRemaining} onBackups={()=>setPage('backups')}/></div>)}</section>}
+ {page==='activity'&&<section className="card">{[job,...jobs.filter(j=>j.id!==job?.id)].filter(Boolean).map((j:any)=><div className="job-card" key={j.id}><div className="card-title"><h3>{logCheck('job/'+j.id)} {date(j.startedAt)}</h3>{badge(j.status)}</div>{j.items.map((x:any,i:number)=><div className="job-item" key={i}><strong>{x.title}</strong>{badge(x.status)}{x.cloudStatus&&<small>{t('cloud')}: {t(x.cloudStatus)}</small>}{x.historyReady&&<small>{t('historyReceived')}</small>}{x.error&&<p className="error-text">{t(x.error.code)} {x.error.detail}</p>}{!Object.keys(x.targets??{}).length&&['failed','excluded','busy','blocked','conflict','conflict_preserved'].includes(x.status)&&<button disabled={busy} onClick={()=>fix(x)}>{t('fixAndRetry')}</button>}<div className="target-results">{Object.entries(x.targets??{}).map(([entry,r]:any)=><span key={entry}>{t(entry)}: {t(r.status==='verified'&&r.omittedAttachments?.length?'imported_missing_attachments':r.status)}{r.error&&<small>{t(r.error.code)}</small>}{r.nativeProjectName&&<small>{t('projectLabelVerified')} · {r.nativeProjectName}</small>}{['failed','not_configured','imported'].includes(r.status)&&<button disabled={busy} onClick={()=>fix(x,entry)}>{t('retryEntry')}</button>}</span>)}</div></div>)}</div>)}{!job&&!jobs.length&&!removalJobs.length&&<div className="empty"><p>{t('noJobs')}</p></div>}</section>}
  {removalJob&&<div className="persistent-task removal-task"><RemovalResult job={removalJob} busy={busy} t={t} onRetry={reviewRemaining} onBackups={()=>setPage('backups')} onDismiss={()=>setRemovalJob(null)}/></div>}
  {job&&!removalJob&&<div className="persistent-task"><TaskFeedback job={job} t={t} size={size} onDismiss={()=>setJob(null)} onActivity={()=>setPage('activity')} onRepair={fix} onOpen={(id:string,e:string)=>work(()=>openNative(id,e),'openingNative')}/>
  {job.status==='running'&&<button className="text-button" onClick={()=>call('cancel').then(()=>setNotice({text:t('closePending')}))}>{t('pause')}</button>}</div>}
  </div></main>
  {flow&&<TransferFlow onCopies={(id:string)=>{setFlow(null);showIssue(id);}} request={flow} rows={data.rows} cfg={cfg} setConfig={persist} call={call} refreshRows={setData} t={t} size={size} onClose={()=>setFlow(null)}
  onStart={(p:any,confirmLarge:boolean,acceptedByItem:any,onlyEligible:boolean)=>{setFlow(null);setRemovalJob(null);setJob({id:p.token,status:'running',total:p.items.length,items:[],progress:{stage:'stageCheck',index:1,total:p.items.length,title:p.items[0]?.title}});
- work(async()=>{try{setJob(await call('execute',{token:p.token,confirmLarge,acceptedByItem,onlyEligible}));}catch(e){setJob(null);throw e;}await reloadInit();await refresh();},'transferRunning');}}/>}
+ work(async()=>{try{setJob(await call('execute',{token:p.token,confirmLarge,acceptedByItem,onlyEligible}));}catch(e){setJob(null);throw e;}await reloadInit();setNeedsRefresh(true);},'transferRunning');}}/>}
  {removal&&<RemovalFlow key={removal.plan?.token??removal.binId??'live'} t={t} size={size} locale={locale} connected={init.connected} call={call} initial={removal}
    onClose={()=>setRemoval(null)} onRepair={(p:string)=>{setRemoval(null);if(p==='scan'){fix({error:{code:'scan_incomplete'}});}else setPage(p);}}
    onExecute={(p:any,permanent:boolean,upgrade:boolean)=>{setRemoval(null);work(async()=>{
      const answer=await call('executeRemoval',{token:p.token,permanent,upgrade});setRemovalJob(answer);
      if(answer.status==='completed'){setSelected([]);setFocus(null);}
-     await reloadInit();await refresh();if(page==='backups')setBackupData(await call('backups'));
+     await reloadInit();setNeedsRefresh(true);if(page==='backups'){setBackupData(await call('backups'));setBins(null);}
    },'removingNow');}}/>}
- {detection&&<DetectionPanel report={detection} cfg={cfg} t={t} onRetry={async()=>{const next=await call('detectPaths');setDetection(next);return next;}} onClose={()=>setDetection(null)} onApply={async(next:any)=>{await persist(next);setDetection(null);await refresh();setNotice({text:t('pathsApplied')});}}/>}
+ {detection&&<DetectionPanel report={detection} cfg={cfg} t={t} onRetry={async()=>{const next=await call('detectPaths');setDetection(next);return next;}} onClose={()=>setDetection(null)} onApply={async(next:any)=>{await persist(next);setDetection(null);setNeedsRefresh(true);setNotice({text:t('pathsApplied')});}}/>}
  {targetIssue&&<div className="modal-backdrop"><section className="modal" role="dialog" aria-modal="true" aria-label={t('scanSummary')}><div className="card-title"><h2>{t(targetIssue.entry)} · {t('scanSummary')}</h2><button disabled={busy} onClick={()=>setTargetIssue(null)}>{t('close')}</button></div><code>{targetIssue.home}</code>
  {targetIssue.errors.map((e:any,i:number)=><p key={i}>{t(e.code)} <code>{e.file??e.home}</code></p>)}
  {targetIssue.copies.length>1&&targetIssue.copies.map((c:any)=><div key={c.file} className="scope-file"><b>{c.title}</b><code>{c.file}</code><small>{size(c.bytes)} · {date(c.updatedAt)}</small><p>{c.sample}</p>{!c.canUse?<p>{t('copies_indexed')} <code>{c.indexedFile}</code></p>:<button disabled={busy} onClick={()=>work(()=>keepCopy(targetIssue,c.file),'stageBackup')}>{t('keepThisCopy')}</button>}</div>)}

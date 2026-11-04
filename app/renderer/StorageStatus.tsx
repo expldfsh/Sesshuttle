@@ -15,6 +15,7 @@ export function StorageStatus({init,t,call,reload,viewCloud,busy,restore}:any){
  return <section className={'storage-state '+(init.connected?'joined':'offline')} aria-live="polite">
    <div className="card-title"><strong>{t(init.connected?'spaceJoined':'offline')}</strong>
     {init.connected&&<button className="primary" onClick={viewCloud}>{t('viewCloud')}</button>}</div>
+   {!init.connected&&init.canRestore&&!warning&&<button className="primary" disabled={waiting} onClick={restore}>{t('authorizeAndConnect')}</button>}
    {init.connected&&!warning&&<p>{t('credentialsRemembered')}</p>}
    {saving&&<p role="status"><progress/> {t(warning)}</p>}
    {warning&&!saving&&<div className="credential-note"><b>{t(init.connected?'onlyThisSession':init.canRestore?'savedConnectionLocked':'reconnectAfterSession')}</b>
