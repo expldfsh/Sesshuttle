@@ -32,18 +32,19 @@ async function discover(){
 }
 async function loadSecrets(){
  try{
-  if(state.get('credentialMethod')==='session')return;
+  if(testRoot||state.get('credentialMethod')==='session')return;
   const value=await retrieveConnection(state);
   if(!value)return;
-  secrets=value;const cfg=state.get('connection');
-  engine.vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key,{installation:state.get('device').id,deviceName:state.get('device').name});
-  state.set('credentialError',null);
- }catch{state.set('credentialError','credential_restore_failed');}
+  const cfg=state.get('connection');
+  const vault=new Vault(new R2Store({...cfg,...value.credentials}),cfg.space,value.key,{installation:state.get('device').id,deviceName:state.get('device').name});
+  await vault.open();secrets=value;engine.vault=vault;state.set('credentialError',null);
+ }catch(e){state.set('credentialError',e instanceof Fault?e.code:'credential_restore_failed');}
+ return {warning:state.get('credentialError')};
 }
 async function saveCurrentCredentials(){
  requireThat(secrets&&engine.vault,'storage_not_connected');
  try{await persistConnection(state,secrets,testRoot);state.set('credentialError',null);return {warning:null};}
- catch(e:any){const warning=['credential_write_failed','credential_test_memory','credential_service_unavailable'].includes(e.code)?e.code:'credential_write_failed';state.set('credentialError',warning);return {warning};}
+ catch(e:any){const warning=e instanceof Fault?e.code:'credential_write_failed';state.set('credentialError',warning);return {warning};}
 }
 async function destinationInfo(targets:any){
  const output:any={};
@@ -100,9 +101,8 @@ async function connect(input:any){requireThat(!engine.running,'task_running');co
  // and return an explicit warning; never write plaintext credentials.
  secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space,accessKeyId:credentials.accessKeyId});recovery=null;
  state.set('credentialMethod','session');
- if(input.remember===false){state.set('credentialError','credential_session_only');return {status:'connected',space};}
- const {warning}=await saveCurrentCredentials();
- return {status:'connected',space,warning};
+ state.set('credentialError','credential_session_only');
+ return {status:'connected',space};
 }
 async function projectInfo(project:string){await canonical(project);try{
  const options={cwd:project,timeout:5000,maxBuffer:65536};const [branch,commit,dirty]=await Promise.all([exec('git',['branch','--show-current'],options),exec('git',['rev-parse','HEAD'],options),exec('git',['status','--short'],options)]);
@@ -143,7 +143,7 @@ function connectionForSettings(connection:any, activeSecrets:any){
  return {...connection,accessKeyId:activeSecrets?.credentials?.accessKeyId??connection.accessKeyId??''};
 }
 async function request(method:string,args:any){switch(method){
- case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,removalJobs:removals.jobs().slice(0,30),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
+ case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,canRestore:!!state.get('connection')&&!testRoot&&state.get('credentialMethod')!=='session',credentialMethod:state.get('credentialMethod'),credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,removalJobs:removals.jobs().slice(0,30),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
  case 'saveConfig':return saveConfig(args);
  case 'detectPaths':return detectEnvironment({config:engine.config(),testRoot} as any);
  case 'destinationInfo':return destinationInfo(args.targets??engine.config().targets);
@@ -165,6 +165,7 @@ async function request(method:string,args:any){switch(method){
    const dest=await inside(documents,path.join(documents,'Sesshuttle Workspaces',label+'-'+args.projectId.slice(0,8)));
    await fs.mkdir(dest,{recursive:true,mode:0o700}).catch(()=>{throw new Fault('workspace_create_failed');});return canonical(dest);
  }
+ case 'restoreConnection':requireThat(!secrets,'invalid_action');return loadSecrets();
  case 'credentialHealth':return credentialHealth();
  case 'retryCredentialSave':return saveCurrentCredentials();
  case 'refresh':{
@@ -222,13 +223,13 @@ if(primaryInstance)app.whenReady().then(async()=>{
  for(const k of state.keys('job/')){const j=state.get(k);if(j.status==='running')state.set(k,{...j,status:'interrupted'});}
  for(const k of state.keys('import/')){const task=state.get(k);if(['prepared','validating'].includes(task.status))state.set(k,{...task,status:'needs_recovery'});}
  trash=new Trash(state,importer);for(const info of trash.list())if(['prepared','removing','restoring'].includes(info.status))await trash.mark(info,'needs_recovery');
- engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);removals=new Removals(engine,trash,{onProgress:(job:any)=>window?.webContents.send('sesshuttle:progress',{kind:'removal-progress',job})} as any);await loadSecrets();
+ engine=new Engine(state,{importer,onProgress:(data:any)=>window?.webContents.send('sesshuttle:progress',data)} as any);removals=new Removals(engine,trash,{onProgress:(job:any)=>window?.webContents.send('sesshuttle:progress',{kind:'removal-progress',job})} as any);
  updateMenu();updateTheme();
  session.defaultSession.setPermissionRequestHandler((_w,_p,callback)=>callback(false));
  window=new BrowserWindow({width:1320,height:860,minWidth:780,minHeight:600,title:'sesshuttle',backgroundColor:getTheme(state.get('config')?.theme).colors.bg,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-navigate',(event,url)=>{if(url!==pathToFileURL(renderer).href)event.preventDefault();});
  let modifying=false;
- const exclusive=new Set(['execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
+ const exclusive=new Set(['execute','preview','refresh','discardPlan','saveConfig','connect','disconnect','retryCredentialSave','restoreConnection','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore']);
  ipcMain.handle('sesshuttle:request',async(event,method,args)=>{try{requireThat(event.sender===window.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url===pathToFileURL(renderer).href,'invalid_action');requireThat(typeof method==='string'&&JSON.stringify(args).length<256000,'invalid_action');const guarded=exclusive.has(method);if(guarded){requireThat(!modifying,'task_running');modifying=true;}try{return {ok:true,data:await request(method,args)};}finally{if(guarded)modifying=false;}}catch(e){return {ok:false,error:publicError(e)};}});
  window.on('close',event=>{if(engine.running){event.preventDefault();if(!deletionActive)engine.cancel();window.webContents.send('sesshuttle:closePending',deletionActive);}});
  await window.loadFile(renderer);

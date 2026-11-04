@@ -46,8 +46,15 @@ function App(){
   await call('continue',{logicalId:id,entry});setNotice({text:t('launchRequested')+' · '+t(entry)});
  }
  async function refresh(){const x=await call('refresh');setData(x);}
- async function reloadInit(){const x=await call('init');setInit(x);setCfg(x.config);setDeviceName(x.device.name);setJobs(x.jobs??[]);setRemovalJobs(x.removalJobs??[]);if(!offeredRecovery.current){offeredRecovery.current=true;const pending=x.removalJobs?.find((j:any)=>['interrupted','partial','attention'].includes(j.status));if(pending)setRemovalJob(pending);}if(x.connection)setConnection((c:any)=>({...c,...x.connection,mode:'join'}));}
- useEffect(()=>{work(async()=>{await reloadInit();await refresh();});return window.sesshuttle.onProgress((x:any)=>{if(x.kind==='removal-progress')setRemovalJob({...x.job});else{setRemovalJob(null);setJob({...x});}});},[]);
+ async function reloadInit(){const x=await call('init');setInit(x);setCfg(x.config);setDeviceName(x.device.name);setJobs(x.jobs??[]);setRemovalJobs(x.removalJobs??[]);if(!offeredRecovery.current){offeredRecovery.current=true;const pending=x.removalJobs?.find((j:any)=>['interrupted','partial','attention'].includes(j.status));if(pending)setRemovalJob(pending);}if(x.connection)setConnection((c:any)=>c.recoveryToken?c:{...c,...x.connection,mode:'join'});return x;}
+ async function restoreSaved(){
+  setPhase('waitingAuthorization');
+  await call('restoreConnection');
+  const next=await reloadInit();
+  if(!next.connected)setPage('settings');
+  await refresh();
+ }
+ useEffect(()=>{work(async()=>{const x=await reloadInit();if(x.canRestore&&!x.connected)await restoreSaved();else await refresh();});return window.sesshuttle.onProgress((x:any)=>{if(x.kind==='removal-progress')setRemovalJob({...x.job});else{setRemovalJob(null);setJob({...x});}});},[]);
  useEffect(()=>applyTheme(cfg?.theme),[cfg?.theme]);
  useEffect(()=>window.sesshuttle.onClosePending((deleting?:boolean)=>setNotice({text:t(deleting?'closeAfterRemoval':'closePending')})),[locale]);
  useEffect(()=>{let active=true;if(page==='backups')call('backups').then(result=>{if(active)setBackupData(result);}).catch(e=>{if(active)setNotice({error:true,text:t(e.code??'operation_failed')});});return()=>{active=false;};},[page]);
@@ -79,7 +86,7 @@ function App(){
  <main><header className="topbar"><h1>{t(page)}</h1><div className="top-right">{init?.testMode&&<span className="badge amber">{t('testMode')}</span>}<span className={`connection-state ${init?.connected?'on':''}`}>{t(init?.connected?'connected':'offline')}</span><Select label={t('language')} value={locale} options={[{value:'zh-CN',label:'简体中文'},{value:'en',label:'English'}]} onChange={language=>work(async()=>{await call('saveConfig',{...init.config,language});setInit({...init,config:{...init.config,language}});setCfg({...cfg,language});setNotice({text:(language==='en'?en:zh).languageSaved});},'applying')}/>{page==='conversations'?<button disabled={busy} onClick={()=>work(async()=>{const result=await call('refresh');setData(result);setNotice({error:!!result.cloudError,text:t(result.cloudError?'cloudStale':'refreshDone')});},'refreshing')}>{t('refresh')}</button>:page==='projects'||page==='settings'?saveButton:null}</div></header>
  <div className="content">
  {notice&&<div role="alert" className={`notice ${notice.error?'error':''}`}><span>{notice.text}{notice.detail&&<small>{notice.detail}</small>}</span>{notice.go&&<button onClick={()=>setPage(notice.go)}>{t(notice.go)}</button>}<button aria-label={t('close')} onClick={()=>setNotice(null)}>×</button></div>}
- {init?.credentialError&&page!=='settings'&&<div className="credential-strip"><strong>{t(init.connected?'spaceJoined':'signInAgain')}</strong> {t(init.connected?'onlyThisSession':'credential_restore_failed')} <button onClick={()=>setPage('settings')}>{t('checkStorage')}</button></div>}
+ {init?.credentialError&&page!=='settings'&&<div className="credential-strip"><strong>{t(init.connected?'spaceJoined':'signInAgain')}</strong> {t(init.connected?'onlyThisSession':init.credentialError)} <button onClick={()=>setPage('settings')}>{t(init.connected?'manageConnection':'openConnection')}</button></div>}
  {busy&&phase!=='transferRunning'&&<div role="status" className="working"><progress/>{t(phase)}</div>}
  {page==='conversations'&&<>
  {!init?.connected&&<div className="connect-banner"><span>{t('connectHint')}</span><button onClick={()=>setPage('settings')}>{t('configure')}</button></div>}
@@ -97,14 +104,16 @@ function App(){
  <h3>{t('history')}</h3><small className="muted">{t('recentMessages')}</small><div className="messages">{row.messages.map((m:any,i:number)=><div className={`message ${m.role}`} key={i}><small>{m.role==='user'?t('you'):m.role==='tool'?t('tool'):'Codex'}</small><p>{m.text}</p></div>)}{!row.messages.length&&<p className="muted">{t('noMessages')}</p>}</div></>:<div className="empty detail-empty"><p>{t('noHistory')}</p></div>}</aside></section>
 
  </>}
- {page==='settings'&&<><StorageStatus init={init} t={t} call={call} reload={reloadInit} viewCloud={viewCloud}/><div className="settings-grid"><section className="card"><h2>{t('localSettings')}</h2><button className="primary" disabled={busy} onClick={()=>work(async()=>setDetection(await call('detectPaths')),'checkingEntries')}>{t('detectEnvironment')}</button>{field('deviceName',deviceName,setDeviceName)}<label className="field"><span>{t('sourceHomes')}</span><textarea rows={3} value={cfg.sourceHomes.join('\n')} onChange={e=>update('sourceHomes',e.target.value.split('\n'))}/></label><button onClick={()=>work(()=>pick(p=>update('sourceHomes',[...new Set([...cfg.sourceHomes,p])])))}>{t('bind')}</button><div className="diagnostics-action"><button onClick={()=>work(async()=>setDiagnostic(await call('diagnostics')))}>{t('diagnostics')}</button></div></section>
+ {page==='settings'&&<><StorageStatus init={init} t={t} call={call} reload={reloadInit} viewCloud={viewCloud} busy={busy} restore={()=>work(restoreSaved,'waitingAuthorization')}/><div className="settings-grid"><section className="card"><h2>{t('localSettings')}</h2><button className="primary" disabled={busy} onClick={()=>work(async()=>setDetection(await call('detectPaths')),'checkingEntries')}>{t('detectEnvironment')}</button>{field('deviceName',deviceName,setDeviceName)}<label className="field"><span>{t('sourceHomes')}</span><textarea rows={3} value={cfg.sourceHomes.join('\n')} onChange={e=>update('sourceHomes',e.target.value.split('\n'))}/></label><button onClick={()=>work(()=>pick(p=>update('sourceHomes',[...new Set([...cfg.sourceHomes,p])])))}>{t('bind')}</button><div className="diagnostics-action"><button onClick={()=>work(async()=>setDiagnostic(await call('diagnostics')))}>{t('diagnostics')}</button></div></section>
  <section className="card storage-card"><div className="card-title"><h2>{t('storage')}</h2>{init.connected&&badge('connected')}</div>{!init.connected&&<ConnectionForm value={connection} change={setConnection} busy={busy} t={t}
  onLoad={()=>work(async()=>{const r=await call('importRecovery');if(r)setConnection({...emptyConnection,...r,remember:connection.remember});})}
  onTest={()=>work(async()=>{await call('connect',{...connection,mode:'test'});setNotice({text:t('bucketTestOk')});})}
  onConnect={()=>work(async()=>{
   await call('connect',connection);
   setConnection({...emptyConnection});
-  await reloadInit();await refresh();setNotice({text:t('spaceJoined')});
+  await reloadInit();
+  if(connection.remember){setPhase('waitingAuthorization');await call('retryCredentialSave');await reloadInit();}
+  setPhase('refreshing');await refresh();setNotice({text:t('spaceJoined')});
   if(deferred){setFlow(deferred);setDeferred(null);}
  },'joiningSpace')}/>}
  {init.connected&&<div className="recovery"><p>{t('keyHint')}</p><label>{t('space')}<input value={init.connection?.space??''} readOnly/></label><label>{t('accessKey')}<input value={init.connection?.accessKeyId??''} readOnly/></label><button onClick={()=>work(async()=>{if(await call('exportRecovery'))setNotice({text:t('recoverySaved')});})}>{t('exportKey')}</button><button className="text-button" onClick={()=>work(async()=>{await call('disconnect');setConnection({...emptyConnection});await reloadInit();await refresh();setNotice({text:t('credential_reset')});})}>{t('disconnect')}</button><small>{t('disconnectHint')}</small></div>}</section></div></>}

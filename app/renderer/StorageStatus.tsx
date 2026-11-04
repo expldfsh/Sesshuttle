@@ -1,27 +1,32 @@
 import React,{useState} from 'react';
-export function StorageStatus({init,t,call,reload,viewCloud}:any){
+export function StorageStatus({init,t,call,reload,viewCloud,busy,restore}:any){
  const [health,setHealth]=useState<any>(null),[pending,setPending]=useState(''),[message,setMessage]=useState('');
  const warning=init.credentialError;
  async function action(method:string){
-  setPending(method);setMessage('');
+  setPending(method);setMessage('');setHealth(null);
   try{
-   if(method==='credentialHealth'){setHealth(await call(method));}
-   else{const r=await call(method);await reload();setMessage(t(r.warning??'credentialsRemembered'));}
+   if(method==='credentialHealth')setHealth(await call(method));
+   else{await call(method);await reload();}
   }catch(e:any){setMessage(t(e.code??'operation_failed'));}
   finally{setPending('');}
  }
+ const waiting=busy||!!pending;
  return <section className={'storage-state '+(init.connected?'joined':'offline')} aria-live="polite">
-   <div className="card-title"><strong>{t(init.connected?'spaceJoined':warning?'connectionNeedsCredentials':'offline')}</strong>
+   <div className="card-title"><strong>{t(init.connected?'spaceJoined':'offline')}</strong>
     {init.connected&&<button className="primary" onClick={viewCloud}>{t('viewCloud')}</button>}</div>
-   {warning&&<div className="credential-note"><b>{t(init.connected?'onlyThisSession':'signInAgain')}</b><p>{t(warning)}</p>
-    <div className="actions"><button disabled={!!pending} onClick={()=>action('credentialHealth')}>{t('checkStorage')}</button>
-     {init.connected&&<button disabled={!!pending} onClick={()=>action('retryCredentialSave')}>{t('saveCredentialsAgain')}</button>}</div></div>}
-   {pending&&<p role="status">{t('checkingStorage')}</p>}
+   {init.connected&&!warning&&<p>{t('credentialsRemembered')}</p>}
+   {warning&&<div className="credential-note"><b>{t(init.connected?'onlyThisSession':init.canRestore?'savedConnectionLocked':'reconnectAfterSession')}</b>
+    {(init.connected||init.canRestore)&&<p>{t(warning)}</p>}
+    <div className="actions">
+     {init.connected&&<button disabled={waiting} onClick={()=>action('retryCredentialSave')}>{t('rememberAndAuthorize')}</button>}
+     {!init.connected&&init.canRestore&&<button className="primary" disabled={waiting} onClick={restore}>{t('authorizeAndConnect')}</button>}
+     {warning.startsWith('credential_')&&warning!=='credential_session_only'&&<button disabled={waiting} onClick={()=>action('credentialHealth')}>{t('checkStorage')}</button>}
+    </div></div>}
+   {pending&&<p role="status"><progress/> {t(pending==='credentialHealth'?'checkingStorage':'waitingAuthorization')}</p>}
    {health&&<div className="repair-details"><strong>{t('storageCheckResult')}</strong>
-    <p>{health.linux?(health.service?t('serviceReachable'):t('serviceUnconfirmed')):t('unlockSystemStore')}</p>
-    {health.linux&&<p>{t(/kde|plasma/i.test(health.desktop)?'kwalletHelp':'secretServiceHelp')}</p>}
-    {health.linux&&<details><summary>{t('archSteps')}</summary><p>{t('archGuide')}</p><code>busctl --user introspect org.freedesktop.secrets /org/freedesktop/secrets org.freedesktop.Secret.Service</code><code>sudo pacman -S --needed gnome-keyring libsecret</code></details>}
-    <small>{health.desktop} · {health.backend}</small></div>}
-   {message&&<p role="status">{message}</p>}
+    <p>{t(!health.linux?'systemStoreHint':health.service?(health.locked?'systemLocked':'systemReachable'):(health.reason??'credential_service_unavailable'))}</p>
+    {health.linux&&!health.service&&<details open><summary>{t('linuxSetupHelp')}</summary><p>{t('serviceSetup')}</p><small>{t('archExample')}</small><code>sudo pacman -S --needed gnome-keyring</code><p>{t('afterServiceSetup')}</p></details>}
+   </div>}
+   {message&&<p role="alert">{message}</p>}
  </section>;
 }

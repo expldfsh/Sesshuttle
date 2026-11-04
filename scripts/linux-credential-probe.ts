@@ -16,7 +16,10 @@ app.whenReady().then(async()=>{
  const state=new State(path.join(root,'store'));
  try{
   const value={credentials:{accessKeyId:'fixture-id',secretAccessKey:'fixture-secret'},key:'fixture-recovery'};
-  if(process.env.SESSHUTTLE_PROBE_MODE==='save'){
+  const mode=process.env.SESSHUTTLE_PROBE_MODE;
+  if(mode==='cancel'){
+   await assert.rejects(retrieveConnection(state),{code:'credential_cancelled'});
+  }else if(mode==='save'){
    state.set('connection',{space:'isolated-fixture'});
    await persistConnection(state,value);
   }else assert.deepEqual(await retrieveConnection(state),value);

@@ -732,3 +732,95 @@ const connectionLabels:Record<string,[string,string]>={
  ]
 };
 for(const [key,[cn,us]] of Object.entries(connectionLabels)){zh[key]=cn;en[key]=us;}
+
+const authorizationLabels:Record<string,[string,string]>={
+ "waitingAuthorization": [
+  "正在访问系统密码库。若系统弹出授权窗口，请在那里确认或取消。",
+  "Accessing the system password store. If a system dialog opens, allow or cancel there."
+ ],
+ "systemStoreHint": [
+  "点「记住连接」或「解锁并连接」，按 macOS 系统提示操作。",
+  "Choose Remember connection or Unlock and connect and follow the macOS dialog."
+ ],
+ "manageConnection": [
+  "管理连接",
+  "Manage connection"
+ ],
+ "openConnection": [
+  "打开连接设置",
+  "Open connection settings"
+ ],
+ "rememberAndAuthorize": [
+  "记住连接…",
+  "Remember connection…"
+ ],
+ "authorizeAndConnect": [
+  "解锁并连接…",
+  "Unlock and connect…"
+ ],
+ "savedConnectionLocked": [
+  "已保存的连接尚未恢复。",
+  "The saved connection has not been restored."
+ ],
+ "reconnectAfterSession": [
+  "上次仅在本次运行中使用。重新导入连接文件或填写下方信息。",
+  "The previous connection was session-only. Import your connection file or fill in the fields below."
+ ],
+ "credential_cancelled": [
+  "已取消系统授权。准备好时可以再次授权。",
+  "System authorization was cancelled. You can try again when ready."
+ ],
+ "credential_authorization_failed": [
+  "系统未授权访问密码库。请重试并在系统窗口中确认。",
+  "The system did not grant access. Try again and allow access in the system dialog."
+ ],
+ "credential_item_missing": [
+  "系统密码库里找不到这份连接。请导入恢复文件并重新连接。",
+  "The saved credentials could not be found. Import the recovery file and reconnect."
+ ],
+ "credential_provider_failed": [
+  "密码库回应了请求，但未完成读写。请重新授权；仍失败时可仅本次连接。",
+  "The password store responded but could not complete the request. Retry authorization or connect for this session."
+ ],
+ "credential_service_timeout": [
+  "系统密码库没有响应。请重新检查服务，再试一次。",
+  "The system password store did not respond. Check the service and retry."
+ ],
+ "credential_locked": [
+  "密码库仍锁定。点击重新授权，在系统窗口中确认。",
+  "The password store is still locked. Request authorization again and respond in the system dialog."
+ ],
+ "credential_service_unavailable": [
+  "当前用户会话没有可访问的系统密码库。可查看设置步骤，或继续仅本次使用。",
+  "No system password store is reachable in this user session. See setup steps or use this session only."
+ ],
+ "systemLocked": [
+  "系统密码库已锁定。使用上方按钮可请求系统打开解锁窗口。",
+  "The password store is locked. Use the authorization button above to request the system dialog."
+ ],
+ "systemReachable": [
+  "系统密码库可访问。使用上方按钮重试。",
+  "The system password store is reachable. Use the button above to retry."
+ ],
+ "linuxSetupHelp": [
+  "如何在当前 Linux 会话启用密码库",
+  "Enable a password store for this Linux session"
+ ],
+ "serviceSetup": [
+  "请在当前图形会话中启用支持 Secret Service 的密码库，例如 GNOME Keyring、KWallet 或已启用此功能的 KeePassXC。已有密码库时优先使用它。",
+  "Enable a Secret Service provider for this graphical login, such as GNOME Keyring, KWallet, or KeePassXC with Secret Service enabled. Prefer your existing provider."
+ ],
+ "archExample": [
+  "Arch 示例（本机尚未安装密码库时）",
+  "Arch example if no password store is installed"
+ ],
+ "afterServiceSetup": [
+  "设置好后点「检查凭据存储」，再点「记住连接」。本次已连接的空间可继续使用。",
+  "After setup, check credential storage and choose Remember connection. A space already connected in this session stays usable."
+ ],
+ "credentialsRemembered": [
+  "连接已安全保存在这台电脑，下次启动会尝试自动连接。",
+  "Connection saved securely on this computer. Sesshuttle will reconnect on startup."
+ ]
+};
+for(const [key,[cn,us]] of Object.entries(authorizationLabels)){zh[key]=cn;en[key]=us;}
