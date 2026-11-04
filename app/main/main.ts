@@ -1,3 +1,4 @@
+import {readRecovery,writeRecovery} from '../../core/recovery-file.mjs';
 import {Removals} from '../../core/removals.mjs';
 import {changeCloud} from '../../core/cloud-trash.mjs';
 import {bundleBytes} from '../../core/bundle.mjs';
@@ -31,6 +32,7 @@ async function discover(){
 }
 async function loadSecrets(){
  try{
+  if(state.get('credentialMethod')==='session')return;
   const value=await retrieveConnection(state);
   if(!value)return;
   secrets=value;const cfg=state.get('connection');
@@ -89,11 +91,16 @@ async function saveConfig(input:any){requireThat(!engine.running,'task_running')
 async function connect(input:any){requireThat(!engine.running,'task_running');const cfg={endpoint:String(input.endpoint??'').trim(),bucket:String(input.bucket??'').trim()};
  const credentials={accessKeyId:String(input.accessKeyId??''),secretAccessKey:String(input.secretAccessKey??'')};requireThat(credentials.accessKeyId&&credentials.secretAccessKey,'credentials_required');const store=new R2Store({...cfg,...credentials},testRoot?{allowLocal:true}:{});
  await store.test();if(input.mode==='test')return {status:'connected'};
- const space=input.mode==='create'?id():(recovery?.space??String(input.space??''));const key=input.mode==='create'?newKey():(recovery?.key??String(input.key??''));parseKey(key);
+ const loaded=input.mode==='join'&&input.recoveryToken?recovery:null;
+ if(input.recoveryToken&&input.mode==='join')requireThat(loaded?.token===input.recoveryToken&&loaded.endpoint===cfg.endpoint&&loaded.bucket===cfg.bucket&&loaded.space===input.space,'recovery_target_changed');
+ const space=input.mode==='create'?id():String(input.space??'');
+ const key=input.mode==='create'?newKey():(loaded?.key??String(input.key??''));parseKey(key);
  const vault=new Vault(store,space,key,{installation:state.get('device').id,deviceName:state.get('device').name});if(input.mode==='create')await vault.create();else await vault.open();
  // If secure persistence is unavailable, keep the successful connection in memory
  // and return an explicit warning; never write plaintext credentials.
- secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space});recovery=null;
+ secrets={credentials,key};engine.vault=vault;state.set('connection',{...cfg,space,accessKeyId:credentials.accessKeyId});recovery=null;
+ state.set('credentialMethod','session');
+ if(input.remember===false){state.set('credentialError','credential_session_only');return {status:'connected',space};}
  const {warning}=await saveCurrentCredentials();
  return {status:'connected',space,warning};
 }
@@ -133,7 +140,7 @@ async function continueEntry({logicalId,entry}:any){requireThat(['desktop','cli'
 // Settings can display the identifier of the credentials already unlocked on this device.
 function connectionForSettings(connection:any, activeSecrets:any){
  if(!connection)return null;
- return {...connection,accessKeyId:activeSecrets?.credentials?.accessKeyId??''};
+ return {...connection,accessKeyId:activeSecrets?.credentials?.accessKeyId??connection.accessKeyId??''};
 }
 async function request(method:string,args:any){switch(method){
  case 'init':return {config:engine.config(),device:state.get('device'),connection:connectionForSettings(state.get('connection'),secrets),connected:!!engine.vault,credentialError:state.get('credentialError'),version:app.getVersion(),testMode:!!testRoot,removalJobs:removals.jobs().slice(0,30),jobs:state.keys('job/').map((k:string)=>state.get(k)).sort((a:any,b:any)=>b.startedAt.localeCompare(a.startedAt)).slice(0,10)};
@@ -174,9 +181,15 @@ async function request(method:string,args:any){switch(method){
  case 'connect':return connect(args);
  case 'disconnect':requireThat(!engine.running,'task_running');engine.vault=null;secrets=null;recovery=null;state.set('credentialError',null);state.set('connection',null);return {status:'disconnected'};
  case 'importRecovery':{const r=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'sesshuttle',extensions:['json']}]});if(r.canceled)return null;
-  const stat=await fs.stat(r.filePaths[0]);requireThat(stat.size<16384,'invalid_key');const x=JSON.parse(await fs.readFile(r.filePaths[0],'utf8'));requireThat(x.format===1&&typeof x.space==='string','invalid_key');parseKey(x.key);recovery=x;return {space:x.space,endpoint:x.endpoint,bucket:x.bucket};}
- case 'exportRecovery':{requireThat(secrets&&engine.vault,'storage_not_connected');const r=await dialog.showSaveDialog(window,{defaultPath:'sesshuttle-recovery.json'});if(r.canceled||!r.filePath)return null;
-  await atomic(r.filePath,JSON.stringify({format:1,...state.get('connection'),key:secrets.key},null,2));return {saved:true};}
+  const stat=await fs.stat(r.filePaths[0]);requireThat(stat.size<16384,'invalid_recovery_file');
+  const x=readRecovery(await fs.readFile(r.filePaths[0],'utf8'),connectionForSettings(state.get('connection'),secrets));
+  // Validate the destination with the same endpoint policy as the connection before showing it.
+  new R2Store(x,testRoot?{allowLocal:true}:{});
+  const token=id();recovery={...x,token};
+  return {space:x.space,endpoint:x.endpoint,bucket:x.bucket,accessKeyId:x.accessKeyId,recoveryToken:token};}
+ case 'exportRecovery':{requireThat(secrets&&engine.vault,'storage_not_connected');const text=writeRecovery(state.get('connection'),secrets);
+  const r=await dialog.showSaveDialog(window,{defaultPath:'sesshuttle-recovery.json'});if(r.canceled||!r.filePath)return null;
+  await atomic(r.filePath,text);return {saved:true};}
  case 'preview':
   requireThat(Object.values(args.replacements??{}).every(p=>typeof p==='string'&&attachmentPicks.has(p)),'invalid_selection');
   return engine.preview(args);

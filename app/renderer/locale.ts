@@ -680,3 +680,55 @@ const removalLabels:Record<string,[string,string]>={
   configureRemovalStorage: ["配置云端存储","Configure cloud storage"]
 };
 for(const [key,[chinese,english]] of Object.entries(removalLabels)){zh[key]=chinese;en[key]=english;}
+
+const connectionLabels:Record<string,[string,string]>={
+ "rememberDevice": [
+  "在这台电脑记住连接",
+  "Remember this connection on this computer"
+ ],
+ "replaceRecovery": [
+  "选择另一份恢复文件",
+  "Choose a different recovery file"
+ ],
+ "importConnectionFile": [
+  "从另一台电脑导入连接文件…",
+  "Import a connection file from another computer…"
+ ],
+ "fileFieldsReady": [
+  "文件已载入，连接信息已填好。输入 R2 Secret Access Key 即可连接。",
+  "File loaded. Your connection details are filled in. Enter the R2 Secret Access Key to connect."
+ ],
+ "legacyIdMissing": [
+  "旧文件未包含 Access Key ID。可在已连接的电脑上用新版重新导出，或在下方填写 ID。",
+  "This older file has no Access Key ID. Export it again with the new version on the connected computer, or enter the ID below."
+ ],
+ "manualConnection": [
+  "改为手动输入连接信息",
+  "Enter connection details manually"
+ ],
+ "stillNeeded": [
+  "连接还需要填写",
+  "Still needed to connect"
+ ],
+ "invalid_recovery_file": [
+  "无法读取此连接文件。请选择从 Sesshuttle 导出的恢复 JSON。",
+  "Cannot read this connection file. Choose a recovery JSON exported by Sesshuttle."
+ ],
+ "export_id_missing": [
+  "当前连接没有可导出的 Access Key ID。先解锁已保存的连接，或重新填写凭据，再导出。",
+  "This connection has no Access Key ID to export. Unlock the saved connection or enter its credentials, then export again."
+ ],
+ "recovery_target_changed": [
+  "连接地址与恢复文件不匹配。请选择对应空间的文件，或改用手动输入。",
+  "The destination does not match the recovery file. Choose the file for this space or enter the connection manually."
+ ],
+ "keyHint": [
+  "恢复文件含同步空间的解密密钥和 Access Key ID，请妥善保管。新电脑导入后只需补填 R2 Secret Access Key。",
+  "Keep the recovery file safe. It contains the space decryption key and Access Key ID. On the new computer, import it and enter the R2 Secret Access Key."
+ ],
+ "credential_session_only": [
+  "你选择了仅本次使用。退出后需重新填写连接凭据。",
+  "You chose to use this connection for this session. Enter credentials again after quitting."
+ ]
+};
+for(const [key,[cn,us]] of Object.entries(connectionLabels)){zh[key]=cn;en[key]=us;}
