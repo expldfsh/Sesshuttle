@@ -1,16 +1,16 @@
-# Sesshuttle 0.4.1 使用指南
+# Sesshuttle 0.4.2 使用指南
 
 两台电脑都已连上 R2，并且 Linux 已经能看到云端对话时，从下面的「导入到 Linux」开始。恢复文件可以继续使用。
 
 ## 安装或升级
 
-- **Mac Apple Silicon** 打开 `sesshuttle-0.4.1-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
+- **Mac Apple Silicon** 打开 `sesshuttle-0.4.2-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
 - **Arch Linux x86_64** 在安装包所在目录运行下面两行，保持解压出的目录完整，在自己的图形桌面会话中启动。
-- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.4.1-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.4.1-linux-amd64.deb`。
+- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.4.2-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.4.2-linux-amd64.deb`。
 
 ```sh
-tar -xzf sesshuttle-0.4.1-linux-x64.tar.gz
-./sesshuttle-0.4.1-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.4.2-linux-x64.tar.gz
+./sesshuttle-0.4.2-linux-x64/sesshuttle
 ```
 
 升级时退出旧版，保留原有应用数据。两台电脑分别安装并登录要使用的 Codex 应用。项目代码通过 Git 或自己的文件传输方式准备。

@@ -164,7 +164,22 @@ td small { display: block; font-size: 13px; color: var(--muted); margin-top: 5px
 .text-button { background: transparent; border-color: transparent; padding: 5px 6px; color: var(--accent); font-size: 14px; }
 .notice { padding: 12px 15px; border: 1px solid var(--success-line); background: var(--success-bg); color: var(--success); border-radius: 6px; margin: 12px 0; display: flex; gap: 10px; align-items: center; font-size: 15px; line-height: 1.65; }
 .notice.error { background: var(--danger-bg); border-color: var(--danger-line); color: var(--danger); }
-.notice button { margin-left: auto; border: 0; background: transparent; color: inherit; font-size: 20px; }
+.notice .notice-dismiss { margin-left: auto; flex: none; }
+.scan-issues { min-width: 0; width: 100%; }
+.scan-issues > summary {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 7px 12px;
+}
+.scan-issues > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.scan-issue { display: grid; justify-items: start; gap: 6px; margin-top: 12px; }
+.scan-issue code { max-width: 100%; overflow-wrap: anywhere; }
+.notice button:not(.notice-dismiss) { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
+.notice button:not(.notice-dismiss):hover:not(:disabled) { background: var(--accent-hover); }
+
 .notice small { display: block; overflow-wrap: anywhere; }
 .working { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--accent); margin-bottom: 14px; }
 .working span { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 1s infinite; }

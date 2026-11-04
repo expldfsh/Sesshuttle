@@ -1,4 +1,4 @@
-# Sesshuttle 0.4.1
+# Sesshuttle 0.4.2
 
 If your Linux device already shows the cloud chat, go straight to **Import and continue**. Keep the existing space, application data and recovery file when upgrading.
 
@@ -6,11 +6,11 @@ If your Linux device already shows the cloud chat, go straight to **Import and c
 
 - On Apple Silicon, open the DMG and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.4.1-linux-amd64.deb` using your software installer.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.4.2-linux-amd64.deb` using your software installer.
 
 ```sh
-tar -xzf sesshuttle-0.4.1-linux-x64.tar.gz
-./sesshuttle-0.4.1-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.4.2-linux-x64.tar.gz
+./sesshuttle-0.4.2-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each device. Bring project files to each device separately. Fonts are bundled.

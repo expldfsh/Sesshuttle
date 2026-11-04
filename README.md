@@ -2,13 +2,13 @@
 
 在 Mac 和 Linux 之间接着做同一个 Codex 对话。把选中的对话加密备份到自己的 Cloudflare R2，再导入另一台电脑的 GPT 桌面端、CLI 或 VS Code。
 
-## 安装 0.4.1
+## 安装 0.4.2
 
 | 电脑 | 本地安装包 | 打开方式 |
 | --- | --- | --- |
-| Apple Silicon Mac（包括 M3） | `release/sesshuttle-0.4.1-mac-arm64.dmg` | 打开镜像，将 Sesshuttle 拖到“应用程序”。本地构建未做 Developer ID 签名和公证。 |
-| Arch 等 x86_64 Linux | `release/sesshuttle-0.4.1-linux-x64.tar.gz` | 解压，在图形桌面启动其中的 `sesshuttle`。 |
-| Debian / Ubuntu x86_64 | `release/sesshuttle-0.4.1-linux-amd64.deb` | 用系统软件安装器安装。 |
+| Apple Silicon Mac（包括 M3） | `release/sesshuttle-0.4.2-mac-arm64.dmg` | 打开镜像，将 Sesshuttle 拖到“应用程序”。本地构建未做 Developer ID 签名和公证。 |
+| Arch 等 x86_64 Linux | `release/sesshuttle-0.4.2-linux-x64.tar.gz` | 解压，在图形桌面启动其中的 `sesshuttle`。 |
+| Debian / Ubuntu x86_64 | `release/sesshuttle-0.4.2-linux-amd64.deb` | 用系统软件安装器安装。 |
 
 升级时退出旧版并替换应用，保留应用数据。两台电脑沿用已有 Bucket、同步空间和恢复文件。Comic Neue 和霞鹜文楷已内置。
 
@@ -41,4 +41,4 @@ npm run build
 npm start
 ```
 
-开发写入测试使用独立测试目录、合成历史和本机存储服务。`npm run package:mac` 和 `npm run package:linux` 生成本地安装包。[0.4.1 验证记录](docs/validation/0.4.1.md)
+开发写入测试使用独立测试目录、合成历史和本机存储服务。`npm run package:mac` 和 `npm run package:linux` 生成本地安装包。[0.4.1 同步验证记录](docs/validation/0.4.1.md)
