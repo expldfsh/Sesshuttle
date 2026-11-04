@@ -33,11 +33,21 @@ Install and sign in to the Codex apps you want to use on each device. Bring proj
 
 ## Upload from the first device
 
+![Choose Upload to cloud for the selected conversation](../../images/en-upload.png)
+
 Open a local chat title and click **Upload to cloud…**. For several chats, tick the boxes and review the selected titles in the action bar. Check required parents, optional background sessions, attachments and the estimated additional storage before confirming. If a selection contains blocked chats, review the reasons and confirm the exact eligible count to proceed. Previewing and refreshing leave the cloud history untouched.
+
+![Upload preview showing the selected chat and final confirmation](../../images/en-scope.png)
+
+**1** Check which chat is included. **2** Confirm only when the list and estimated size look right.
 
 To include a readable external image, approve it and update the preview. You can locate another image or accept omissions individually or together for that chat where offered. The imported copy carries the omission notice and retains its text and tool history. Missing required history or an unsafe resource needs repair before a verified import. A 500 MiB per-plan limit is the default. Change the scope or limit in the preview settings when needed.
 
 ## Import and continue
+
+![Select a cloud chat and click Import to this computer](../../images/en-import.png)
+
+Choose **Import to this computer…** to continue in Codex. Saving a copy to a folder only exports files.
 
 1. Open the cloud chat title and choose **Import to this computer…**. Select **GPT desktop**, CLI, VS Code or several destinations.
 2. Use **Detect local Codex apps** right in the import window. Opening the Codex part of your GPT desktop app first can expose its running runtime and actual history database. Review the evidence and select **Apply selected settings**. Manual paths are shown alongside proposed changes.
@@ -48,7 +58,7 @@ To include a readable external image, approve it and update the preview. You can
 
 **More actions** includes two-way transfer. Use **Delete chats…** for removal. If both devices edited independently, compare the versions before choosing the one to import.
 
-[Compatibility](../../compatibility/0.4.0.md) · [Verification report](../../validation/0.4.1.md)
+[Compatibility](../../compatibility/0.4.0.md) · [Verification report](../../validation/0.5.0.md)
 
 ## Delete chats and manage recovery copies
 

@@ -1,50 +1,32 @@
 # Sesshuttle
 
-在 Mac 和 Linux 之间接着做同一个 Codex 对话。把选中的对话加密备份到自己的 Cloudflare R2，再导入另一台电脑的 GPT 桌面端、CLI 或 VS Code。
+English · [简体中文](README.zh-CN.md)
 
-## 安装 0.5.0
+Continue the same Codex conversation on another computer. Choose a chat on your Mac, upload its encrypted history to your own Cloudflare R2 bucket, then import it on Linux and pick up where you left off. You choose which chats to transfer and when. Sesshuttle supports Codex in the GPT desktop app, CLI and VS Code.
 
-| 电脑 | 本地安装包 | 打开方式 |
-| --- | --- | --- |
-| Apple Silicon Mac（包括 M3） | `release/sesshuttle-0.5.0-mac-arm64.dmg` | 打开镜像，将 Sesshuttle 拖到“应用程序”。本地构建未做 Developer ID 签名和公证。 |
-| Arch 等 x86_64 Linux | `release/sesshuttle-0.5.0-linux-x64.tar.gz` | 解压，在图形桌面启动其中的 `sesshuttle`。 |
-| Debian / Ubuntu x86_64 | `release/sesshuttle-0.5.0-linux-amd64.deb` | 用系统软件安装器安装。 |
+![Select a chat and choose Upload to cloud in the action bar](docs/images/en-upload.png)
 
-升级时退出旧版并替换应用，保留应用数据。两台电脑沿用已有 Bucket、同步空间和恢复文件。Comic Neue 和霞鹜文楷已内置。
+## Install
 
-## 第一次同步
+Choose the 0.5.0 package for your computer. Public downloads will be available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) after publication.
 
-1. **连接存储。** 首台电脑在「设置」连接私有 R2，创建空间并导出恢复文件。另一台电脑在「设置」选择「从另一台电脑导入连接文件…」。新版文件会填好地址、Bucket、空间和 Access Key ID。输入 R2 Secret Access Key 后加入。已经看到「已加入同步空间」时，直接点「查看云端对话」。
-2. **在 Mac 上传。** 打开应用后点「刷新」读取对话。 点一个本机对话的标题 →「上传到云端…」，核对标题、附件和新增用量，确认上传。批量操作从勾选后的固定操作栏进入。后台子会话可选，必需的父对话会逐条列出。
-3. **在 Linux 导入。** 点云端对话标题 →「导入到这台电脑…」→「GPT 桌面端」。在同一窗口选择 Linux 本机项目和工作目录。原生项目即使没有本地对话也可以选择。没有工作目录时可创建专用目录。
-4. **继续对话。** 退出正在使用历史的 Codex，核对清单并确认导入。看到目标入口的验证结果后点「继续」，到原生应用打开同一标题。你可以亲自告诉 Codex 已换电脑，并提供本机文件夹。
+| Platform | Package |
+| --- | --- |
+| Apple Silicon Mac | `sesshuttle-0.5.0-mac-arm64.dmg` |
+| Arch and other x86_64 Linux distributions | `sesshuttle-0.5.0-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.5.0-linux-amd64.deb` |
 
-「在这台电脑记住连接」默认开启。加入成功后，如果 Linux 系统密码库已锁定，按系统弹窗授权。取消后本次仍可同步，可在「设置」点「记住连接…」重试。若提示找不到密码库，点「检查凭据存储」查看适用步骤。
+## Move your first chat from Mac to Linux
 
-[中文配置和操作指南](docs/guides/zh-CN/quick-start.md) · [用已有云端对话在 Arch 验收](docs/guides/zh-CN/linux-acceptance.md) · [English guide](docs/guides/en/quick-start.md) · [支持范围](docs/compatibility/0.4.0.md)
+1. **Connect both computers.** In Settings on the Mac, create a sync space in your private R2 bucket and export the recovery file. On Linux, import that file and enter your R2 Secret Access Key to join the same space. [Set up R2 and connect both devices](docs/guides/en/quick-start.md#connect-both-devices)
+2. **Upload on the Mac.** Click **Refresh**, select your chat, then **Upload to cloud…**. Check the titles, included attachments and estimated upload size. Click **Confirm upload of …** to start. [See the marked confirmation screen](docs/guides/en/quick-start.md#upload-from-the-first-device)
+3. **Import on Linux.** Click **Refresh**, select the cloud chat and choose **Import to this computer…**. Pick the Codex app, destination project and local working folder. Review the list and confirm. Once verified, click **Continue**. Keep a local copy of your project files for Codex to work on. [See the import button and setup steps](docs/guides/en/quick-start.md#import-and-continue)
+4. **Bring your reply back.** After chatting on Linux, upload the updated chat. On the Mac, refresh and import it into the same app. If both devices changed the chat independently, compare versions before choosing which to import.
 
-## 删除与恢复
+## Manage your history
 
-点开对话标题，或勾选多条对话，点击「删除对话…」。先选**仅本机、仅云端或本机和云端**，再选**移入回收站或彻底删除**。调整勾选的云端版本后，清单会自动重算。确认前核对对话、附件、保留副本和完成后可下载的版本。其他电脑已导入的对话保留。
+- **Delete chats…** lets you choose this computer, the cloud, or both. Review the affected copies before confirming. Other computers keep their local copies.
+- **Sync activity** lets you clear operation records while keeping your chats and sync status.
+- **Backups & recovery** lets you create, restore or delete a device backup. Importing and restoring do not create backups automatically.
 
-本机与云端的回收站都在「备份与恢复」。首次在已有空间使用云端删除前，把访问该空间的两端升级到 0.3.0 或更高版本并结束旧版的传输。确认升级后沿用原 Bucket 和恢复文件。[删除、恢复和失败重试](docs/guides/zh-CN/quick-start.md#删除对话或备份版本)
-
-## 本机备份与同步记录
-
-「备份与恢复」→ 选择 Codex 数据目录 →「创建本机备份」。上传、导入和恢复均不会另建备份。列表显示创建原因与文件占用空间，可恢复或删除单份备份。恢复会替换目标目录的历史与索引，并在确认前列出将移除的文件。
-
-在「同步记录」勾选记录后点「清除所选记录」，或点「清空记录」。只清这台电脑的日志，对话、云端副本及同步状态都保留。
-
-## 本地开发
-
-从源码构建 Mac 版需要 Xcode 命令行工具，以及包含 Node-API 头文件的 Node.js 安装。
-
-```sh
-npm ci
-npm run check
-npm test
-npm run build
-npm start
-```
-
-开发写入测试使用独立测试目录、合成历史和本机存储服务。`npm run package:mac` 和 `npm run package:linux` 生成本地安装包。[0.4.1 同步验证记录](docs/validation/0.4.1.md)
+[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [0.5.0 validation notes](docs/validation/0.5.0.md)
