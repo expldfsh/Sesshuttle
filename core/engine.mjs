@@ -4,9 +4,8 @@ import {attachmentReview,assertAttachmentAcceptance} from './attachment-policy.m
 import {attachmentUnchanged,inspectAttachment} from './attachments.mjs';
 import {captureBundle,relatedRows,bundleBytes,bundleIdentity} from './bundle.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';
-import { normalized } from './receipts.mjs';
-import { scan,capture,relation } from './codex.mjs';import { Importer } from './importer.mjs';
-import { id,hash,requireThat,publicError,Fault,canonical } from './util.mjs';
+import { scan } from './codex.mjs';import { Importer } from './importer.mjs';
+import { id,hash,requireThat,publicError,canonical } from './util.mjs';
 async function verifyAttachments(payload,rows,approved){
  for(const f of payload.files)for(const a of f.attachmentReport??[]){
   if(a.status==='included')requireThat(await attachmentUnchanged(a),'stale_plan');

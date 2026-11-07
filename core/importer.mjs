@@ -4,7 +4,7 @@ import {checkLocalProject} from './local-projects.mjs';
 import {importBundle,recordBundle} from './import-bundle.mjs';
 import {copyVerified,digestFile} from './stream.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';
-import { id,hash,stableRead,inside,canonical,atomic,walk,exists,requireThat,Fault } from './util.mjs';
+import { id,hash,stableRead,inside,canonical,atomic,exists,requireThat } from './util.mjs';
 import { validatePayload,parseRollout,scan,mapResources } from './codex.mjs';
 import { assertCodexClosed,prepareNative,checkSourceProviders } from './native.mjs';
 import {requireRuntime,receiptMatchesRuntime} from './runtime.mjs';

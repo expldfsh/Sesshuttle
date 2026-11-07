@@ -14,7 +14,7 @@ import {Trash} from '../../core/trash.mjs';
 import {downloadCopy} from '../../core/download-copy.mjs';
 import {keepLocalCopy,inspectTarget} from '../../core/local-copies.mjs';
 import {workspaceFolderName} from '../../core/workspace.mjs';
-import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
+import { app,BrowserWindow,ipcMain,dialog,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
 import { pathToFileURL } from 'node:url';import { execFile,spawn } from 'node:child_process';import { promisify } from 'node:util';
 import { State } from '../../core/state.mjs';import { Engine } from '../../core/engine.mjs';import { R2Store } from '../../core/storage.mjs';import { Vault } from '../../core/vault.mjs';

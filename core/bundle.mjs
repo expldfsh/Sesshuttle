@@ -1,10 +1,9 @@
 import {referencesFor,inspectAttachment,attachmentIssue,attachmentUnchanged} from './attachments.mjs';
-import {imageType} from './codex.mjs';
 // v2 manifests reference authenticated, bounded chunks. History is never truncated.
 import fs from 'node:fs/promises';import path from 'node:path';import {createHash} from 'node:crypto';
-import {hash,id,requireThat,atomic,inside,exists,Fault} from './util.mjs';
-import {readBlocks,rolloutBlocks,CHUNK,writeStream,records} from './stream.mjs';
-import {openCatalog,databaseRecords,encodeRecord,databaseSummary} from './catalog.mjs';
+import {hash,requireThat} from './util.mjs';
+import {readBlocks,rolloutBlocks,CHUNK,writeStream} from './stream.mjs';
+import {openCatalog,databaseRecords,encodeRecord} from './catalog.mjs';
 export function relatedRows(row,rows,{includeDescendants=false}={}){
  const picked=new Map(),byId=new Map(rows.map(r=>[r.id,r]));
  const addAncestors=(r,trail=new Set())=>{requireThat(!trail.has(r.id),'invalid_history');if(picked.has(r.id))return;trail.add(r.id);for(const dep of r.dependencies??[r.parent].filter(Boolean))if(byId.has(dep))addAncestors(byId.get(dep),new Set(trail));picked.set(r.id,r);};
