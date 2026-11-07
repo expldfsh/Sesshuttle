@@ -22,7 +22,11 @@ export function ErrorNotice({
   const { t } = useI18n();
   const box = useRef<HTMLDivElement>(null);
   // A notice that appears out of view (a scrolled page or dialog) is brought into view.
-  useEffect(() => box.current?.scrollIntoView({ block: 'nearest' }), []);
+  // The effect returns nothing: scrollIntoView returns a promise in current
+  // Chromium, and React would call it as the cleanup when the notice closes.
+  useEffect(() => {
+    void box.current?.scrollIntoView({ block: 'nearest' });
+  }, []);
   const code = error.code ?? 'operation_failed';
   const technical = [code, error.detail, error.stage && t(error.stage)].filter(Boolean).join('\n');
   return (
