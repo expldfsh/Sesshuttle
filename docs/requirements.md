@@ -182,9 +182,9 @@ tests/core/      node:test 单元测试
 
 ## P0 准备与基线
 
-- [ ] 创建分支 `dev/0.7.0`。工作区里已有一批未提交的文档整理（删除旧文档、新增本文），把它们作为本分支的第一个提交（"Consolidate requirements into a single maintained document"）。
-- [ ] 运行 `npm test`、`npm run check`、`npm run build`，记录基线结果。当前约 60 个测试用例。
-- [ ] 新建 `scripts/bench.mjs`，用确定性的合成数据测量下列基线，结果写入第三部分「性能基线」表：
+- [x] 创建分支 `dev/0.7.0`。工作区里已有一批未提交的文档整理（删除旧文档、新增本文），把它们作为本分支的第一个提交（"Consolidate requirements into a single maintained document"）。
+- [x] 运行 `npm test`、`npm run check`、`npm run build`，记录基线结果。当前约 60 个测试用例。（基线：64 个用例，63 通过，1 个 Linux 专属用例在 Mac 跳过；check 通过 717 条双语文案；build 成功，main.cjs 2.0 MB）
+- [x] 新建 `scripts/bench.mjs`，用确定性的合成数据测量下列基线，结果写入第三部分「性能基线」表：
   - 本机扫描：2,000 条合成 rollout（含 200 条带数据库记录），首次扫描和第二次扫描耗时；
   - 云端刷新：300 条对话头，存储模拟每个请求 40ms 延迟（包装 `MemoryStore`），`engine.refresh()` 耗时；
   - 删除预览：空间内 300 个版本时 `cloudRemovalPlan` 耗时；
@@ -566,7 +566,7 @@ tests/core/      node:test 单元测试
 
 | 阶段 | 状态 | 提交范围 | 备注 |
 | --- | --- | --- | --- |
-| P0 准备与基线 | 未开始 | | |
+| P0 准备与基线 | 已完成 | 615cdf7–P0 提交 | 基线见下表；bench 在 M 系列 Mac 上运行，两次结果差异 <2% |
 | P1 清理与修复 | 未开始 | | |
 | P2 格式化与静态检查 | 未开始 | | |
 | P3 core 与主进程重构 | 未开始 | | |
@@ -582,10 +582,10 @@ tests/core/      node:test 单元测试
 
 | 指标 | 0.6.0 基线 | 0.7.0 结果 |
 | --- | --- | --- |
-| 本机扫描 2,000 条（首次 / 第二次） | | |
-| 云端刷新 300 条，40ms 延迟 | | |
-| 删除预览，300 个版本（首次 / 缓存后） | | |
-| 上传 50 MiB，模拟延迟 | | |
+| 本机扫描 2,000 条（首次 / 第二次） | 496 ms / 322 ms | |
+| 云端刷新 300 条，40ms 延迟 | 12,447 ms（302 次请求） | |
+| 删除预览，300 个版本（首次 / 缓存后） | 16,636 ms / 16,632 ms | |
+| 上传 50 MiB，模拟延迟 | 1,366 ms（28 次请求） | |
 | `app.asar` 大小 | 54.7 MB | |
 | dmg / tar.gz 大小 | 144.9 MB / 143.7 MB | |
 
