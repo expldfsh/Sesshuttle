@@ -246,12 +246,12 @@ tests/core/      node:test 单元测试
 
 ## P2 格式化与静态检查
 
-- [ ] 新增开发依赖（精确版本号）：`prettier`、`eslint`、`@eslint/js`、`typescript-eslint`、`eslint-plugin-react-hooks`。
-- [ ] Prettier 配置：2 空格缩进、单引号、分号、`printWidth: 100`。
-- [ ] ESLint 配置：至少开启 `no-unused-vars`、`react-hooks/rules-of-hooks`、`react-hooks/exhaustive-deps`（warn）。
-- [ ] 新增 npm 脚本：`format`、`format:check`、`lint`；把已有但未登记的 `scripts/icon.mjs`、`scripts/licenses.mjs` 登记为 `icon`、`licenses`。
-- [ ] 对 `app/`、`core/`、`scripts/`、`tests/` 全量格式化，**单独一个提交**，哈希写入 `.git-blame-ignore-revs`。`app/renderer/locale.ts` 在 P6 重写，这里可以跳过。
-- [ ] 修完 lint 报出的所有问题（不改行为）。
+- [x] 新增开发依赖（精确版本号）：`prettier`、`eslint`、`@eslint/js`、`typescript-eslint`、`eslint-plugin-react-hooks`。
+- [x] Prettier 配置：2 空格缩进、单引号、分号、`printWidth: 100`。
+- [x] ESLint 配置：至少开启 `no-unused-vars`、`react-hooks/rules-of-hooks`、`react-hooks/exhaustive-deps`（warn）。
+- [x] 新增 npm 脚本：`format`、`format:check`、`lint`；把已有但未登记的 `scripts/icon.mjs`、`scripts/licenses.mjs` 登记为 `icon`、`licenses`。
+- [x] 对 `app/`、`core/`、`scripts/`、`tests/` 全量格式化，**单独一个提交**，哈希写入 `.git-blame-ignore-revs`。`app/renderer/locale.ts` 在 P6 重写，这里可以跳过。
+- [x] 修完 lint 报出的所有问题（不改行为）。
 
 **自验收**：`npm run format:check` 与 `npm run lint` 通过；格式化提交中除空白和换行外没有任何逻辑改动（用 `git diff -w --stat` 抽查）。
 
@@ -566,9 +566,9 @@ tests/core/      node:test 单元测试
 
 | 阶段 | 状态 | 提交范围 | 备注 |
 | --- | --- | --- | --- |
-| P0 准备与基线 | 已完成 | 615cdf7–P0 提交 | 基线见下表；bench 在 M 系列 Mac 上运行，两次结果差异 <2% |
+| P0 准备与基线 | 已完成 | 615cdf7–39a7aac | 基线见下表；bench 在 M 系列 Mac 上运行，两次结果差异 <2% |
 | P1 清理与修复 | 已完成 | 39d67c4–bb0de81 | 测试 64→65 通过（另 1 个 Linux 专属用例在 Mac 跳过），增减见决策记录 |
-| P2 格式化与静态检查 | 未开始 | | |
+| P2 格式化与静态检查 | 已完成 | da5b92f–92ebddf | 格式化提交 04801ae 已写入 `.git-blame-ignore-revs`；lint 0 错误 0 警告 |
 | P3 core 与主进程重构 | 未开始 | | |
 | P4 后端性能 | 未开始 | | |
 | P5 渲染层重构与前端性能 | 未开始 | | |
@@ -605,6 +605,10 @@ tests/core/      node:test 单元测试
 | 2026-11-06 | `MemoryStore` 移到 `tests/helpers/memory-store.mjs` 后，脚本也从这里引用；另新增 `tests/helpers/bundles.mjs`，用真实扫描 + `captureBundle` 生成 format 2 测试数据 | 开发者决定 |
 | 2026-11-06 | `vault.version(id, {legacy:true})` 是唯一能读到非 format 2 清单的入口，返回 `{legacy, manifest, objectBytes}`；只有云端删除目录和 `publishLocked` 的分支比较使用它。旧版本作为 tip 时，新上传按 `baseVersion` 判断，与 0.6.0 的跨格式行为相同（不会判为已同步） | 开发者决定 |
 | 2026-11-06 | legacy 版本在删除预览中只显示存储对象大小；它成为删除后的保留 tip 时，对话头只继承它清单中的标题、来源、项目、更新时间、设备、归档等简单字段 | 开发者决定 |
+| 2026-11-06 | TypeScript 7 是原生编译器，没有 typescript-eslint 需要的 JS API（其 peer 依赖为 `typescript <6.1`）。因此 `typescript` 改为 6.0.3（只供 lint 解析），类型检查仍用 7.0.2（别名 `typescript-native`，`npm run check` 直接调用它），类型检查结果不变。另加开发依赖 `globals`（flat config 需要 Node/浏览器全局变量表） | 开发者决定 |
+| 2026-11-06 | ESLint 关闭 `@typescript-eslint/no-explicit-any`（IPC 数据在主进程校验，界面层沿用宽松类型）和 `no-require-imports`（钥匙串原生模块用 require 加载）；空 `catch {}` 允许。`react-hooks` 只开启两条经典规则，不启用 7.x 的 React Compiler 规则 | 开发者决定 |
+| 2026-11-06 | 格式化前先把 `TaskFeedback` 中字面的全角空格改写为 `{'\u3000'}` 表达式（单独提交）：Prettier 会把 JSX 文本中的 U+3000 当作空白删除，改变显示。格式化提交用 esbuild 压缩输出逐文件比对，除 JSX 文本拆成相邻字符串子节点外完全一致 | 开发者决定 |
+| 2026-11-06 | 6 个 `exhaustive-deps` 警告都是有意的“只在打开时运行”或按 key 运行的 effect，补依赖会改变行为，因此加了带理由的禁用注释；这些组件在 P5 重写时重新处理 | 开发者决定 |
 | 2026-11-06 | P1 测试数量：+1 工作区文件夹名；−1 `relation()` 的字节前缀比较（format 1 专属）；+2 legacy 版本（删除预览可见且可永久删除、导入/比较/下载副本/预览拒绝；与新上传并存为冲突分支且可移入回收站）。`attachments` 用例改为 `captureBundle`+`remapHistory`，删去只适用于 format 1 回执的“下一轮还原原始路径”部分；`sync` 中“未完成记录不可快照”改为通过扫描器和 `captureBundle` 验证。其余 format 1 用例改用 format 2 数据，断言保持 | 开发者决定 |
 
 ## 历史轮次摘要
