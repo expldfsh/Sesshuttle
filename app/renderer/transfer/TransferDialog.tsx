@@ -19,6 +19,10 @@ type Step = 'apps' | 'projects' | 'options' | 'review';
 // Uploading: options → review. Both ways: apps → projects → options → review.
 // Opening it reads saved settings only; checks, previews and cloud reads start
 // when the user moves to the next step.
+//
+// Reopened from a transfer that could not start (`request.autoPreview`), it keeps
+// the earlier choices (`request.resume`) and takes each step itself, stopping at
+// the first one that needs the user or at the new review list.
 export function TransferDialog({
   request,
   rows,
@@ -38,24 +42,33 @@ export function TransferDialog({
       ? ['apps', 'projects', 'options', 'review']
       : ['apps', 'projects', 'review']
     : ['options', 'review'];
+  const resume = request.resume ?? {};
   const [step, setStep] = useState<Step>(steps[0]);
   const [draft, setDraft] = useState(() => structuredClone(cfg));
-  const [targets, setTargets] = useState<string[]>(request.targets ?? ['desktop']);
+  const [targets, setTargets] = useState<string[]>(
+    resume.targets ?? request.targets ?? ['desktop'],
+  );
   const [saved, setSaved] = useState<Record<string, any>>({});
   const [info, setInfo] = useState<Record<string, any>>({});
   const [report, setReport] = useState<any>(null),
     [plan, setPlan] = useState<any>(null);
   const [pending, setPending] = useState(''),
     [error, setError] = useState<any>(null);
-  const [children, setChildren] = useState(false),
-    [limit, setLimit] = useState(500),
-    [incomplete, setIncomplete] = useState(false);
+  const [children, setChildren] = useState<boolean>(resume.children ?? false),
+    [limit, setLimit] = useState<number>(resume.limit ?? 500),
+    [incomplete, setIncomplete] = useState<boolean>(resume.incomplete ?? false);
   const [checking, setChecking] = useState(''),
     [copyResult, setCopyResult] = useState('');
   const [pathsApplied, setPathsApplied] = useState(false);
-  const [replacements, setReplacements] = useState<Record<string, string>>({});
+  const [replacements, setReplacements] = useState<Record<string, string>>(
+    resume.replacements ?? {},
+  );
   const [editing, setEditing] = useState('');
   const lock = useRef(false);
+  // Images the user had accepted before, offered again in the first new preview.
+  const carried = useRef<string[] | null>(resume.approved ?? null);
+  const [auto, setAuto] = useState(!!request.autoPreview);
+  const attempted = useRef<Step | null>(null);
 
   const chosen = rows.filter((r: any) => request.ids.includes(r.id));
   const needed = chosen.filter((r: any) =>
@@ -147,7 +160,8 @@ export function TransferDialog({
     setInfo(result);
     return result;
   }
-  async function rebuild(approved: string[] = [], paths = replacements) {
+  async function rebuild(chosen?: string[], paths = replacements) {
+    const approved = chosen ?? carried.current ?? [];
     const result = await call('preview', {
       ids: request.ids,
       copyChoice: request.copyChoice,
@@ -176,6 +190,7 @@ export function TransferDialog({
     );
     setPlan(result);
     setReplacements(paths);
+    carried.current = null;
     setStep('review');
   }
   // Saved app states only (no program runs, no data folder is read).
@@ -184,6 +199,8 @@ export function TransferDialog({
   }, [importing]);
   const go = (next: Step) => setStep(next);
   const stepIndex = steps.indexOf(step);
+  const nextLabel = (s: Step) =>
+    s === 'apps' || (s === 'projects' && uploading) ? 'checkingEntries' : 'preparingPreview';
   async function next() {
     if (step === 'apps') {
       const result = await inspect();
@@ -198,6 +215,19 @@ export function TransferDialog({
       else await rebuild();
     } else if (step === 'options') await rebuild();
   }
+  // Reopened after a transfer could not start: take each step once, and stop at a
+  // step that needs the user (a check failed, a choice is missing) or at the review.
+  useEffect(() => {
+    if (!auto || pending || checking) return;
+    if (step === 'review' || attempted.current === step || invalid || !needed.length) {
+      setAuto(false);
+      return;
+    }
+    attempted.current = step;
+    void run(nextLabel(step), next);
+    // `run` and `next` read the current state of this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, step, pending, checking, invalid, needed.length]);
   async function back() {
     if (step === 'review' && plan) {
       await call('discardPlan', { token: plan.token });
@@ -304,7 +334,16 @@ export function TransferDialog({
           })
         }
         onExecute={(large: boolean, accepted: any, onlyEligible: boolean) =>
-          run('stageCheck', async () => onStart(plan, large, accepted, onlyEligible))
+          run('stageCheck', async () =>
+            onStart(plan, large, accepted, onlyEligible, {
+              targets,
+              children,
+              limit,
+              incomplete,
+              approved: plan.selection?.approvedAttachments ?? [],
+              replacements,
+            }),
+          )
         }
       />
     );
@@ -327,16 +366,7 @@ export function TransferDialog({
       <button
         className="primary"
         disabled={busy || !!invalid || !needed.length}
-        onClick={() =>
-          run(
-            step === 'apps'
-              ? 'checkingEntries'
-              : step === 'projects' && uploading
-                ? 'checkingEntries'
-                : 'preparingPreview',
-            next,
-          )
-        }
+        onClick={() => run(nextLabel(step), next)}
       >
         {t(steps[stepIndex + 1] === 'review' ? 'reviewAction' : 'nextStep')}
       </button>

@@ -216,6 +216,7 @@ function ActivityItem({
               t={t}
               busy={app.busy}
               onRetry={app.reviewRemaining}
+              onReview={app.reviseRemoval}
               onBackups={() => app.setPage('backups')}
             />
           ) : (

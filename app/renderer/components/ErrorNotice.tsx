@@ -4,17 +4,20 @@ import { Icon } from './Icon';
 
 export type ErrorInfo = { code?: string; detail?: string; stage?: string };
 
-// A translated explanation, the affected object if any, an optional fix and the
-// technical details (code, detail, stage) folded away with a copy button.
+// A translated explanation, the affected object if any, what was and was not done,
+// an optional fix and the technical details (code, detail, stage) folded away with
+// a copy button.
 export function ErrorNotice({
   error,
   subject,
+  note,
   action,
   severity = 'error',
   onDismiss,
 }: {
   error: ErrorInfo;
   subject?: string;
+  note?: ReactNode;
   action?: ReactNode;
   severity?: 'error' | 'warning' | 'info';
   onDismiss?: () => void;
@@ -39,6 +42,7 @@ export function ErrorNotice({
       <div className="error-body">
         <strong>{t(code)}</strong>
         {subject && <code className="error-subject">{subject}</code>}
+        {note && <p className="error-note">{note}</p>}
         {action && <div className="actions">{action}</div>}
         <details className="technical">
           <summary>{t('technicalDetails')}</summary>

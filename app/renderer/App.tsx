@@ -3,15 +3,17 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import { I18nProvider, dateFormatter, makeI18n, useI18n, type Locale } from './i18n/I18n';
 import { call, useWork, type ApiError } from './hooks/useApi';
 import { useNotice, type Notice } from './hooks/useNotice';
 import { useConfirm, type Question } from './hooks/useConfirm';
-import { progress } from './store/progress';
+import { progress, type Failure } from './store/progress';
 import { applyTheme } from './theme';
 import { Modal } from './components/Modal';
 import { Toasts, toast } from './components/Toast';
@@ -100,10 +102,34 @@ function useAppState() {
         text: t(e.code ?? 'operation_failed'),
         detail: e.detail,
         place,
+        native: (e as any).native === true,
       }),
     [setNotice, t],
   );
   const { busy, phase, setPhase, work } = useWork(clearNotice, onError);
+  // A task-panel operation. Its failure is kept with the tasks, not in the single
+  // notice, so a refresh or another action does not clear it; success clears an
+  // earlier failure of the same kind.
+  function taskWork(
+    failure: Omit<Failure, 'id' | 'at' | 'error' | 'started'>,
+    fn: () => Promise<unknown>,
+    label: string,
+  ) {
+    return work(async () => {
+      try {
+        await fn();
+        progress.clearFailure(failure.kind);
+      } catch (e: any) {
+        const previous = progress.failure(failure.kind);
+        if (previous?.token && previous.token !== failure.token) void discardPlan(previous.token);
+        progress.fail({
+          ...failure,
+          error: { code: e?.code ?? 'operation_failed', detail: e?.detail ?? e?.message ?? '' },
+          started: e?.started === true,
+        });
+      }
+    }, label);
+  }
   // Success goes to a toast; errors and warnings stay where they happened.
   const notify = useCallback(
     (n: Notice | null) => {
@@ -218,14 +244,14 @@ function useAppState() {
     if (action === 'inspectCopies' || action === 'showScanIssues') {
       if (entry) {
         const logical = code === 'duplicate_identity' ? error.detail || item.id : item.id;
-        void work(
+        void taskWork(
+          { kind: 'inspect', request: { item, entry }, subject: item.title + ' · ' + t(entry) },
           async () =>
             setTargetIssue({
               ...(await call('inspectTarget', { logical, entry })),
               retryId: item.id,
             }),
           'checkingEntries',
-          'task',
         );
         return;
       }
@@ -278,15 +304,125 @@ function useAppState() {
       if (!ok) return;
       if (remember.checked) await persist({ ...cfg, skipNativeConfirm: true });
     }
-    await call('continue', { logicalId: id, entry });
+    try {
+      await call('continue', { logicalId: id, entry });
+    } catch (e: any) {
+      // Shown with what this means: the app did not open and nothing changed.
+      throw { ...e, native: true };
+    }
+    progress.clearFailure('native');
     notify({ text: t('launchRequested') + ' · ' + t(entry) });
   }
+  // Opening a native app from the task panel; a failure stays in the panel.
+  function openNativeTask(id: string, entry: string) {
+    const title = data.rows.find((r: any) => r.id === id)?.title ?? '';
+    return taskWork(
+      { kind: 'native', request: { id, entry }, subject: title + ' · ' + t(entry) },
+      () => openNative(id, entry),
+      'openingNative',
+    );
+  }
   function reviewRemaining(id: string) {
-    void work(
+    void taskWork(
+      { kind: 'retryRemoval', request: { id } },
       async () => setRemoval({ plan: await call('retryRemovalPlan', { id }) }),
       'readingRemoval',
-      'task',
     );
+  }
+  // A new removal list from the same request, replacing the record that stopped.
+  function reviseRemoval(id: string) {
+    void taskWork(
+      { kind: 'retryRemoval', request: { id, revise: true } },
+      async () => setRemoval({ plan: await call('reviseRemovalPlan', { id }) }),
+      'readingRemoval',
+    );
+  }
+  // The previewed plan of a transfer that did not run is dropped with its staging
+  // copy. It is awaited before the next request: both change the transfer state.
+  function discardPlan(token: string) {
+    return call('discardPlan', { token }).catch(() => {});
+  }
+  function dismissFailure(f: Failure) {
+    progress.dismissFailure(f.id);
+    return f.token ? discardPlan(f.token) : Promise.resolve();
+  }
+  // Opens the transfer dialog again with the same request and options; it checks
+  // each step and previews again, stopping at the first step that needs the user.
+  function reopenTransfer(request: any) {
+    const { direction, ids, ...rest } = request;
+    startFlow(direction, ids, { ...rest, autoPreview: true });
+  }
+  function reopenRemoval(request: any) {
+    if (request.revise) reviseRemoval(request.revise);
+    else setRemoval({ ...request.initial, review: request.q });
+  }
+  // The recovery buttons of a task that could not run. Each one only opens the
+  // place to continue; none repeats a data operation by itself.
+  function failureActions(f: Failure): { label: string; run: () => void }[] {
+    const code = f.error.code;
+    const repair = errorRule(code).fix;
+    const go = (label: string, run: () => void) => ({
+      label,
+      run: () => void dismissFailure(f).then(run),
+    });
+    const settings = go(FIX_LABELS.openSettings, () => setPage('settings', 'storage'));
+    const apps = go('projects', () => setPage('projects'));
+    const refreshList = go('refresh', () => {
+      setPage('conversations');
+      void work(refresh, 'refreshing');
+    });
+    const activity = { label: 'activity', run: () => setPage('activity') };
+    const actions: { label: string; run: () => void }[] = [];
+    if (code === 'task_running') return f.started ? [activity] : [];
+    if (f.kind === 'transfer') {
+      if (repair === 'refreshRetry')
+        actions.push(
+          go('refreshAndPreview', () =>
+            work(async () => {
+              await refresh();
+              reopenTransfer(f.request);
+            }, 'refreshing'),
+          ),
+        );
+      else if (repair === 'openSettings')
+        actions.push(
+          go(FIX_LABELS.openSettings, () => {
+            setDeferred(f.request);
+            setPage('settings', 'storage');
+          }),
+        );
+      else if (repair === 'openApps') actions.push(apps);
+      else if (repair === 'openBackups')
+        actions.push(go(FIX_LABELS.openBackups, () => setPage('backups')));
+      else actions.push(go('reopenReview', () => reopenTransfer(f.request)));
+      if (f.started) actions.push(activity);
+    } else if (f.kind === 'removal') {
+      if (repair === 'openBackups')
+        actions.push(go(FIX_LABELS.openBackups, () => setPage('backups')));
+      else if (repair === 'openSettings' && code !== 'space_changed') actions.push(settings);
+      else actions.push(go('reviewRemovalAgain', () => reopenRemoval(f.request)));
+      if (f.started) actions.push(activity);
+    } else if (f.kind === 'native') {
+      if (repair === 'openApps') actions.push(apps);
+      else if (code === 'not_verified' || repair === 'refreshRetry') actions.push(refreshList);
+    } else {
+      if (repair === 'openSettings') actions.push(settings);
+      else if (repair === 'openApps') actions.push(apps);
+      else if (f.kind === 'retryRemoval' && code === 'stale_plan')
+        actions.push(go('activity', () => setPage('activity')));
+      else if (repair === 'refreshRetry') actions.push(refreshList);
+      else
+        actions.push(
+          go('checkAgain', () =>
+            f.kind === 'inspect'
+              ? fix(f.request.item, f.request.entry)
+              : f.request.revise
+                ? reviseRemoval(f.request.id)
+                : reviewRemaining(f.request.id),
+          ),
+        );
+    }
+    return actions;
   }
   async function keepCopy(record: any, file: string) {
     const others = record.copies.filter((c: any) => c.file !== file).map((c: any) => c.file);
@@ -388,7 +524,12 @@ function useAppState() {
     showVersions,
     fix,
     openNative,
+    openNativeTask,
     reviewRemaining,
+    reviseRemoval,
+    taskWork,
+    failureActions,
+    dismissFailure,
     keepCopy,
     attention,
   };
@@ -499,33 +640,83 @@ function Sidebar() {
   );
 }
 
+// Places that currently show their own errors. A failure whose place is not on
+// screen (its dialog closed, the user changed pages, or a place was never added)
+// is shown at the top of the page instead, so that no failure goes unseen.
+const mountedPlaces = new Map<string, number>();
+let placesVersion = 0;
+const placeListeners = new Set<() => void>();
+function markPlace(place: string, delta: number) {
+  mountedPlaces.set(place, (mountedPlaces.get(place) ?? 0) + delta);
+  placesVersion++;
+  for (const listener of placeListeners) listener();
+}
+function useShownPlaces() {
+  useSyncExternalStore(
+    (listener) => {
+      placeListeners.add(listener);
+      return () => placeListeners.delete(listener);
+    },
+    () => placesVersion,
+  );
+  return (place?: string) => !!place && (mountedPlaces.get(place) ?? 0) > 0;
+}
+
+// An error from a user action: what happened, for a native app what that means,
+// and the button to continue where one exists.
+function NoticeError({ notice }: { notice: Notice }) {
+  const app = useApp();
+  const { t } = useI18n();
+  const action = errorRule(notice.code).fix;
+  const button = (label: string, run: () => void) => (
+    <button
+      onClick={() => {
+        app.notify(null);
+        run();
+      }}
+    >
+      {t(label)}
+    </button>
+  );
+  const fixButton = notice.native
+    ? action === 'openApps'
+      ? button('projects', () => app.setPage('projects'))
+      : notice.code === 'not_verified' || action === 'refreshRetry'
+        ? button('refresh', () => {
+            app.setPage('conversations');
+            void app.work(app.refresh, 'refreshing');
+          })
+        : null
+    : action === 'openSettings'
+      ? button(FIX_LABELS.openSettings, () => app.setPage('settings', 'storage'))
+      : action === 'openBackups'
+        ? button(FIX_LABELS.openBackups, () => app.setPage('backups'))
+        : action === 'openApps'
+          ? button('projects', () => app.setPage('projects'))
+          : action === 'showScanIssues'
+            ? button(FIX_LABELS.showScanIssues, app.showScanIssues)
+            : null;
+  return (
+    <ErrorNotice
+      error={{ code: notice.code, detail: notice.detail }}
+      severity={errorRule(notice.code).severity}
+      note={notice.native ? t('appNotOpened') : undefined}
+      action={fixButton}
+      onDismiss={() => app.notify(null)}
+    />
+  );
+}
+
 // Errors without a closer place, and the working line of a running operation.
 function PageMessages() {
   const app = useApp();
   const { t } = useI18n();
+  const shown = useShownPlaces();
   const { notice, init, page, busy, phase } = app;
-  const action = notice?.error && errorRule(notice.code).fix;
-  const fixButton =
-    action === 'openSettings' ? (
-      <button onClick={() => app.setPage('settings', 'storage')}>
-        {t(FIX_LABELS.openSettings)}
-      </button>
-    ) : action === 'openBackups' ? (
-      <button onClick={() => app.setPage('backups')}>{t(FIX_LABELS.openBackups)}</button>
-    ) : action === 'openApps' ? (
-      <button onClick={() => app.setPage('projects')}>{t('projects')}</button>
-    ) : action === 'showScanIssues' ? (
-      <button onClick={app.showScanIssues}>{t(FIX_LABELS.showScanIssues)}</button>
-    ) : null;
   return (
     <>
-      {notice?.error && notice.place === 'page' && (
-        <ErrorNotice
-          error={{ code: notice.code, detail: notice.detail }}
-          severity={errorRule(notice.code).severity}
-          action={fixButton}
-          onDismiss={() => app.notify(null)}
-        />
+      {notice?.error && (notice.place === 'page' || !shown(notice.place)) && (
+        <NoticeError notice={notice} />
       )}
       {init?.credentialError && page !== 'settings' && (
         <div className="banner warning">
@@ -557,18 +748,17 @@ function PageMessages() {
   );
 }
 
-// A failure from an action in this place (a card, the details panel, the task panel).
+// A failure from an action in this place (a card, the details panel, a dialog).
 export function PlaceError({ place }: { place: string }) {
   const app = useApp();
+  // Registered before paint, so the page-level fallback never shows it twice.
+  useLayoutEffect(() => {
+    markPlace(place, 1);
+    return () => markPlace(place, -1);
+  }, [place]);
   const notice = app.notice;
-  if (!notice?.error || notice.place !== place) return null;
-  return (
-    <ErrorNotice
-      error={{ code: notice.code, detail: notice.detail }}
-      severity={errorRule(notice.code).severity}
-      onDismiss={() => app.notify(null)}
-    />
-  );
+  if (!notice?.error || notice.place !== place || place === 'page') return null;
+  return <NoticeError notice={notice} />;
 }
 
 // Dialogs that any page or task can open.
@@ -590,7 +780,15 @@ function GlobalDialogs() {
           setConfig={app.persist}
           refreshRows={app.setData}
           onClose={() => app.setFlow(null)}
-          onStart={(p: any, confirmLarge: boolean, acceptedByItem: any, onlyEligible: boolean) => {
+          onStart={(
+            p: any,
+            confirmLarge: boolean,
+            acceptedByItem: any,
+            onlyEligible: boolean,
+            resume: any,
+          ) => {
+            // What "Refresh and preview again" opens if the transfer cannot start.
+            const { autoPreview: _auto, ...request } = { ...app.flow, resume };
             app.setFlow(null);
             progress.setRemovalJob(null);
             progress.setJob(
@@ -609,8 +807,10 @@ function GlobalDialogs() {
               },
               true,
             );
-            void work(
+            void app.taskWork(
+              { kind: 'transfer', direction: request.direction, request, token: p.token },
               async () => {
+                let started = true;
                 try {
                   progress.setJob(
                     await call('execute', {
@@ -621,15 +821,18 @@ function GlobalDialogs() {
                     }),
                     true,
                   );
-                } catch (e) {
+                } catch (e: any) {
                   progress.setJob(null);
+                  started = e?.started === true;
                   throw e;
+                } finally {
+                  // Saved state is read again whatever happened; the list is
+                  // marked out of date only when the transfer ran.
+                  await app.reloadInit().catch(() => {});
+                  if (started) app.setNeedsRefresh(true);
                 }
-                await app.reloadInit();
-                app.setNeedsRefresh(true);
               },
               'transferRunning',
-              'task',
             );
           }}
         />
@@ -650,18 +853,37 @@ function GlobalDialogs() {
             else app.setPage(p as any, p === 'settings' ? 'storage' : '');
           }}
           onExecute={(p: any, permanent: boolean, upgrade: boolean) => {
+            // What "Review the removal list again" opens if the removal cannot start:
+            // the same request, or a revised list for a removal that already has a record.
+            const request = {
+              initial: app.removal,
+              q: p.q,
+              revise: p.previous ? p.token : p.replaces,
+            };
             app.setRemoval(null);
-            void work(
+            void app.taskWork(
+              {
+                kind: 'removal',
+                direction: p.q.mode,
+                request,
+                subject: (app.removal.titles ?? p.selected?.map((r: any) => r.title))?.join(' · '),
+              },
               async () => {
-                const answer = await call('executeRemoval', { token: p.token, permanent, upgrade });
-                progress.setRemovalJob(answer, true);
-                if (answer.status === 'completed')
-                  app.updateView({ selected: new Set(), focus: null });
-                await app.reloadInit();
-                app.setNeedsRefresh(true);
+                try {
+                  const answer = await call('executeRemoval', {
+                    token: p.token,
+                    permanent,
+                    upgrade,
+                  });
+                  progress.setRemovalJob(answer, true);
+                  if (answer.status === 'completed')
+                    app.updateView({ selected: new Set(), focus: null });
+                  app.setNeedsRefresh(true);
+                } finally {
+                  await app.reloadInit().catch(() => {});
+                }
               },
               'removingNow',
-              'task',
             );
           }}
         />

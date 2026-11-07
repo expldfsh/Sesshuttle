@@ -450,6 +450,11 @@ dialog.modal > .modal-actions {
   color: var(--fg);
   font-size: 14px;
 }
+/* What was and was not changed, in the normal text colour. */
+.error-note {
+  margin: 0;
+  color: var(--fg);
+}
 .technical summary {
   font-size: 13px;
 }
@@ -517,6 +522,12 @@ dialog.modal > .modal-actions {
 .task-indicator.running {
   border-color: var(--accent);
   color: var(--accent);
+}
+/* A task that could not run: shown in the danger colour with a warning icon. */
+.task-indicator.failed {
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 .task-indicator-label {
   min-width: 0;
@@ -586,6 +597,16 @@ dialog.modal > .modal-actions {
 }
 .task-panel .task-heading {
   padding-right: 40px;
+}
+.task-failure {
+  padding: 4px 4px 0;
+}
+.task-failure + .task-feedback,
+.task-feedback + .task-failure {
+  margin-top: 10px;
+}
+.task-failure .error-notice {
+  margin: 8px 0 0;
 }
 .task-progress {
   display: grid;

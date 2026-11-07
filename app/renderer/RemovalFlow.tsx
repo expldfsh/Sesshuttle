@@ -1,9 +1,10 @@
 import { Icon } from './components/Icon';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal } from './components/Modal';
 import { useI18n } from './i18n/I18n';
 import { ErrorNotice } from './components/ErrorNotice';
 import { errorRule, fixLabel, type FixAction } from './errors';
+import { removalNotStarted } from './failures';
 
 const dateLabel = (v: string | undefined, locale: string) =>
   v ? new Date(v).toLocaleString(locale) : '—';
@@ -118,6 +119,7 @@ export function RemovalFlow({
   const { tn } = useI18n();
   const [q, setQ] = useState<any>(
     () =>
+      initial.review ??
       initial.plan?.q ?? {
         ids: initial.ids,
         scope: initial.scope ?? (initial.hasLocal ? 'local' : 'cloud'),
@@ -162,6 +164,12 @@ export function RemovalFlow({
     setUpgrade(false);
     setError(null);
   };
+  // A removal reopened after it could not start lists the same request again.
+  useEffect(() => {
+    if (initial.review) void refresh(initial.review);
+    // Once, when the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const previous = plan?.previous;
   const done = (side: string, home?: string) =>
     previous?.sides.some(
@@ -624,24 +632,33 @@ export function RemovalFlow({
   );
 }
 
-export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: any) {
+export function RemovalResult({ job, t, onRetry, onReview, onBackups, onDismiss, busy }: any) {
   const { tn } = useI18n();
   if (!job) return null;
   const running = busy && ['checking', 'running'].includes(job.status),
     interrupted =
       job.status === 'interrupted' || (!busy && ['checking', 'running'].includes(job.status));
+  // Stopped before either side started: nothing was deleted or restored, and an
+  // out-of-date list is reviewed again from the same request.
+  const notStarted = !running && removalNotStarted(job);
+  const reviewAgain =
+    notStarted && onReview && ['stale_plan', 'space_changed'].includes(job.error?.code);
   const label = interrupted
     ? 'removeInterrupted'
-    : (
-        {
-          checking: 'checkingRemoval',
-          running: 'removingNow',
-          partial: 'removePartial',
-          attention: 'removeAttention',
-          completed: 'removeComplete',
-          replaced: 'replacedReview',
-        } as any
-      )[job.status];
+    : notStarted
+      ? job.mode === 'restore'
+        ? 'restoreNotStarted'
+        : 'removalNotStarted'
+      : (
+          {
+            checking: 'checkingRemoval',
+            running: 'removingNow',
+            partial: 'removePartial',
+            attention: 'removeAttention',
+            completed: 'removeComplete',
+            replaced: 'replacedReview',
+          } as any
+        )[job.status];
   return (
     <section
       className={
@@ -692,13 +709,20 @@ export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: a
         </p>
       ))}
       {job.error && !job.sides.some((s: any) => s.error) && <p>{t(job.error.code)}</p>}
+      {notStarted && <p className="error-note">{t('nothingRemoved')}</p>}
       <div className="actions">
-        {!running &&
+        {reviewAgain ? (
+          <button className="primary" disabled={busy} onClick={() => onReview(job.id)}>
+            {t('reviewRemovalAgain')}
+          </button>
+        ) : (
+          !running &&
           ['attention', 'partial', 'checking', 'running', 'interrupted'].includes(job.status) && (
             <button className="primary" disabled={busy} onClick={() => onRetry(job.id)}>
               {t('reviewRemaining')}
             </button>
-          )}
+          )
+        )}
         {onBackups && (
           <button disabled={busy} onClick={onBackups}>
             {t('backups')}

@@ -7,6 +7,8 @@ export type Notice = {
   error?: boolean;
   code?: string;
   place?: string;
+  // The failure came from opening a conversation in its native app.
+  native?: boolean;
 };
 
 export function useNotice() {

@@ -1121,6 +1121,34 @@ export const messages = {
   retryEntry: ['只重试此应用', 'Retry this app'],
   selectLog: ['选择此记录', 'Select this record'],
   transferTask: ['传输任务', 'Transfer'],
+  // A task that could not run: its name, what was done, and the way to continue
+  uploadNotStarted: ['上传未开始', 'Upload not started'],
+  importNotStarted: ['导入未开始', 'Import not started'],
+  syncNotStarted: ['同步未开始', 'Sync not started'],
+  transferStopped: ['传输未完成', 'Transfer did not finish'],
+  removalNotStarted: ['删除未开始', 'Removal not started'],
+  restoreNotStarted: ['恢复未开始', 'Restore not started'],
+  removalStopped: ['删除未完成', 'Removal did not finish'],
+  appNotOpenedShort: ['应用未打开', 'App did not open'],
+  checkNotFinished: ['检查未完成', 'Check did not finish'],
+  nothingTransferred: ['没有上传或导入任何内容。', 'Nothing was uploaded or imported.'],
+  transferMaybeStarted: [
+    '可能已处理部分条目，请在同步记录中查看结果。',
+    'Some items may have been processed. Check Sync activity for the result.',
+  ],
+  nothingRemoved: ['没有删除或恢复任何内容。', 'Nothing was deleted or restored.'],
+  removalMaybeStarted: [
+    '可能已处理部分副本，请在同步记录中查看结果。',
+    'Some copies may have been processed. Check Sync activity for the result.',
+  ],
+  appNotOpened: [
+    '应用没有打开，对话和项目数据没有改变。',
+    'The app did not open. Your chats and project data are unchanged.',
+  ],
+  nothingChanged: ['没有更改任何内容。', 'Nothing was changed.'],
+  refreshAndPreview: ['刷新并重新预览', 'Refresh and preview again'],
+  reopenReview: ['重新打开检查清单', 'Reopen the review list'],
+  reviewRemovalAgain: ['重新查看删除清单', 'Review the removal list again'],
   // Error and issue codes reported by core and the main process
   activity_pending: [
     '该任务仍在运行或等待恢复。请先完成任务。',

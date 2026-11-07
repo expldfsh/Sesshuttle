@@ -1,4 +1,4 @@
-import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { PlaceError, useApp, useRefresh } from '../App';
 import { useI18n } from '../i18n/I18n';
 import { call } from '../hooks/useApi';
@@ -592,45 +592,53 @@ function Detail({ row, actions, selecting }: any) {
           {ENTRIES.map((entry) => {
             const target = row.targets[entry];
             return (
-              <div className="entry-state" key={entry}>
-                <div>
-                  <strong>{t(entry)}</strong>
-                  {target ? (
-                    <small>
-                      {t('importVersion')} · {t(target.syncStatus)}
-                      {target.nativeProjectName &&
-                        ` · ${t('projectLabelVerified')} · ${target.nativeProjectName}`}
-                    </small>
-                  ) : (
-                    <small>{t('notImported')}</small>
+              <Fragment key={entry}>
+                <div className="entry-state">
+                  <div>
+                    <strong>{t(entry)}</strong>
+                    {target ? (
+                      <small>
+                        {t('importVersion')} · {t(target.syncStatus)}
+                        {target.nativeProjectName &&
+                          ` · ${t('projectLabelVerified')} · ${target.nativeProjectName}`}
+                      </small>
+                    ) : (
+                      <small>{t('notImported')}</small>
+                    )}
+                  </div>
+                  {target && (
+                    <StatusBadge
+                      status={
+                        target.status === 'verified' && target.omittedAttachments?.length
+                          ? 'imported_missing_attachments'
+                          : target.status
+                      }
+                    />
                   )}
+                  {target?.status === 'verified' ? (
+                    <button
+                      onClick={() =>
+                        work(
+                          () => app.openNative(row.id, entry),
+                          'openingNative',
+                          'native:' + entry,
+                        )
+                      }
+                    >
+                      {t('continue')}
+                    </button>
+                  ) : row.remote && !selecting ? (
+                    <button
+                      disabled={busy}
+                      onClick={() => app.startFlow('download', [row.id], { targets: [entry] })}
+                    >
+                      <Icon name="download" /> {t('importHere')}
+                    </button>
+                  ) : null}
                 </div>
-                {target && (
-                  <StatusBadge
-                    status={
-                      target.status === 'verified' && target.omittedAttachments?.length
-                        ? 'imported_missing_attachments'
-                        : target.status
-                    }
-                  />
-                )}
-                {target?.status === 'verified' ? (
-                  <button
-                    onClick={() =>
-                      work(() => app.openNative(row.id, entry), 'openingNative', 'detail')
-                    }
-                  >
-                    {t('continue')}
-                  </button>
-                ) : row.remote && !selecting ? (
-                  <button
-                    disabled={busy}
-                    onClick={() => app.startFlow('download', [row.id], { targets: [entry] })}
-                  >
-                    <Icon name="download" /> {t('importHere')}
-                  </button>
-                ) : null}
-              </div>
+                {/* Opening this app failed: shown next to its row. */}
+                <PlaceError place={'native:' + entry} />
+              </Fragment>
             );
           })}
           <small className="muted">{t('nativeHint')}</small>
