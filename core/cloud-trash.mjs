@@ -1,3 +1,4 @@
+import { mapLimit } from './concurrency.mjs';
 import { bundleBytes } from './bundle.mjs';
 import { attachmentReview, inheritedOmissions } from './attachment-policy.mjs';
 import { seal } from './crypto.mjs';
@@ -99,16 +100,49 @@ function survivingTips(candidates, available, metadata) {
   return tips.filter((v) => !ancestors.has(v));
 }
 
-async function catalog(vault) {
+// Version manifests are content-addressed and immutable, so their descriptions can be
+// kept in local state (`cache`) per space. Only versions missing from it are
+// downloaded and decrypted; entries for versions no longer in the space are dropped.
+const CATALOG_READS = 8;
+const descriptionKey = (vault, version) => 'version-desc/' + vault.space + '/' + version;
+const savedDescription = (d) => ({ v: 1, ...d, chunks: [...d.chunks] });
+function cachedDescription(saved) {
+  if (
+    saved?.v !== 1 ||
+    !saved.header ||
+    !Array.isArray(saved.files) ||
+    !Array.isArray(saved.chunks)
+  )
+    return null;
+  const { v: _format, ...d } = saved;
+  return { ...d, chunks: new Set(saved.chunks) };
+}
+async function describeVersion(vault, version, cache) {
+  const saved = cache && cachedDescription(cache.get(descriptionKey(vault, version)));
+  if (saved) return saved;
+  const p = await vault.version(version, { legacy: true });
+  const d = p.legacy ? describeLegacy(p) : describe(p);
+  cache?.set(descriptionKey(vault, version), savedDescription(d));
+  return d;
+}
+
+async function catalog(vault, cache) {
   const heads = await vault.allHeads(),
     inventory = (await vault.inventory()).objects,
     versions = new Map();
   const prefix = vault.prefix + 'versions/';
-  for (const key of [...inventory.keys()].filter((k) => k.startsWith(prefix)).sort()) {
-    const v = key.slice(prefix.length);
-    requireThat(digest.test(v), 'corrupt_data');
-    const p = await vault.version(v, { legacy: true });
-    versions.set(v, p.legacy ? describeLegacy(p) : describe(p));
+  const ids = [...inventory.keys()]
+    .filter((k) => k.startsWith(prefix))
+    .sort()
+    .map((k) => k.slice(prefix.length));
+  for (const v of ids) requireThat(digest.test(v), 'corrupt_data');
+  const described = await mapLimit(ids, CATALOG_READS, (v) => describeVersion(vault, v, cache));
+  ids.forEach((v, i) => versions.set(v, described[i]));
+  if (cache) {
+    const present = new Set(ids),
+      keyPrefix = descriptionKey(vault, '');
+    for (const key of cache.keys(keyPrefix))
+      if (!present.has(key.slice(keyPrefix.length))) cache.remove(key);
   }
   for (const h of heads)
     for (const v of metaRows(h))
@@ -136,7 +170,7 @@ export async function cloudBins(vault) {
   };
 }
 
-export async function cloudRemovalPlan(vault, request) {
+export async function cloudRemovalPlan(vault, request, { cache } = {}) {
   const { ids, versions: choices = {}, action, binId } = request;
   requireThat(
     ['trash', 'purge', 'restore', 'purgeBin'].includes(action) &&
@@ -151,7 +185,7 @@ export async function cloudRemovalPlan(vault, request) {
   );
   const marker = await vault.open();
   requireThat(!marker.pending, 'cloud_cleanup_pending');
-  const { heads, inventory, versions } = await catalog(vault),
+  const { heads, inventory, versions } = await catalog(vault, cache),
     selected = new Set(),
     changes = [],
     items = [];
@@ -414,7 +448,7 @@ export async function changeCloud(
   request,
   signature,
   operation,
-  { upgrade = false, progress } = {},
+  { upgrade = false, progress, cache } = {},
 ) {
   requireThat(uuid.test(operation), 'invalid_selection');
   return withSpaceWriter(
@@ -423,7 +457,7 @@ export async function changeCloud(
       if (guard.state().completed?.includes(operation)) return;
       if (!guard.state().pending) {
         requireThat(request && signature, 'stale_plan');
-        const plan = await cloudRemovalPlan(vault, request);
+        const plan = await cloudRemovalPlan(vault, request, { cache });
         requireThat(plan.preview.signature === signature && plan.preview.count, 'stale_plan');
         requireThat(!plan.preview.upgrade || upgrade, 'cloud_upgrade_required');
         await guard.update({ format: 2, pending: plan.transaction(operation) });

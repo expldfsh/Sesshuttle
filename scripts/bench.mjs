@@ -298,8 +298,8 @@ async function benchRemoval() {
     const delayed = new DelayStore(inner, LATENCY);
     const vault = new Vault(delayed, space, KEY);
     const request = { action: 'trash', ids: [uuid('head0')] };
-    const first = await timed(() => cloudRemovalPlan(vault, request));
-    const second = await timed(() => cloudRemovalPlan(vault, request));
+    const first = await timed(() => cloudRemovalPlan(vault, request, { cache: state }));
+    const second = await timed(() => cloudRemovalPlan(vault, request, { cache: state }));
     if (first.value.preview.count !== 3) throw Error('removal fixture mismatch');
     return { first: first.ms, second: second.ms, versions: 300 };
   } finally {

@@ -236,3 +236,45 @@ test('a new upload beside an early test-release version keeps both branches; the
   assert.deepEqual((await v.head(t)).tips, [next.version]);
   assert.equal((await cloudBins(v)).bins[0].count, 1);
 });
+
+test('version descriptions are cached per space, extended for new versions and dropped after deletion', async () => {
+  const store = new MemoryStore(),
+    v = new Vault(store, id(), newKey());
+  await v.create();
+  const t = id();
+  const one = await v.publish(await bundleOf(v, t, 'one'), {});
+  const root = await tempRoot();
+  const state = new State(path.join(root, 'state'));
+  const key = (version) => 'version-desc/' + v.space + '/' + version;
+  try {
+    let reads = 0;
+    const get = store.get.bind(store);
+    store.get = async (k) => {
+      if (k.includes('/versions/')) reads++;
+      return get(k);
+    };
+    const request = { ids: [t], action: 'trash' };
+    const first = await cloudRemovalPlan(v, request, { cache: state });
+    assert.equal(reads, 1);
+    const again = await cloudRemovalPlan(v, request, { cache: state });
+    assert.equal(reads, 1, 'cached descriptions are not downloaded again');
+    assert.equal(again.preview.signature, first.preview.signature);
+    assert.deepEqual(again.preview.items, first.preview.items);
+    const two = await v.publish(await bundleOf(v, t, 'two'), {});
+    reads = 0;
+    await cloudRemovalPlan(v, request, { cache: state });
+    assert.equal(reads, 1, 'only the new version is read');
+    state.set(key(one.version), { v: 1 });
+    reads = 0;
+    await cloudRemovalPlan(v, request, { cache: state });
+    assert.equal(reads, 1, 'a damaged entry is recomputed');
+    const purge = { ids: [t], action: 'purge', versions: { [t]: [one.version] } };
+    const plan = await cloudRemovalPlan(v, purge, { cache: state });
+    await changeCloud(v, purge, plan.preview.signature, id(), { cache: state, upgrade: true });
+    await cloudRemovalPlan(v, request, { cache: state });
+    assert.equal(state.get(key(one.version)), null);
+    assert.ok(state.get(key(two.version)));
+  } finally {
+    state.close();
+  }
+});

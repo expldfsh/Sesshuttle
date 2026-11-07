@@ -537,7 +537,7 @@ export function createHandlers(ctx: Context): Handlers {
       ctx.deletionActive = true;
       engine().running = true;
       try {
-        await changeCloud(engine().vault, null, null, args.id);
+        await changeCloud(engine().vault, null, null, args.id, { cache: state });
         return true;
       } finally {
         engine().running = false;

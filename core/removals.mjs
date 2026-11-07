@@ -69,6 +69,10 @@ export class Removals {
     this.onProgress = onProgress;
     this.plans = new Map();
   }
+  // Version descriptions are cached in local state; see cloud-trash catalog().
+  catalogOptions() {
+    return { cache: this.state };
+  }
   storageKey() {
     const v = this.engine.vault;
     return v
@@ -195,14 +199,19 @@ export class Removals {
       cloudError = null;
     if (cloudScope(q.scope)) {
       requireThat(vault, 'storage_not_connected');
-      cloud = (await cloudRemovalPlan(vault, cloudRequest(q, local))).preview;
+      cloud = (await cloudRemovalPlan(vault, cloudRequest(q, local), this.catalogOptions()))
+        .preview;
     } else if (vault) {
       try {
-        const preserved = await cloudRemovalPlan(vault, {
-          action: 'trash',
-          ids: localIds,
-          versions: Object.fromEntries(localIds.map((tid) => [tid, []])),
-        });
+        const preserved = await cloudRemovalPlan(
+          vault,
+          {
+            action: 'trash',
+            ids: localIds,
+            versions: Object.fromEntries(localIds.map((tid) => [tid, []])),
+          },
+          this.catalogOptions(),
+        );
         retained.push(...preserved.preview.retained);
       } catch (e) {
         cloudError = publicError(e);
@@ -344,7 +353,11 @@ export class Removals {
             continue;
           }
           if (marker.pending?.id !== token) {
-            const fresh = await cloudRemovalPlan(this.engine.vault, cloudRequest(q, plan.local));
+            const fresh = await cloudRemovalPlan(
+              this.engine.vault,
+              cloudRequest(q, plan.local),
+              this.catalogOptions(),
+            );
             requireThat(fresh.preview.signature === plan.cloud.signature, 'stale_plan');
           }
         } else {
@@ -396,6 +409,7 @@ export class Removals {
             plan.cloud.signature,
             token,
             {
+              ...this.catalogOptions(),
               upgrade: job.upgradeAccepted,
               progress: (n, total) => {
                 side.progress = [n, total];
