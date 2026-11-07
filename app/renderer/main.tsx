@@ -226,9 +226,7 @@ function App() {
     setRemovalJobs(x.removalJobs ?? []);
     if (!offeredRecovery.current) {
       offeredRecovery.current = true;
-      const pending = x.removalJobs?.find((j: any) =>
-        ['interrupted', 'partial', 'attention'].includes(j.status),
-      );
+      const pending = x.pendingRemovals?.[0];
       if (pending) setRemovalJob(pending);
     }
     if (x.connection)

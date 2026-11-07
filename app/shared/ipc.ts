@@ -35,6 +35,7 @@ export const IPC_METHODS = {
   executeRemoval: { exclusive: true },
   finishCloudRemoval: { exclusive: true },
   clearActivity: { exclusive: true },
+  activityPage: {},
   backupBins: {},
   backups: {},
   reviewRestore: {},

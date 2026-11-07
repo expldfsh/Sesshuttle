@@ -443,13 +443,11 @@ async function applyPending(vault, guard, progress) {
   await guard.update({ pending: null, completed });
 }
 
-export async function changeCloud(
-  vault,
-  request,
-  signature,
-  operation,
-  { upgrade = false, progress, cache } = {},
-) {
+/**
+ * @param {{ upgrade?: boolean, progress?: (done: number, total: number) => void, cache?: any }} [options]
+ */
+export async function changeCloud(vault, request, signature, operation, options = {}) {
+  const { upgrade = false, progress, cache } = options;
   requireThat(uuid.test(operation), 'invalid_selection');
   return withSpaceWriter(
     vault,

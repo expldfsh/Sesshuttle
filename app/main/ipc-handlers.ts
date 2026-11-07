@@ -4,7 +4,12 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { clearActivity } from '../../core/activity.mjs';
+import {
+  activityPage,
+  activitySummary,
+  clearActivity,
+  clearableActivity,
+} from '../../core/activity.mjs';
 import { backupSummary, deleteBackup, restoreReview } from '../../core/manual-backups.mjs';
 import { readRecovery, writeRecovery } from '../../core/recovery-file.mjs';
 import { changeCloud } from '../../core/cloud-trash.mjs';
@@ -54,6 +59,20 @@ function sortedJobs(state: any) {
     .keys('job/')
     .map((k: string) => state.get(k))
     .sort((a: any, b: any) => b.startedAt.localeCompare(a.startedAt));
+}
+
+const ACTIVITY_PAGE = 50;
+function activityTimeline(ctx: Context, options: { limit: number }) {
+  const removalJobs = ctx.removals.jobs();
+  const page = activityPage(ctx.state, removalJobs, options);
+  const summary = activitySummary(ctx.state, removalJobs);
+  return {
+    jobs: page.jobs,
+    removalJobs: page.removalJobs,
+    activityNext: page.next,
+    activityAttention: summary.attention,
+    pendingRemovals: summary.pendingRemovals,
+  };
 }
 
 // Backups, restores and backup deletion hold the engine like a transfer does.
@@ -339,8 +358,8 @@ export function createHandlers(ctx: Context): Handlers {
       credentialError: state.get('credentialError'),
       version: app.getVersion(),
       testMode: !!ctx.testRoot,
-      removalJobs: ctx.removals.jobs(),
-      jobs: sortedJobs(state),
+      // The newest page of the activity timeline; older pages come from activityPage.
+      ...activityTimeline(ctx, { limit: ACTIVITY_PAGE }),
     }),
     saveConfig: (args) => saveConfig(ctx, args),
     detectPaths: () =>
@@ -544,7 +563,17 @@ export function createHandlers(ctx: Context): Handlers {
         ctx.deletionActive = false;
       }
     },
-    clearActivity: (args) => clearActivity(state, args.keys),
+    // `all` clears every finished record, including pages not loaded yet.
+    clearActivity: (args) => {
+      if (args.all !== true) return clearActivity(state, args.keys);
+      const keys = clearableActivity(state, ctx.removals.jobs());
+      return keys.length ? clearActivity(state, keys) : 0;
+    },
+    activityPage: (args) =>
+      activityPage(state, ctx.removals.jobs(), {
+        before: args.before ?? null,
+        limit: args.limit ?? ACTIVITY_PAGE,
+      }),
     backupBins: async () => ({
       ...(await ctx.removals.bins()),
       storageKey: ctx.removals.storageKey(),
