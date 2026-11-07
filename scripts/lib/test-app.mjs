@@ -34,9 +34,10 @@ export async function startStorage(root) {
 }
 
 // `executablePath` selects a packaged app; by default the development build runs.
-export async function launchApp(root, { executablePath, env = {} } = {}) {
+// `args` are extra Chromium switches, such as --force-device-scale-factor=2.
+export async function launchApp(root, { executablePath, env = {}, args = [] } = {}) {
   const app = await electron.launch({
-    ...(executablePath ? { executablePath, args: [] } : { args: [repo] }),
+    ...(executablePath ? { executablePath, args } : { args: [repo, ...args] }),
     cwd: repo,
     env: { ...process.env, SESSHUTTLE_TEST_ROOT: root, ...env },
   });
