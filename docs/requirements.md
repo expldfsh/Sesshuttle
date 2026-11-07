@@ -336,17 +336,17 @@ tests/core/      node:test 单元测试
 
 ## P6 文案资源重组
 
-- [ ] `app/renderer/locale.ts`（约 95KB，`zh`/`en` 两个大对象加 5 段追加覆盖）重写为 `app/renderer/i18n/messages.ts`：一张表 `key: [zh, en]`，按功能分组，每个键只定义一次。
-- [ ] 删除 `en = {...zh}` 的回退（它会让缺失的英文悄悄显示成中文）。
-- [ ] 删除从未使用的键（已核实约 70 个，删除前逐个再 grep 一次，注意 `t(code)` 动态引用的错误码和 `attachment_`、`projectMatch_`、`trashStatus_`、`assetDecision_`、`trash_` 等前缀拼接）。候选：
+- [x] `app/renderer/locale.ts`（约 95KB，`zh`/`en` 两个大对象加 5 段追加覆盖）重写为 `app/renderer/i18n/messages.ts`：一张表 `key: [zh, en]`，按功能分组，每个键只定义一次。
+- [x] 删除 `en = {...zh}` 的回退（它会让缺失的英文悄悄显示成中文）。
+- [x] 删除从未使用的键（已核实约 70 个，删除前逐个再 grep 一次，注意 `t(code)` 动态引用的错误码和 `attachment_`、`projectMatch_`、`trashStatus_`、`assetDecision_`、`trash_` 等前缀拼接）。候选：
 
   `deleteLocal trashHint includeDependents trashRetainedSize trashFiles retainedAttachments moveToTrash trashSpaceHint restoreDeleted restoreDeletedConfirm trashEmpty trashDone localDestination planBlockedHint confirmUpload uploadPreviewHint detectHint useDetected currentPath recoveryLoaded brandTagline workContext subtitle sync updated saving direction allTargets scopeHint confirmSync action already_imported retryHint projectHint storageHint importKey security securityText backupsHint createdAt scanErrors notVerified noSelection backup_too_large secure_storage_unavailable test_mode empty_state resolvePreview connectionNeedsCredentials saveCredentialsAgain serviceReachable serviceUnconfirmed unlockSystemStore kwalletHelp secretServiceHelp archSteps archGuide removeOnlyLocal movingToTrash taskRestoring chooseMatchingApp selectChatHint assignmentVerified waitingForApp entrySetup restoredLocal fillConnectionFields preservingVersion cloud_removed importNeedsApp`
 
   （`languageSaved` 通过属性访问使用，**保留**。）
-- [ ] 15 个被重复定义的键（`projects`、`desktop`、`both`、`incomplete`、`previewHint`、`versionHint`、`keyHint`、`noBackups`、`restoreConfirm`、`duplicate_identity`、`codex_running`、`scan_incomplete`、`project_required`、`operation_failed`、`launchManualHint`）只保留当前生效的最终文案。
-- [ ] 按第 4.2 节统一术语，中英文同步改。
-- [ ] 英文复数改用 `Intl.PluralRules`，不再用 "N conversations" 式的字符串拼接（至少覆盖对话数、附件数、文件数、版本数）。
-- [ ] 增强 `scripts/check-locales.mjs`，以下情况任一出现即失败：
+- [x] 15 个被重复定义的键（`projects`、`desktop`、`both`、`incomplete`、`previewHint`、`versionHint`、`keyHint`、`noBackups`、`restoreConfirm`、`duplicate_identity`、`codex_running`、`scan_incomplete`、`project_required`、`operation_failed`、`launchManualHint`）只保留当前生效的最终文案。
+- [x] 按第 4.2 节统一术语，中英文同步改。
+- [x] 英文复数改用 `Intl.PluralRules`，不再用 "N conversations" 式的字符串拼接（至少覆盖对话数、附件数、文件数、版本数）。
+- [x] 增强 `scripts/check-locales.mjs`，以下情况任一出现即失败：
   - 中文或英文为空；
   - 英文中含汉字；
   - 界面用到但未定义的键；
@@ -572,7 +572,7 @@ tests/core/      node:test 单元测试
 | P3 core 与主进程重构 | 已完成 | afae909–c19e531 | 测试 65→67（+2 history-items）；`main.ts` 134 行；test-mode 冒烟脚本 `scripts/smoke.mjs` 通过 |
 | P4 后端性能 | 已完成 | bd6806d–cc1b2e3 | 测试 67→76；性能见下表（P4 结束时测量，最终数字在 P10 更新） |
 | P5 渲染层重构与前端性能 | 已完成 | 9148fc4–028d026 | 5,000 行与进度隔离结果见“前端性能（P5）”；全部弹窗 Esc/焦点检查通过 |
-| P6 文案资源重组 | 未开始 | | |
+| P6 文案资源重组 | 已完成 | b496183 | 719 → 650 个键；检查脚本对 6 类问题逐一注入验证会失败，撤回后通过；中英文页面无原始键名 |
 | P7 UI/UX 改版 | 未开始 | | |
 | P8 Python 工具移植 | 未开始 | | |
 | P9 文档、截图与版本 | 未开始 | | |
@@ -635,6 +635,10 @@ tests/core/      node:test 单元测试
 | 2026-11-06 | P5：虚拟滚动的行高在 CSS 中固定为 64px，运行时再测量一次实际行高用于计算；“全选”只作用于当前筛选结果（与 0.6.0 相同）。`copyText` IPC 在 P5 提前加入，因为 `ErrorNotice` 的“复制”需要它 | 开发者决定 |
 | 2026-11-06 | P5：`scripts/ui-fixture.mjs` 新增 `--count=N`（性能测试）和 `--binary=`；默认不再把 `/Applications/ChatGPT.app` 中真实的 Codex 程序写入测试配置，而是在测试根目录生成一个只报告版本 0.166.0 的替身脚本，避免走查时执行本机真实程序 | 开发者决定 |
 | 2026-11-06 | P5 样式：`style.css` 拆为 `styles/base|layout|components|pages|responsive.css`。重组前后在对话、设置、项目、备份、同步记录、导入弹窗（1320 与 780 宽）中逐元素比对计算样式完全一致；唯一差异是删除弹窗段落间距回到它自己的 12px（P5 初期新增的通用弹窗规则曾把它改成 16px） | 开发者决定 |
+| 2026-11-06 | P6：0.6.0 的英文没有任何键实际回退到中文（分析确认），33 个键被定义过多次，保留最终生效值。删除需求列出的 70 个键，另删 `pending`、`files`、`device`（无处使用）及改为复数消息后不再需要的 `chatCountUnit`、`backupVersions`、`confirmUploadCount`、`cloudObjects`、`actualScope`；新增 `native_method_missing` 文案（core 可抛出但此前无文案） | 开发者决定 |
+| 2026-11-06 | P6 术语：除第 4.2 节外，`recoveryKey`（手动填写的空间解密密钥）统一称“空间密钥 / Space key”，与“连接文件含空间密钥”一致；`credential_write_failed` 指本机加密凭据文件，改称“本机加密凭据”以免与导出的“连接文件”混淆 | 开发者决定 |
+| 2026-11-06 | P6 检查脚本：错误码来源由 `scripts/lib/error-codes.mjs` 从 core 与主进程源码收集（`Fault` 首参、`requireThat` 次参、`code:` 字面量与错误码映射表，排除比较运算的操作数）；core 产生、界面以 `t(value)` 显示的状态/阶段/原因/位置/问题码在脚本中以 `DATA_VALUES` 显式声明；`external_attachment` 作为早期测试版云端对话头可能携带的问题码保留；`unsupported`/`unsafe`/`unreadable` 是附件检查内部状态，不要求文案 | 开发者决定 |
+| 2026-11-06 | P6：消息值的英文可为 `{one, other}`，`tn(key, n)` 用缓存的 `Intl.PluralRules` 选择形式；`t(key, vars)` 支持 `{name}` 占位，检查脚本要求中英文占位一致。另加 `scripts/lib/raw-keys.mjs`，走查时检测界面上露出的 camelCase/snake_case 键名 | 开发者决定 |
 | 2026-11-06 | P1 测试数量：+1 工作区文件夹名；−1 `relation()` 的字节前缀比较（format 1 专属）；+2 legacy 版本（删除预览可见且可永久删除、导入/比较/下载副本/预览拒绝；与新上传并存为冲突分支且可移入回收站）。`attachments` 用例改为 `captureBundle`+`remapHistory`，删去只适用于 format 1 回执的“下一轮还原原始路径”部分；`sync` 中“未完成记录不可快照”改为通过扫描器和 `captureBundle` 验证。其余 format 1 用例改用 format 2 数据，断言保持 | 开发者决定 |
 
 ## 历史轮次摘要
