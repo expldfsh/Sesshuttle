@@ -88,7 +88,9 @@ export class R2Store {
   async remove(key) {
     await this.call(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
-  async inventory(prefix) {
+  // ListObjectsV2 pagination. `entry` maps each listed object page by page; a
+  // repeated cursor or more than `limit` objects stops the walk.
+  async listObjects(prefix, limit, entry) {
     let cursor;
     const entries = [],
       seen = new Set();
@@ -101,40 +103,25 @@ export class R2Store {
         }),
       );
       requireThat(r, 'storage_unavailable');
-      for (const x of r.Contents ?? []) {
-        requireThat(
-          typeof x.Key === 'string' && Number.isSafeInteger(x.Size) && x.Size >= 0,
-          'corrupt_data',
-        );
-        entries.push({ key: x.Key, bytes: x.Size });
-      }
-      requireThat(entries.length <= 200000, 'space_too_large');
+      entries.push(...(r.Contents ?? []).map(entry));
+      requireThat(entries.length <= limit, 'space_too_large');
       cursor = r.IsTruncated ? r.NextContinuationToken : null;
       requireThat(!r.IsTruncated || (cursor && !seen.has(cursor)), 'corrupt_data');
       if (cursor) seen.add(cursor);
     } while (cursor);
     return entries;
   }
-  async list(prefix) {
-    let cursor;
-    const keys = [],
-      seen = new Set();
-    do {
-      const r = await this.call(
-        new ListObjectsV2Command({
-          Bucket: this.bucket,
-          Prefix: prefix,
-          ContinuationToken: cursor,
-        }),
+  inventory(prefix) {
+    return this.listObjects(prefix, 200000, (x) => {
+      requireThat(
+        typeof x.Key === 'string' && Number.isSafeInteger(x.Size) && x.Size >= 0,
+        'corrupt_data',
       );
-      requireThat(r, 'storage_unavailable');
-      keys.push(...(r.Contents ?? []).map((x) => x.Key));
-      requireThat(keys.length <= 20000, 'space_too_large');
-      cursor = r.IsTruncated ? r.NextContinuationToken : null;
-      requireThat(!r.IsTruncated || (cursor && !seen.has(cursor)), 'corrupt_data');
-      if (cursor) seen.add(cursor);
-    } while (cursor);
-    return keys;
+      return { key: x.Key, bytes: x.Size };
+    });
+  }
+  list(prefix) {
+    return this.listObjects(prefix, 20000, (x) => x.Key);
   }
   async test() {
     await this.list('sesshuttle/probe/');
