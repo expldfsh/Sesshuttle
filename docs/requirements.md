@@ -197,17 +197,17 @@ tests/core/      node:test 单元测试
 
 ### P1.1 本地文件（不在 git 中）
 
-- [ ] 删除 `release/` 中 0.6.0 以外的全部旧产物（rc.1–rc.5、0.2.0–0.5.0 的 dmg/deb/tar.gz/blockmap/manifest/SHA256SUMS、`RELEASE-NOTES-0.5.0.md`、`builder-debug.yml`、`linux-unpacked/`、`mac-arm64/`），只保留 `sesshuttle-0.6.0-*` 和 `SHA256SUMS-0.6.0.txt`。
-- [ ] 删除 `dist/`、所有 `__pycache__/`、`.DS_Store`。
+- [x] 删除 `release/` 中 0.6.0 以外的全部旧产物（rc.1–rc.5、0.2.0–0.5.0 的 dmg/deb/tar.gz/blockmap/manifest/SHA256SUMS、`RELEASE-NOTES-0.5.0.md`、`builder-debug.yml`、`linux-unpacked/`、`mac-arm64/`），只保留 `sesshuttle-0.6.0-*` 和 `SHA256SUMS-0.6.0.txt`。
+- [x] 删除 `dist/`、所有 `__pycache__/`、`.DS_Store`。
 
 ### P1.2 Bug
 
-- [ ] `app/main/main.ts` 的 `createWorkspace`：正则 `/[^\\p{L}\\p{N} _-]/gu` 多转义了一层，"My Project 中文" 会变成 `"__ _______ __"`。改为 `/[^\p{L}\p{N} _-]/gu`，并为文件夹名生成逻辑补一个单元测试（把它提成可测试的纯函数）。
-- [ ] `app/renderer/ManualBackups.tsx`：「删除备份」按钮用了不存在的 `className="danger"`，改为 `danger-button`。
+- [x] `app/main/main.ts` 的 `createWorkspace`：正则 `/[^\\p{L}\\p{N} _-]/gu` 多转义了一层，"My Project 中文" 会变成 `"__ _______ __"`。改为 `/[^\p{L}\p{N} _-]/gu`，并为文件夹名生成逻辑补一个单元测试（把它提成可测试的纯函数）。
+- [x] `app/renderer/ManualBackups.tsx`：「删除备份」按钮用了不存在的 `className="danger"`，改为 `danger-button`。
 
 ### P1.3 死代码（均已核实无引用）
 
-- [ ] 未使用的 import：
+- [x] 未使用的 import：
   - `main.ts`：`safeStorage`
   - `core/bundle.mjs`：`imageType`、`atomic`、`inside`、`exists`、`Fault`、`records`、`databaseSummary`
   - `core/codex.mjs`：`walk`、`exists`
@@ -215,28 +215,28 @@ tests/core/      node:test 单元测试
   - `core/import-bundle.mjs`：`writeStream`、`Fault`
   - `core/importer.mjs`：`walk`、`Fault`
   - `scripts/archive-integration.mjs`、`scripts/native-config.mjs`：`capture`
-  - `scripts/roundtrip.mjs`、`scripts/real-copy-roundtrip.mjs`：`databaseRecords`
+  - `scripts/roundtrip.mjs`、`scripts/real-copy-roundtrip.mjs`：`databaseRecords`（**保留**：两个脚本都在比对数据库记录时调用它，见决策记录）
   - `tests/core/missing-images.test.mjs`：`omittedImageText`
-- [ ] `core/scanner.mjs` 的 `scanHistory` 接收但从不使用 `parseRollout`、`knownVersions`，删除这两个参数及 `codex.scan` 中的传参。
-- [ ] 只在模块内部使用的导出改为非导出：`artifactData`（bundle）、`resourceReferences`（attachments）、`RECORD_LIMIT`（stream）。
-- [ ] IPC 方法 `checkClosed` 渲染层从不调用，从 preload 白名单和 main 路由中删除。
-- [ ] 渲染层的 `notice.go` 按钮从未被设置，删除。
-- [ ] `MemoryStore` 只被测试和脚本使用，移到 `tests/helpers/memory-store.mjs`（脚本从这里引用），`core/storage.mjs` 只保留 `R2Store`。
+- [x] `core/scanner.mjs` 的 `scanHistory` 接收但从不使用 `parseRollout`、`knownVersions`，删除这两个参数及 `codex.scan` 中的传参。
+- [x] 只在模块内部使用的导出改为非导出：`artifactData`（bundle）、`resourceReferences`（attachments）、`RECORD_LIMIT`（stream）。
+- [x] IPC 方法 `checkClosed` 渲染层从不调用，从 preload 白名单和 main 路由中删除。
+- [x] 渲染层的 `notice.go` 按钮从未被设置，删除。
+- [x] `MemoryStore` 只被测试和脚本使用，移到 `tests/helpers/memory-store.mjs`（脚本从这里引用），`core/storage.mjs` 只保留 `R2Store`。
 
 ### P1.4 移除 bundle format 1
 
 用户已确认云端不需要兼容 rc 早期的 format 1 版本。
 
-- [ ] 删除 `core/codex.mjs` 中的 `capture`、`mapResources`、`validatePayload`、`relation`、`parseRollout`（`KNOWN_VERSIONS`、`sourceOf`、`imageType`、`scan` 保留）。
-- [ ] 删除整个 `core/receipts.mjs`；删除 `importer.import` 中的 format 1 分支和 `record()` 的旧分支，`Importer.import` 只接受 format 2（其余格式抛 `legacy_format_unsupported`）。
-- [ ] `vault.version()`、`vault.publishLocked()` 只处理 format 2。`publishLocked` 中旧版的 `relation()` 比较逻辑删除，只保留 `bundleIdentity` 和 `baseVersion` 判断。
-- [ ] `bundleBytes`、`cloud-trash.describe`、`download-copy` 删除 format 1 分支。
-- [ ] **云端仍可能残留 format 1 版本时，必须能被删除**：`cloud-trash` 的目录读取遇到非 format 2 版本时，把它当作不透明版本（只有大小，没有文件和附件列表，标记 `legacy`），允许移入回收站或永久删除；预览中显示「早期测试版格式，无法导入，可删除」。其他路径（导入、比较、下载副本）遇到时给出 `legacy_format_unsupported` 错误和对应文案。
-- [ ] `importer.restore` 和 `trash.invalidate` 中清理 `receipt/` 前缀的代码删除，只保留 `bundle-receipt/`。
-- [ ] 改写用到 format 1 构造数据的测试（`sync`、`import`、`recovery`、`cloud-trash`、`attachments`、`missing-images`）：
+- [x] 删除 `core/codex.mjs` 中的 `capture`、`mapResources`、`validatePayload`、`relation`、`parseRollout`（`KNOWN_VERSIONS`、`sourceOf`、`imageType`、`scan` 保留）。
+- [x] 删除整个 `core/receipts.mjs`；删除 `importer.import` 中的 format 1 分支和 `record()` 的旧分支，`Importer.import` 只接受 format 2（其余格式抛 `legacy_format_unsupported`）。
+- [x] `vault.version()`、`vault.publishLocked()` 只处理 format 2。`publishLocked` 中旧版的 `relation()` 比较逻辑删除，只保留 `bundleIdentity` 和 `baseVersion` 判断。
+- [x] `bundleBytes`、`cloud-trash.describe`、`download-copy` 删除 format 1 分支。
+- [x] **云端仍可能残留 format 1 版本时，必须能被删除**：`cloud-trash` 的目录读取遇到非 format 2 版本时，把它当作不透明版本（只有大小，没有文件和附件列表，标记 `legacy`），允许移入回收站或永久删除；预览中显示「早期测试版格式，无法导入，可删除」。其他路径（导入、比较、下载副本）遇到时给出 `legacy_format_unsupported` 错误和对应文案。
+- [x] `importer.restore` 和 `trash.invalidate` 中清理 `receipt/` 前缀的代码删除，只保留 `bundle-receipt/`。
+- [x] 改写用到 format 1 构造数据的测试（`sync`、`import`、`recovery`、`cloud-trash`、`attachments`、`missing-images`）：
   - 测的是 format 1 专属行为的，删除；
   - 测的是通用行为（恢复、冲突、删除、附件策略）的，改为用 `captureBundle` 生成 format 2 数据，保持覆盖面不减少。
-- [ ] 新增测试：遇到 legacy 版本时导入报 `legacy_format_unsupported`；legacy 版本在删除预览中可见且可永久删除。
+- [x] 新增测试：遇到 legacy 版本时导入报 `legacy_format_unsupported`；legacy 版本在删除预览中可见且可永久删除。
 
 **自验收**：
 
@@ -567,7 +567,7 @@ tests/core/      node:test 单元测试
 | 阶段 | 状态 | 提交范围 | 备注 |
 | --- | --- | --- | --- |
 | P0 准备与基线 | 已完成 | 615cdf7–P0 提交 | 基线见下表；bench 在 M 系列 Mac 上运行，两次结果差异 <2% |
-| P1 清理与修复 | 未开始 | | |
+| P1 清理与修复 | 已完成 | 39d67c4–bb0de81 | 测试 64→65 通过（另 1 个 Linux 专属用例在 Mac 跳过），增减见决策记录 |
 | P2 格式化与静态检查 | 未开始 | | |
 | P3 core 与主进程重构 | 未开始 | | |
 | P4 后端性能 | 未开始 | | |
@@ -599,6 +599,13 @@ tests/core/      node:test 单元测试
 | 2026-11-06 | UI/UX 按第 P7 节一次性全部完成，包括合并导入弹窗、重做筛选和术语改名 | 用户确认 |
 | 2026-11-06 | 旧需求文档、开发计划、rc–0.5.0 兼容与验收记录、0.5.0 发布草稿和对应 workflow 删除；保留 0.6.0 验收记录 | 用户确认 |
 | 2026-11-06 | 开发流程：一轮内逐阶段自验收、完成全部阶段后交给用户验收；频繁本地提交并带 Co-authored-by；不 push、不开 PR | 用户确认 |
+| 2026-11-06 | P1.3 列为未使用的 `databaseRecords`（`scripts/roundtrip.mjs`、`scripts/real-copy-roundtrip.mjs`）实际在比对数据库记录时被调用，保留不删；其余未使用 import 均已删除 | 开发者核实 |
+| 2026-11-06 | P1.1 同时删除了 `release/.icon-icns/`（electron-builder 的图标缓存，打包时自动重建） | 开发者决定 |
+| 2026-11-06 | 工作区文件夹名的生成提到 `core/workspace.mjs` 的 `workspaceFolderName()`，由 main 调用，`tests/core/workspace.test.mjs` 覆盖 | 开发者决定 |
+| 2026-11-06 | `MemoryStore` 移到 `tests/helpers/memory-store.mjs` 后，脚本也从这里引用；另新增 `tests/helpers/bundles.mjs`，用真实扫描 + `captureBundle` 生成 format 2 测试数据 | 开发者决定 |
+| 2026-11-06 | `vault.version(id, {legacy:true})` 是唯一能读到非 format 2 清单的入口，返回 `{legacy, manifest, objectBytes}`；只有云端删除目录和 `publishLocked` 的分支比较使用它。旧版本作为 tip 时，新上传按 `baseVersion` 判断，与 0.6.0 的跨格式行为相同（不会判为已同步） | 开发者决定 |
+| 2026-11-06 | legacy 版本在删除预览中只显示存储对象大小；它成为删除后的保留 tip 时，对话头只继承它清单中的标题、来源、项目、更新时间、设备、归档等简单字段 | 开发者决定 |
+| 2026-11-06 | P1 测试数量：+1 工作区文件夹名；−1 `relation()` 的字节前缀比较（format 1 专属）；+2 legacy 版本（删除预览可见且可永久删除、导入/比较/下载副本/预览拒绝；与新上传并存为冲突分支且可移入回收站）。`attachments` 用例改为 `captureBundle`+`remapHistory`，删去只适用于 format 1 回执的“下一轮还原原始路径”部分；`sync` 中“未完成记录不可快照”改为通过扫描器和 `captureBundle` 验证。其余 format 1 用例改用 format 2 数据，断言保持 | 开发者决定 |
 
 ## 历史轮次摘要
 
