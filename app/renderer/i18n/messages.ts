@@ -554,7 +554,7 @@ export const messages = {
     '没有选中要采用的路径。返回导入可手动编辑缺失的路径。',
     'No replacement was selected. Return to import to edit the missing path.',
   ],
-  needsCheck: ['待检查', 'Needs checking'],
+  needsCheck: ["需要快速验证", "Quick check needed"],
   noCandidate: [
     '未找到可用程序。可在应用卡片中手动选择。',
     'No runtime found. Choose it manually in the app card.',
@@ -968,7 +968,7 @@ export const messages = {
     'Checking history, attachments, versions and shared data…',
   ],
   recomputeRemoval: ['更新清单', 'Update review'],
-  refreshBins: ['查看或刷新本机和云端回收站', 'View or refresh device and cloud recycle bins'],
+  refreshBins: ["刷新云端回收站", "Refresh cloud recycle bin"],
   remoteRestoreHint: [
     '恢复后同一空间的设备可以下载，需要时各自在本机确认导入。',
     'Devices in this space can download the restored versions. Each device chooses whether to import them.',
