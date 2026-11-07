@@ -1,0 +1,5 @@
+# Pure formatting commits. Use with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# Format app, core, scripts and tests with Prettier
+04801ae9a239808165f8da11d052d41f08b7055f
+# Format the message table after the P9 label changes
+6d74e21b408d36518c75bfbb6ea6056e991e8d3d

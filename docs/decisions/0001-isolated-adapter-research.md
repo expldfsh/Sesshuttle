@@ -6,6 +6,8 @@
 
 依据：[官方 App Server 文档](https://learn.chatgpt.com/docs/app-server) 与本机各版本生成的 schema。原生 path 恢复属于不稳定接口，因此按精确版本验证，不声明任意版本兼容。历史恢复必须核对完整分页内容，不能只看列表或恢复接口成功。
 
-暂不直接编辑用户的 Codex SQLite 数据库，也不删除索引。通过测试的内核行为见[隔离验证记录](../validation/mac-isolated-m1.md)。未知格式和未验证资源依赖不进行导入。归档投影、多入口实际界面、子会话和附件尚有工作，M1 不标记整体完成。
+暂不直接编辑用户的 Codex SQLite 数据库，也不删除索引。通过测试的内核行为记录在 git 历史中的 docs/validation/mac-isolated-m1.md。未知格式和未验证资源依赖不进行导入。归档投影、多入口实际界面、子会话和附件尚有工作，M1 不标记整体完成。
 
 生产适配器不得直接复用研究工具的宽泛“原样文件可恢复”结论；需要独立的数据范围、版本矩阵、资源依赖、使用中检测、恢复日志和多入口验证。用户本机数据写入仅在这些能力验证完备并通过产品界面预览后开放。
+
+0.7.0 起研究工具已移植为 JS，Python 实现已删除。隔离 Lab、沙箱内的 App Server 客户端和本机应答服务改由 `scripts/lib/native-lab.mjs` 与 `core/fixture-provider.mjs` 提供，见 [0004](0004-js-validation-harness.md)。

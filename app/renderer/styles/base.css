@@ -1,0 +1,239 @@
+/* Base: fonts, root tokens and native elements. Colors come only from the theme variables. */
+@font-face {
+  font-family: 'Comic Neue';
+  src: url('../fonts/ComicNeue-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Comic Neue';
+  src: url('../fonts/ComicNeue-Bold.woff2') format('woff2');
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'LXGW WenKai';
+  src: url('../fonts/LXGWWenKai-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'LXGW WenKai';
+  src: url('../fonts/LXGWWenKai-Medium.woff2') format('woff2');
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  font-family: 'Comic Neue', 'LXGW WenKai', sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  font-synthesis: none;
+  color: var(--fg);
+  background: var(--bg);
+  /* Three levels of elevation, all from the theme's shadow color. */
+  --elevation-card: 0 1px 3px var(--shadow);
+  --elevation-float: 0 12px 32px var(--shadow);
+  --elevation-modal: 0 25px 100px var(--shadow);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+::selection {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+pre,
+code {
+  font-family: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+  padding: 8px 13px;
+  line-height: 1.4;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+button:hover:not(:disabled) {
+  background: var(--highlight);
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+/* The list keeps its outline inside its scrolling frame. */
+table[role='grid']:focus-visible {
+  outline-offset: -2px;
+}
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+input,
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 9px 11px;
+  background: var(--panel);
+  color: inherit;
+  min-width: 0;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+textarea {
+  resize: vertical;
+  line-height: 1.65;
+}
+small {
+  font-size: 13px;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+h3 {
+  font-size: 17px;
+  font-weight: 700;
+}
+.muted {
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 13px;
+  display: block;
+}
+.text-button {
+  background: transparent;
+  border-color: transparent;
+  padding: 5px 6px;
+  color: var(--accent);
+  font-size: 14px;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.error-text {
+  font-size: 14px;
+  color: var(--danger);
+  margin-top: 8px;
+}
+.amber-text {
+  color: var(--warning);
+}
+.danger-button {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.candidate-group summary,
+details > summary {
+  color: var(--accent);
+  cursor: pointer;
+}
+progress {
+  width: 100%;
+  height: 7px;
+  accent-color: var(--accent);
+  display: block;
+  margin: 8px 0;
+}
+.icon-button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 4px 8px;
+  line-height: 1;
+  font-size: 18px;
+}
+.icon {
+  flex-shrink: 0;
+  vertical-align: -3px;
+}
+.danger-action {
+  background: var(--danger);
+  color: var(--on-accent);
+  border-color: var(--danger);
+  font-weight: 700;
+}
+.danger-action:hover:not(:disabled) {
+  background: var(--danger);
+  filter: brightness(1.08);
+}
+.danger-text {
+  color: var(--danger);
+}
+kbd {
+  font: inherit;
+  font-size: 13px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  white-space: nowrap;
+}
+.icon.sort-down {
+  transform: rotate(90deg);
+}
+.icon.sort-up {
+  transform: rotate(-90deg);
+}
+.icon.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

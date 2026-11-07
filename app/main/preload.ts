@@ -1,8 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron';
-const methods=new Set(['init','restoreConnection','credentialHealth','retryCredentialSave','pickImage','versionDetails','destinationInfo','verifyRuntime','cancelRuntimeCheck','checkClosed','validateFolders','createWorkspace','detectPaths','refresh','saveConfig','pickDirectory','pickBinary','connect','disconnect','importRecovery','exportRecovery','preview','discardPlan','execute','cancel','backups','createBackup','deleteBackup','reviewRestore','backupBins','clearActivity','downloadCopy','inspectTarget','keepLocalCopy','reviewRemoval','retryRemovalPlan','reviseRemovalPlan','executeRemoval','finishCloudRemoval','restore','diagnostics','projectInfo','continue']);
-contextBridge.exposeInMainWorld('sesshuttle',{
- invoke:(method:string,args:unknown={})=>{if(!methods.has(method))throw new Error('Unknown action');return ipcRenderer.invoke('sesshuttle:request',method,args);},
- onClosePending:(callback:(removal:boolean)=>void)=>{const listener=(_:unknown,removal:boolean)=>callback(removal);ipcRenderer.on('sesshuttle:closePending',listener);return()=>ipcRenderer.removeListener('sesshuttle:closePending',listener);},
- onRuntimeStage:(callback:(data:unknown)=>void)=>{const listener=(_:unknown,data:unknown)=>callback(data);ipcRenderer.on('sesshuttle:runtime',listener);return()=>ipcRenderer.removeListener('sesshuttle:runtime',listener);},
- onProgress:(callback:(data:unknown)=>void)=>{const listener=(_:unknown,data:unknown)=>callback(data);ipcRenderer.on('sesshuttle:progress',listener);return()=>ipcRenderer.removeListener('sesshuttle:progress',listener);}
+import { isIpcMethod } from '../shared/ipc';
+
+function subscribe<T>(channel: string, callback: (data: T) => void) {
+  const listener = (_: unknown, data: T) => callback(data);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
+
+contextBridge.exposeInMainWorld('sesshuttle', {
+  invoke: (method: string, args: unknown = {}) => {
+    if (!isIpcMethod(method)) throw new Error('Unknown action');
+    return ipcRenderer.invoke('sesshuttle:request', method, args);
+  },
+  onClosePending: (callback: (removal: boolean) => void) =>
+    subscribe('sesshuttle:closePending', callback),
+  onRuntimeStage: (callback: (data: unknown) => void) => subscribe('sesshuttle:runtime', callback),
+  onProgress: (callback: (data: unknown) => void) => subscribe('sesshuttle:progress', callback),
 });
