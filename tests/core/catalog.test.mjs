@@ -1,13 +1,135 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {DatabaseSync} from 'node:sqlite';import {scan} from '../../core/codex.mjs';import {id} from '../../core/util.mjs';
-test('database-only named chats and guardian children remain distinct and source is read-only',async()=>{
- const root=await fs.mkdtemp(path.join(os.tmpdir(),'sesshuttle-catalog-'));const parent=id(),child=id();const s=new DatabaseSync(path.join(root,'state_5.sqlite'));s.exec('CREATE TABLE threads(id TEXT PRIMARY KEY, name TEXT, title TEXT, source TEXT, originator TEXT, cwd TEXT, cli_version TEXT, created_at INTEGER,updated_at INTEGER,archived INTEGER,rollout_path TEXT,attached_thread_parent_id TEXT)');
- const stmt=s.prepare('INSERT INTO threads VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');stmt.run(parent,'My real title 中文','Internal prompt','vscode','codex_work_desktop',root,'0.166.0-alpha.5.1',1,2,0,'/missing',null);stmt.run(child,null,'Internal guardian prompt',JSON.stringify({subagent:{other:'guardian'}}),'codex_work_desktop',root,'0.166.0-alpha.5.1',1,2,0,'/missing',parent);s.close();
- const d=new DatabaseSync(path.join(root,'thread_history_1.sqlite'));d.exec('CREATE TABLE thread_items(thread_id TEXT, item_id TEXT, item_json TEXT, PRIMARY KEY(thread_id,item_id))');d.prepare('INSERT INTO thread_items VALUES(?,?,?)').run(parent,'i',JSON.stringify({type:'userMessage',content:[{text:'History still exists'}]}));d.close();
- const before=await fs.readFile(path.join(root,'state_5.sqlite'));const r=await scan([root]);assert.equal(r.errors.length,0);assert.equal(r.rows.length,2);const a=r.rows.find(x=>x.id===parent),b=r.rows.find(x=>x.id===child);assert.equal(a.title,'My real title 中文');assert.equal(a.source,'desktop');assert.equal(a.file,null);assert.ok(a.databaseBytes>0);assert.equal(a.messages[0].text,'History still exists');assert.equal(b.kind,'background');assert.equal(b.parentTitle,a.title);assert.equal(b.agent,'guardian');assert.deepEqual(await fs.readFile(path.join(root,'state_5.sqlite')),before);
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { scan } from '../../core/codex.mjs';
+import { id } from '../../core/util.mjs';
+test('database-only named chats and guardian children remain distinct and source is read-only', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-catalog-'));
+  const parent = id(),
+    child = id();
+  const s = new DatabaseSync(path.join(root, 'state_5.sqlite'));
+  s.exec(
+    'CREATE TABLE threads(id TEXT PRIMARY KEY, name TEXT, title TEXT, source TEXT, originator TEXT, cwd TEXT, cli_version TEXT, created_at INTEGER,updated_at INTEGER,archived INTEGER,rollout_path TEXT,attached_thread_parent_id TEXT)',
+  );
+  const stmt = s.prepare('INSERT INTO threads VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
+  stmt.run(
+    parent,
+    'My real title 中文',
+    'Internal prompt',
+    'vscode',
+    'codex_work_desktop',
+    root,
+    '0.166.0-alpha.5.1',
+    1,
+    2,
+    0,
+    '/missing',
+    null,
+  );
+  stmt.run(
+    child,
+    null,
+    'Internal guardian prompt',
+    JSON.stringify({ subagent: { other: 'guardian' } }),
+    'codex_work_desktop',
+    root,
+    '0.166.0-alpha.5.1',
+    1,
+    2,
+    0,
+    '/missing',
+    parent,
+  );
+  s.close();
+  const d = new DatabaseSync(path.join(root, 'thread_history_1.sqlite'));
+  d.exec(
+    'CREATE TABLE thread_items(thread_id TEXT, item_id TEXT, item_json TEXT, PRIMARY KEY(thread_id,item_id))',
+  );
+  d.prepare('INSERT INTO thread_items VALUES(?,?,?)').run(
+    parent,
+    'i',
+    JSON.stringify({ type: 'userMessage', content: [{ text: 'History still exists' }] }),
+  );
+  d.close();
+  const before = await fs.readFile(path.join(root, 'state_5.sqlite'));
+  const r = await scan([root]);
+  assert.equal(r.errors.length, 0);
+  assert.equal(r.rows.length, 2);
+  const a = r.rows.find((x) => x.id === parent),
+    b = r.rows.find((x) => x.id === child);
+  assert.equal(a.title, 'My real title 中文');
+  assert.equal(a.source, 'desktop');
+  assert.equal(a.file, null);
+  assert.ok(a.databaseBytes > 0);
+  assert.equal(a.messages[0].text, 'History still exists');
+  assert.equal(b.kind, 'background');
+  assert.equal(b.parentTitle, a.title);
+  assert.equal(b.agent, 'guardian');
+  assert.deepEqual(await fs.readFile(path.join(root, 'state_5.sqlite')), before);
 });
-test('zstd histories are discovered without modifying or expanding source files',async()=>{
- const {zstdCompressSync}=await import('node:zlib');const {captureBundle,materialize}=await import('../../core/bundle.mjs');const {Vault}=await import('../../core/vault.mjs');const {MemoryStore}=await import('../helpers/memory-store.mjs');const {newKey}=await import('../../core/crypto.mjs');const root=await fs.mkdtemp(path.join(os.tmpdir(),'sesshuttle-zstd-'));try{const home=path.join(root,'home'),stage=path.join(root,'stage');await fs.mkdir(path.join(home,'sessions'),{recursive:true});await fs.mkdir(stage);const tid=id(),raw=Buffer.from(JSON.stringify({type:'session_meta',payload:{id:tid,source:'cli',cli_version:'0.166.0',timestamp:'2026-11-01T00:00:00Z',cwd:root}})+'\n'+JSON.stringify({type:'event_msg',payload:{type:'user_message',message:'Compressed history is not missing'}})+'\n');const compressed=zstdCompressSync(raw),file=path.join(home,'sessions','rollout-'+tid+'.jsonl.zst');await fs.writeFile(file,compressed);const r=await scan([home]);assert.equal(r.errors.length,0);assert.equal(r.rows.length,1);assert.equal(r.rows[0].compressed,true);assert.equal(r.rows[0].continuation,true);assert.equal(r.rows[0].fileBytes,compressed.length);assert.equal(r.rows[0].historyBytes,raw.length);const vault=new Vault(new MemoryStore(),id(),newKey());await vault.create();const payload=await captureBundle(r.rows[0],r.rows,vault,stage);const published=await vault.publish(payload,{id:'test'});const restored=await materialize(await vault.version(published.version),vault,path.join(root,'download'));assert.deepEqual(await fs.readFile(restored.files[0].artifacts[0].file),raw);assert.deepEqual(await fs.readFile(file),compressed);assert.equal((await fs.readdir(path.dirname(file))).length,1);
- // Native can temporarily leave both forms; identical content is one chat, not a conflict.
- await fs.writeFile(file.replace(/\.zst$/,''),raw);const both=await scan([home]);assert.equal(both.rows.length,1);assert.equal(both.errors.length,0);assert.equal(both.rows[0].fileBytes,raw.length+compressed.length);
- }finally{await fs.rm(root,{recursive:true,force:true});}
+test('zstd histories are discovered without modifying or expanding source files', async () => {
+  const { zstdCompressSync } = await import('node:zlib');
+  const { captureBundle, materialize } = await import('../../core/bundle.mjs');
+  const { Vault } = await import('../../core/vault.mjs');
+  const { MemoryStore } = await import('../helpers/memory-store.mjs');
+  const { newKey } = await import('../../core/crypto.mjs');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-zstd-'));
+  try {
+    const home = path.join(root, 'home'),
+      stage = path.join(root, 'stage');
+    await fs.mkdir(path.join(home, 'sessions'), { recursive: true });
+    await fs.mkdir(stage);
+    const tid = id(),
+      raw = Buffer.from(
+        JSON.stringify({
+          type: 'session_meta',
+          payload: {
+            id: tid,
+            source: 'cli',
+            cli_version: '0.166.0',
+            timestamp: '2026-11-01T00:00:00Z',
+            cwd: root,
+          },
+        }) +
+          '\n' +
+          JSON.stringify({
+            type: 'event_msg',
+            payload: { type: 'user_message', message: 'Compressed history is not missing' },
+          }) +
+          '\n',
+      );
+    const compressed = zstdCompressSync(raw),
+      file = path.join(home, 'sessions', 'rollout-' + tid + '.jsonl.zst');
+    await fs.writeFile(file, compressed);
+    const r = await scan([home]);
+    assert.equal(r.errors.length, 0);
+    assert.equal(r.rows.length, 1);
+    assert.equal(r.rows[0].compressed, true);
+    assert.equal(r.rows[0].continuation, true);
+    assert.equal(r.rows[0].fileBytes, compressed.length);
+    assert.equal(r.rows[0].historyBytes, raw.length);
+    const vault = new Vault(new MemoryStore(), id(), newKey());
+    await vault.create();
+    const payload = await captureBundle(r.rows[0], r.rows, vault, stage);
+    const published = await vault.publish(payload, { id: 'test' });
+    const restored = await materialize(
+      await vault.version(published.version),
+      vault,
+      path.join(root, 'download'),
+    );
+    assert.deepEqual(await fs.readFile(restored.files[0].artifacts[0].file), raw);
+    assert.deepEqual(await fs.readFile(file), compressed);
+    assert.equal((await fs.readdir(path.dirname(file))).length, 1);
+    // Native can temporarily leave both forms; identical content is one chat, not a conflict.
+    await fs.writeFile(file.replace(/\.zst$/, ''), raw);
+    const both = await scan([home]);
+    assert.equal(both.rows.length, 1);
+    assert.equal(both.errors.length, 0);
+    assert.equal(both.rows[0].fileBytes, raw.length + compressed.length);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });

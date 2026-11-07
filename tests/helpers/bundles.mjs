@@ -18,9 +18,21 @@ export async function tempRoot(prefix = 'sesshuttle-test-') {
   return root;
 }
 
-export function rolloutText(tid, { texts = ['Synthetic'], cwd = '/synthetic/project', version = '0.166.0', source = 'cli', extra = [] } = {}) {
+export function rolloutText(
+  tid,
+  {
+    texts = ['Synthetic'],
+    cwd = '/synthetic/project',
+    version = '0.166.0',
+    source = 'cli',
+    extra = [],
+  } = {},
+) {
   const records = [
-    { type: 'session_meta', payload: { id: tid, cli_version: version, timestamp: '2026-11-01T12:00:00Z', cwd, source } },
+    {
+      type: 'session_meta',
+      payload: { id: tid, cli_version: version, timestamp: '2026-11-01T12:00:00Z', cwd, source },
+    },
     ...texts.map((message) => ({ type: 'event_msg', payload: { type: 'user_message', message } })),
     ...extra,
   ];
@@ -44,5 +56,10 @@ export async function bundleOf(vault, tid, text, options = {}) {
   const rows = (await scan([home])).rows;
   const stage = path.join(home, 'stage');
   await fs.mkdir(stage);
-  return captureBundle(rows.find((r) => r.id === tid), rows, vault, stage);
+  return captureBundle(
+    rows.find((r) => r.id === tid),
+    rows,
+    vault,
+    stage,
+  );
 }

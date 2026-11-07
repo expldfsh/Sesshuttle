@@ -1,16 +1,158 @@
-import {omittedImageText} from '../core/attachment-policy.mjs';
+import { omittedImageText } from '../core/attachment-policy.mjs';
 import fs from 'node:fs/promises';
-import {zstdCompressSync} from 'node:zlib';import {walk} from '../core/util.mjs';import {scan} from '../core/codex.mjs';
-import {spawn} from 'node:child_process';import readline from 'node:readline';import assert from 'node:assert/strict';import path from 'node:path';
-import {State} from '../core/state.mjs';import {Engine} from '../core/engine.mjs';import {Importer} from '../core/importer.mjs';import {Vault} from '../core/vault.mjs';import {MemoryStore} from '../tests/helpers/memory-store.mjs';import {newKey} from '../core/crypto.mjs';import {id} from '../core/util.mjs';
-const [source,target,mode]=process.argv.slice(2);assert.ok(source&&target);const child=spawn('python3',['-u','-m','tools.codex_lab.missing_image_bridge',source,target],{stdio:['pipe','pipe','inherit']});const lines=readline.createInterface({input:child.stdout});const queued=[],waiters=[];lines.on('line',l=>{const x=JSON.parse(l);if(waiters.length)waiters.shift()(x);else queued.push(x);});const next=()=>queued.length?Promise.resolve(queued.shift()):new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Bridge timeout')),120000);waiters.push(value=>{clearTimeout(timer);resolve(value);});});const states=[];
-try{const info=await next();assert.ok(info.root?.includes('/sesshuttle-lab-'));if(mode==='--compressed'){for(const file of await walk(path.join(info.a,'sessions'))){if(!file.endsWith('.jsonl'))continue;const raw=await fs.readFile(file);await fs.writeFile(file+'.zst',zstdCompressSync(raw));const kept=path.join(info.root,'source-originals',path.basename(file));await fs.mkdir(path.dirname(kept),{recursive:true});await fs.rename(file,kept);}}const original=(await scan([info.a])).rows.find(r=>r.id===info.tid).hash;const store=new MemoryStore(),space=id(),key=newKey(),va=new Vault(store,space,key),vb=new Vault(store,space,key);await va.create();
- const sa=new State(path.join(info.root,'state-a')),sb=new State(path.join(info.root,'state-b'));states.push(sa,sb);
- sa.set('config',{sourceHomes:[info.a],targets:{desktop:{home:info.a,binary:source}},bindings:{}});sb.set('config',{sourceHomes:[info.b],targets:{cli:{home:info.b,binary:target}},bindings:{}});
- const a=new Engine(sa,{vault:va,importer:new Importer(sa,{testRoot:info.root,processGuard:async()=>{}})}),b=new Engine(sb,{vault:vb,importer:new Importer(sb,{testRoot:info.root,processGuard:async()=>{}})});
- let placeholder;const sync=async(engine,direction,targets=[])=>{await engine.refresh();let plan=await engine.preview({ids:[info.tid],direction,targets});if(direction==='download'&&plan.items.some(i=>i.attachmentReview.optional.length)){const before=await fs.readdir(info.b);const denied=await engine.execute(plan.token);assert.equal(denied.items[0].error.code,'attachment_confirmation_required');assert.deepEqual(await fs.readdir(info.b),before);plan=await engine.preview({ids:[info.tid],direction,targets});}const optional=plan.items.flatMap(i=>i.attachmentReview.optional);if(optional.length){assert.equal(optional.length,1);placeholder=omittedImageText(optional[0]);}const job=await engine.execute(plan.token,{acceptedMissingAttachments:optional.map(a=>a.key)});assert.equal(job.status,'completed',JSON.stringify(job));return job;};
- await a.refresh();const projectId=a.rows[0].projectId;sa.set('config',{...sa.get('config'),bindings:{[projectId]:info.pa}});sb.set('config',{...sb.get('config'),bindings:{[projectId]:info.pb}});
- await sync(a,'upload');const imported=await sync(b,'download',['cli']);assert.equal(imported.items[0].targets.cli.omittedAttachments.length,1);child.stdin.write(JSON.stringify({side:'B',placeholder})+'\n');const continuedB=await next();assert.ok(continuedB.ok,continuedB.error);assert.equal((await scan([info.a])).rows.find(r=>r.id===info.tid).hash,original,'Source changed during transfer');
- await sync(b,'upload');await a.refresh();assert.equal(a.rows[0].status,'remote_changes');const returned=await sync(a,'download',['desktop']);assert.equal(returned.items[0].targets.desktop.omittedAttachments.length,1);child.stdin.write(JSON.stringify({side:'A',placeholder})+'\n');const continuedA=await next();assert.ok(continuedA.ok,continuedA.error);
- console.log(JSON.stringify({root:info.root,compressed:mode==='--compressed',sourceUnchanged:true,continuedB,continuedA,result:'PASS confirmed missing image: encrypted A → B continuation → A continuation, warning retained'},null,2));
-}finally{child.stdin.end();await new Promise(r=>{const timer=setTimeout(()=>{child.kill();r();},5000);child.once('exit',()=>{clearTimeout(timer);r();});});lines.close();for(const state of states)state.close();}
+import { zstdCompressSync } from 'node:zlib';
+import { walk } from '../core/util.mjs';
+import { scan } from '../core/codex.mjs';
+import { spawn } from 'node:child_process';
+import readline from 'node:readline';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { State } from '../core/state.mjs';
+import { Engine } from '../core/engine.mjs';
+import { Importer } from '../core/importer.mjs';
+import { Vault } from '../core/vault.mjs';
+import { MemoryStore } from '../tests/helpers/memory-store.mjs';
+import { newKey } from '../core/crypto.mjs';
+import { id } from '../core/util.mjs';
+const [source, target, mode] = process.argv.slice(2);
+assert.ok(source && target);
+const child = spawn(
+  'python3',
+  ['-u', '-m', 'tools.codex_lab.missing_image_bridge', source, target],
+  { stdio: ['pipe', 'pipe', 'inherit'] },
+);
+const lines = readline.createInterface({ input: child.stdout });
+const queued = [],
+  waiters = [];
+lines.on('line', (l) => {
+  const x = JSON.parse(l);
+  if (waiters.length) waiters.shift()(x);
+  else queued.push(x);
+});
+const next = () =>
+  queued.length
+    ? Promise.resolve(queued.shift())
+    : new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(Error('Bridge timeout')), 120000);
+        waiters.push((value) => {
+          clearTimeout(timer);
+          resolve(value);
+        });
+      });
+const states = [];
+try {
+  const info = await next();
+  assert.ok(info.root?.includes('/sesshuttle-lab-'));
+  if (mode === '--compressed') {
+    for (const file of await walk(path.join(info.a, 'sessions'))) {
+      if (!file.endsWith('.jsonl')) continue;
+      const raw = await fs.readFile(file);
+      await fs.writeFile(file + '.zst', zstdCompressSync(raw));
+      const kept = path.join(info.root, 'source-originals', path.basename(file));
+      await fs.mkdir(path.dirname(kept), { recursive: true });
+      await fs.rename(file, kept);
+    }
+  }
+  const original = (await scan([info.a])).rows.find((r) => r.id === info.tid).hash;
+  const store = new MemoryStore(),
+    space = id(),
+    key = newKey(),
+    va = new Vault(store, space, key),
+    vb = new Vault(store, space, key);
+  await va.create();
+  const sa = new State(path.join(info.root, 'state-a')),
+    sb = new State(path.join(info.root, 'state-b'));
+  states.push(sa, sb);
+  sa.set('config', {
+    sourceHomes: [info.a],
+    targets: { desktop: { home: info.a, binary: source } },
+    bindings: {},
+  });
+  sb.set('config', {
+    sourceHomes: [info.b],
+    targets: { cli: { home: info.b, binary: target } },
+    bindings: {},
+  });
+  const a = new Engine(sa, {
+      vault: va,
+      importer: new Importer(sa, { testRoot: info.root, processGuard: async () => {} }),
+    }),
+    b = new Engine(sb, {
+      vault: vb,
+      importer: new Importer(sb, { testRoot: info.root, processGuard: async () => {} }),
+    });
+  let placeholder;
+  const sync = async (engine, direction, targets = []) => {
+    await engine.refresh();
+    let plan = await engine.preview({ ids: [info.tid], direction, targets });
+    if (direction === 'download' && plan.items.some((i) => i.attachmentReview.optional.length)) {
+      const before = await fs.readdir(info.b);
+      const denied = await engine.execute(plan.token);
+      assert.equal(denied.items[0].error.code, 'attachment_confirmation_required');
+      assert.deepEqual(await fs.readdir(info.b), before);
+      plan = await engine.preview({ ids: [info.tid], direction, targets });
+    }
+    const optional = plan.items.flatMap((i) => i.attachmentReview.optional);
+    if (optional.length) {
+      assert.equal(optional.length, 1);
+      placeholder = omittedImageText(optional[0]);
+    }
+    const job = await engine.execute(plan.token, {
+      acceptedMissingAttachments: optional.map((a) => a.key),
+    });
+    assert.equal(job.status, 'completed', JSON.stringify(job));
+    return job;
+  };
+  await a.refresh();
+  const projectId = a.rows[0].projectId;
+  sa.set('config', { ...sa.get('config'), bindings: { [projectId]: info.pa } });
+  sb.set('config', { ...sb.get('config'), bindings: { [projectId]: info.pb } });
+  await sync(a, 'upload');
+  const imported = await sync(b, 'download', ['cli']);
+  assert.equal(imported.items[0].targets.cli.omittedAttachments.length, 1);
+  child.stdin.write(JSON.stringify({ side: 'B', placeholder }) + '\n');
+  const continuedB = await next();
+  assert.ok(continuedB.ok, continuedB.error);
+  assert.equal(
+    (await scan([info.a])).rows.find((r) => r.id === info.tid).hash,
+    original,
+    'Source changed during transfer',
+  );
+  await sync(b, 'upload');
+  await a.refresh();
+  assert.equal(a.rows[0].status, 'remote_changes');
+  const returned = await sync(a, 'download', ['desktop']);
+  assert.equal(returned.items[0].targets.desktop.omittedAttachments.length, 1);
+  child.stdin.write(JSON.stringify({ side: 'A', placeholder }) + '\n');
+  const continuedA = await next();
+  assert.ok(continuedA.ok, continuedA.error);
+  console.log(
+    JSON.stringify(
+      {
+        root: info.root,
+        compressed: mode === '--compressed',
+        sourceUnchanged: true,
+        continuedB,
+        continuedA,
+        result:
+          'PASS confirmed missing image: encrypted A → B continuation → A continuation, warning retained',
+      },
+      null,
+      2,
+    ),
+  );
+} finally {
+  child.stdin.end();
+  await new Promise((r) => {
+    const timer = setTimeout(() => {
+      child.kill();
+      r();
+    }, 5000);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      r();
+    });
+  });
+  lines.close();
+  for (const state of states) state.close();
+}

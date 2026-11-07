@@ -34,7 +34,9 @@ function uuid(seed) {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 function* prng(seed) {
-  let block = createHash('sha256').update('bench' + seed).digest();
+  let block = createHash('sha256')
+    .update('bench' + seed)
+    .digest();
   for (;;) {
     yield block;
     block = createHash('sha256').update(block).digest();
@@ -105,8 +107,14 @@ function rollout(tid, project, turns, index) {
     },
   ];
   for (let t = 0; t < turns; t++) {
-    lines.push({ type: 'event_msg', payload: { type: 'user_message', message: `Synthetic question ${index}.${t}` } });
-    lines.push({ type: 'event_msg', payload: { type: 'agent_message', message: `Synthetic answer ${index}.${t} `.repeat(8) } });
+    lines.push({
+      type: 'event_msg',
+      payload: { type: 'user_message', message: `Synthetic question ${index}.${t}` },
+    });
+    lines.push({
+      type: 'event_msg',
+      payload: { type: 'agent_message', message: `Synthetic answer ${index}.${t} `.repeat(8) },
+    });
   }
   return lines.map((x) => JSON.stringify(x)).join('\n') + '\n';
 }
@@ -137,10 +145,26 @@ async function benchScan() {
       const file = path.join(day, `rollout-2026-11-01T12-00-00-${tid}.jsonl`);
       await fs.writeFile(file, rollout(tid, project, 4, i));
       if (i < 200) {
-        thread.run(tid, `Indexed ${i}`, `Indexed ${i}`, 'cli', 'codex_cli_rs', project, '0.166.0', 1, 2, 0, file);
+        thread.run(
+          tid,
+          `Indexed ${i}`,
+          `Indexed ${i}`,
+          'cli',
+          'codex_cli_rs',
+          project,
+          '0.166.0',
+          1,
+          2,
+          0,
+          file,
+        );
         for (let t = 0; t < 4; t++) {
           turn.run(tid, 'turn' + t, 'completed');
-          item.run(tid, 'u' + t, JSON.stringify({ type: 'userMessage', content: [{ text: `Q ${i}.${t}` }] }));
+          item.run(
+            tid,
+            'u' + t,
+            JSON.stringify({ type: 'userMessage', content: [{ text: `Q ${i}.${t}` }] }),
+          );
           item.run(tid, 'a' + t, JSON.stringify({ type: 'agentMessage', text: `A ${i}.${t}` }));
         }
       }
@@ -151,7 +175,8 @@ async function benchScan() {
     history.close();
     const first = await timed(() => scan([home]));
     const second = await timed(() => scan([home]));
-    if (first.value.rows.length !== 2000 || first.value.errors.length) throw Error('scan fixture mismatch');
+    if (first.value.rows.length !== 2000 || first.value.errors.length)
+      throw Error('scan fixture mismatch');
     return { first: first.ms, second: second.ms, rows: first.value.rows.length };
   } finally {
     await fs.rm(root, { recursive: true, force: true });
@@ -206,7 +231,9 @@ async function seedSpace(inner, vault, heads, versionsPerHead) {
             archived: false,
             issues: [],
             attachmentReport: [],
-            artifacts: [{ kind: 'rollout', hash: chunk, bytes: 1024, chunks: [{ hash: chunk, bytes: 1024 }] }],
+            artifacts: [
+              { kind: 'rollout', hash: chunk, bytes: 1024, chunks: [{ hash: chunk, bytes: 1024 }] },
+            ],
           },
         ],
         parents: versions.length ? [versions.at(-1).id] : [],
@@ -214,11 +241,24 @@ async function seedSpace(inner, vault, heads, versionsPerHead) {
         uploadedAt: '2026-11-01T12:00:00.000Z',
       };
       const version = hash(JSON.stringify(payload));
-      await inner.put(vault.prefix + 'versions/' + version, seal(payload, KEY, vault.space, 'versions/' + version), null);
-      versions.push({ id: version, parents: payload.parents, device: payload.device, at: payload.uploadedAt });
+      await inner.put(
+        vault.prefix + 'versions/' + version,
+        seal(payload, KEY, vault.space, 'versions/' + version),
+        null,
+      );
+      versions.push({
+        id: version,
+        parents: payload.parents,
+        device: payload.device,
+        at: payload.uploadedAt,
+      });
     }
     const name = 'heads/' + logical;
-    await inner.put(vault.prefix + name, seal(sealedHead(vault.space, logical, i, versions), KEY, vault.space, name), null);
+    await inner.put(
+      vault.prefix + name,
+      seal(sealedHead(vault.space, logical, i, versions), KEY, vault.space, name),
+      null,
+    );
   }
 }
 
@@ -227,14 +267,20 @@ async function benchRefresh() {
   const state = new State(path.join(root, 'app'));
   try {
     await fs.mkdir(path.join(root, 'codex'));
-    state.set('config', { language: 'en', sourceHomes: [path.join(root, 'codex')], targets: {}, bindings: {} });
+    state.set('config', {
+      language: 'en',
+      sourceHomes: [path.join(root, 'codex')],
+      targets: {},
+      bindings: {},
+    });
     const inner = new MemoryStore();
     const space = uuid('refresh-space');
     await seedSpace(inner, new Vault(inner, space, KEY), 300, 1);
     const delayed = new DelayStore(inner, LATENCY);
     const engine = new Engine(state, { vault: new Vault(delayed, space, KEY) });
     const result = await timed(() => engine.refresh());
-    if (result.value.rows.length !== 300 || result.value.cloudError) throw Error('refresh fixture mismatch');
+    if (result.value.rows.length !== 300 || result.value.cloudError)
+      throw Error('refresh fixture mismatch');
     return { ms: result.ms, heads: 300, requests: delayed.requests };
   } finally {
     state.close();
@@ -272,7 +318,13 @@ async function benchUpload() {
     const tid = uuid('upload');
     const meta = JSON.stringify({
       type: 'session_meta',
-      payload: { id: tid, cli_version: '0.166.0', timestamp: '2026-11-01T12:00:00Z', cwd: root, source: 'cli' },
+      payload: {
+        id: tid,
+        cli_version: '0.166.0',
+        timestamp: '2026-11-01T12:00:00Z',
+        cwd: root,
+        source: 'cli',
+      },
     });
     const lines = [meta];
     // Fifty 1 MiB records of incompressible text: 50 MiB of history in thirteen chunks.
@@ -280,7 +332,10 @@ async function benchUpload() {
       const message = pseudoRandom(786432, 'upload' + i).toString('base64');
       lines.push(JSON.stringify({ type: 'event_msg', payload: { type: 'user_message', message } }));
     }
-    await fs.writeFile(path.join(day, `rollout-2026-11-01T12-00-00-${tid}.jsonl`), lines.join('\n') + '\n');
+    await fs.writeFile(
+      path.join(day, `rollout-2026-11-01T12-00-00-${tid}.jsonl`),
+      lines.join('\n') + '\n',
+    );
     state.set('config', { language: 'en', sourceHomes: [home], targets: {}, bindings: {} });
     const inner = new MemoryStore();
     const space = uuid('upload-space');
@@ -289,9 +344,15 @@ async function benchUpload() {
     await vault.create();
     const engine = new Engine(state, { vault });
     await engine.refresh();
-    const plan = await engine.preview({ ids: [tid], direction: 'upload', targets: [], uploadLimitMiB: 200 });
+    const plan = await engine.preview({
+      ids: [tid],
+      direction: 'upload',
+      targets: [],
+      uploadLimitMiB: 200,
+    });
     const run = await timed(() => engine.execute(plan.token, { confirmLarge: true }));
-    if (run.value.status !== 'completed') throw Error('upload failed: ' + JSON.stringify(run.value.items));
+    if (run.value.status !== 'completed')
+      throw Error('upload failed: ' + JSON.stringify(run.value.items));
     const bytes = (await fs.stat(path.join(day, `rollout-2026-11-01T12-00-00-${tid}.jsonl`))).size;
     return { ms: run.ms, bytes, requests: delayed.requests };
   } finally {
@@ -308,9 +369,14 @@ async function benchPackage() {
   const version = args.get('version') ?? pkg.version;
   const release = new URL('../release/', import.meta.url).pathname;
   const tar = path.join(release, `sesshuttle-${version}-linux-x64.tar.gz`);
-  let asar = await size(path.join(release, 'mac-arm64', 'sesshuttle.app', 'Contents', 'Resources', 'app.asar'));
+  let asar = await size(
+    path.join(release, 'mac-arm64', 'sesshuttle.app', 'Contents', 'Resources', 'app.asar'),
+  );
   if (asar === null && (await size(tar)) !== null) {
-    const listing = execFileSync('tar', ['-tvzf', tar], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    const listing = execFileSync('tar', ['-tvzf', tar], {
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+    });
     const line = listing.split('\n').find((l) => l.endsWith('/resources/app.asar'));
     asar = line ? Number(line.trim().split(/\s+/)[4]) : null;
   }
@@ -333,12 +399,26 @@ if (wanted('package')) results.package = await benchPackage();
 const mb = (n) => (n === null || n === undefined ? '—' : (n / 1e6).toFixed(1) + ' MB');
 if (args.has('json')) console.log(JSON.stringify(results, null, 2));
 else {
-  if (results.scan) console.log(`scan 2000 rollouts (200 indexed): first ${results.scan.first} ms, second ${results.scan.second} ms`);
-  if (results.refresh) console.log(`cloud refresh 300 heads @${LATENCY}ms: ${results.refresh.ms} ms (${results.refresh.requests} requests)`);
-  if (results.removal) console.log(`removal preview 300 versions @${LATENCY}ms: first ${results.removal.first} ms, second ${results.removal.second} ms`);
-  if (results.upload) console.log(`upload ${(results.upload.bytes / 1048576).toFixed(1)} MiB @${LATENCY}ms: ${results.upload.ms} ms (${results.upload.requests} requests)`);
+  if (results.scan)
+    console.log(
+      `scan 2000 rollouts (200 indexed): first ${results.scan.first} ms, second ${results.scan.second} ms`,
+    );
+  if (results.refresh)
+    console.log(
+      `cloud refresh 300 heads @${LATENCY}ms: ${results.refresh.ms} ms (${results.refresh.requests} requests)`,
+    );
+  if (results.removal)
+    console.log(
+      `removal preview 300 versions @${LATENCY}ms: first ${results.removal.first} ms, second ${results.removal.second} ms`,
+    );
+  if (results.upload)
+    console.log(
+      `upload ${(results.upload.bytes / 1048576).toFixed(1)} MiB @${LATENCY}ms: ${results.upload.ms} ms (${results.upload.requests} requests)`,
+    );
   if (results.package) {
     const p = results.package;
-    console.log(`package ${p.version}: app.asar ${mb(p.asar)}, dmg ${mb(p.dmg)}, tar.gz ${mb(p.tar)}, deb ${mb(p.deb)}`);
+    console.log(
+      `package ${p.version}: app.asar ${mb(p.asar)}, dmg ${mb(p.dmg)}, tar.gz ${mb(p.tar)}, deb ${mb(p.deb)}`,
+    );
   }
 }
