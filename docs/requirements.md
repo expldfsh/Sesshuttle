@@ -575,7 +575,7 @@ tests/core/      node:test 单元测试
 | P6 文案资源重组 | 已完成 | b496183 | 719 → 650 个键；检查脚本对 6 类问题逐一注入验证会失败，撤回后通过；中英文页面无原始键名 |
 | P7 UI/UX 改版 | 已完成 | 665d218–15ffae1 | `scripts/ui-walkthrough.mjs`：中英文 × 1320×860 / 780×600 共 100 张截图，无水平滚动、顶栏遮挡、原始键名和不可见焦点；64 次打开页面/弹窗/标签页的检查均无扫描或云端请求；导入三步、上传两步、删除两步、错误示例、首次使用清单均走通；5,000 行性能复测通过 |
 | P8 Python 工具移植 | 已完成 | 3f05e13–48051c6 | 本机 Codex 0.166.0（Homebrew）两端：`roundtrip.mjs` 及其 4 个变体（压缩、仅数据库、原生项目、重复身份）、`missing-image-roundtrip.mjs`（含 `--compressed`）全部通过，结果与移植前 Python 版一致（5/7 轮）；`real-copy-roundtrip.mjs` 以 Lab 中用 `openai` 提供方生成的合成来源通过；`cross-device.mjs` 在 Mac 上依次模拟 source/receive/return 通过，真实 Mac ↔ Arch 待用户验收；应用内快速验证改用共享应答服务后对 0.167.0-alpha.3.2 通过；仓库无 `.py` 文件 |
-| P9 文档、截图与版本 | 已完成 | e43af33–f293e68 | `npm run check:links` 28 条相对链接通过；指南按钮名逐一对照文案表；6 张截图由 `scripts/screenshots.mjs` 重新生成（2 倍分辨率）；`docs/validation/0.7.0.md` 在 P10 补全 |
+| P9 文档、截图与版本 | 已完成 | e43af33–f293e68 | `npm run check:links` 29 条相对链接通过；指南按钮名逐一对照文案表；6 张截图由 `scripts/screenshots.mjs` 重新生成（2 倍分辨率）；`docs/validation/0.7.0.md` 在 P10 补全 |
 | P10 最终验收与打包 | 已完成 | 6d74e21–（本记录提交） | 安装包由 `fa40be4` 构建；全部检查通过；DMG 只读挂载后测试模式冒烟通过；SHA-256 与待用户验收清单见 `docs/validation/0.7.0.md` |
 
 ## 性能基线与结果
