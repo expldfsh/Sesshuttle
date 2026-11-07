@@ -23,7 +23,7 @@ export async function assertCodexClosed(home) {
   }
   for (const line of output.split('\n')) {
     if (
-      !/(?:^|[\/\\\s"])(?:codex(?:\.exe)?|codex-app-server|codex-app-serve)(?:[\s",]|$)/i.test(line)
+      !/(?:^|[/\\\s"])(?:codex(?:\.exe)?|codex-app-server|codex-app-serve)(?:[\s",]|$)/i.test(line)
     )
       continue;
     // Linux exposes the launch environment per PID. An explicitly separate

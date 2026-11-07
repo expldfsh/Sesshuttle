@@ -33,8 +33,8 @@ test('compressed header consumers close safely at chunk boundaries; corrupt stre
     );
     await fs.writeFile(corrupt, truncated.subarray(0, truncated.length - 100));
     await assert.rejects(async () => {
-      for await (const record of records(corrupt)) {
-      }
+      // Draining the iterator must surface the decoder failure.
+      for await (const _record of records(corrupt)) void _record;
     });
   } finally {
     await fs.rm(root, { recursive: true, force: true });

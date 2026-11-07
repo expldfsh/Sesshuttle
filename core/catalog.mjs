@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { exists, requireThat, hash } from './util.mjs';
+import { exists, requireThat } from './util.mjs';
 export const TABLES = {
   state: ['threads', 'thread_dynamic_tools', 'thread_spawn_edges', 'thread_attachments'],
   history: [

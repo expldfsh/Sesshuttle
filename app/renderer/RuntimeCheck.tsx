@@ -18,6 +18,8 @@ export function RuntimeCheck({ binary, info, call, t, onDone, onBusy, disabled =
       off();
       if (current.current) void call('cancelRuntimeCheck', { id: current.current }).catch(() => {});
     };
+    // A check belongs to one executable; a new `call` identity must not cancel it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [binary]);
   const proof = info ?? result;
   async function check() {

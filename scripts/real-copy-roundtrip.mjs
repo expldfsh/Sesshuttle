@@ -1,6 +1,5 @@
 // Explicit opt-in: only the source is read; all outputs and native writes use a
 // private temporary lab. Disk-backed encrypted store cannot contact R2.
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';

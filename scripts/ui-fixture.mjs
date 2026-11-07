@@ -32,7 +32,7 @@ const records = [
   ],
   ['cli', 'codex_cli_rs', 'cli', '检查导入备份与恢复', '这是独立的合成对话，不包含真实工作历史。'],
 ];
-for (const [entry, originator, source, title, text] of records) {
+for (const [, originator, source, title, text] of records) {
   const tid = id();
   const data = [
     {

@@ -76,10 +76,12 @@ export function RemovalFlow({
     d?.showModal();
     return () => d?.close();
   }, []);
+  const reviewing = !!plan;
+  // Move focus to the title only when switching between options and review.
   useEffect(() => {
     title.current?.focus();
     if (dialog.current) dialog.current.scrollTop = 0;
-  }, [!!plan]);
+  }, [reviewing]);
   const refresh = async (request: any, revise = false) => {
     if (lock.current) return;
     lock.current = true;

@@ -134,7 +134,8 @@ export function Select({ label, value, options, onChange, disabled = false }: Pr
           }
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            open ? choose(active) : show();
+            if (open) choose(active);
+            else show();
             return;
           }
           if (

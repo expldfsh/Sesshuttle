@@ -259,6 +259,8 @@ function App() {
         setJob({ ...x });
       }
     });
+    // Load saved local state once at startup and subscribe to progress events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => applyTheme(cfg?.theme), [cfg?.theme]);
   useEffect(
@@ -266,6 +268,8 @@ function App() {
       window.sesshuttle.onClosePending((deleting?: boolean) =>
         setNotice({ text: t(deleting ? 'closeAfterRemoval' : 'closePending') }),
       ),
+    // `t` changes with the language only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [locale],
   );
   useEffect(() => {
@@ -281,6 +285,8 @@ function App() {
     return () => {
       active = false;
     };
+    // Reads saved local backup state when the page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
   const clearable = [
     ...jobs.filter((j) => j.status !== 'running').map((j) => 'job/' + j.id),

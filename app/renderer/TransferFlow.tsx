@@ -161,6 +161,8 @@ export function TransferFlow({
       }
       await inspect();
     });
+    // Runs once when the dialog opens; later checks are explicit user actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   function setBinding(projectId: string, folder: string) {
     setDraft((old: any) => ({ ...old, bindings: { ...old.bindings, [projectId]: folder } }));

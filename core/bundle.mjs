@@ -5,7 +5,6 @@ import {
   attachmentUnchanged,
 } from './attachments.mjs';
 // v2 manifests reference authenticated, bounded chunks. History is never truncated.
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { hash, requireThat } from './util.mjs';
