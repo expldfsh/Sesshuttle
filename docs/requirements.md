@@ -530,10 +530,10 @@ tests/core/      node:test 单元测试
 
 ## P9 文档、截图与版本
 
-- [ ] `package.json` 版本改为 `0.7.0`；`NativeClient.init` 中写死的 `clientInfo.version: '0.1.0'` 改为读取应用版本。
+- [x] `package.json` 版本改为 `0.7.0`；`NativeClient.init` 中写死的 `clientInfo.version: '0.1.0'` 改为读取应用版本。
 - [ ] 更新 `README.md`、`README.zh-CN.md`：版本号与安装包名改为 0.7.0，术语按第 4.2 节，链接改为 `docs/validation/0.7.0.md`。
-- [ ] 更新 `docs/guides/en/quick-start.md`、`docs/guides/zh-CN/quick-start.md`、`docs/guides/zh-CN/linux-acceptance.md`：新的按钮位置、步骤式导入、首次使用清单、术语、版本号。英文指南补一段 Linux 验收要点（对应中文 `linux-acceptance.md`）。
-- [ ] **重新生成 `docs/images/` 的 6 张截图**（en/zh-CN × upload/scope/import）：
+- [x] 更新 `docs/guides/en/quick-start.md`、`docs/guides/zh-CN/quick-start.md`、`docs/guides/zh-CN/linux-acceptance.md`：新的按钮位置、步骤式导入、首次使用清单、术语、版本号。英文指南补一段 Linux 验收要点（对应中文 `linux-acceptance.md`）。
+- [x] **重新生成 `docs/images/` 的 6 张截图**（en/zh-CN × upload/scope/import）：
   - 新增 `scripts/screenshots.mjs`，用 Playwright 的 Electron 支持，在测试模式和合成数据下启动应用并截图；
   - 用 `deviceScaleFactor: 2`；
   - 叠加与现有风格一致的编号标注：琥珀色圆形数字加描边框，颜色取 `--warning`；
@@ -575,7 +575,7 @@ tests/core/      node:test 单元测试
 | P6 文案资源重组 | 已完成 | b496183 | 719 → 650 个键；检查脚本对 6 类问题逐一注入验证会失败，撤回后通过；中英文页面无原始键名 |
 | P7 UI/UX 改版 | 已完成 | 665d218–15ffae1 | `scripts/ui-walkthrough.mjs`：中英文 × 1320×860 / 780×600 共 100 张截图，无水平滚动、顶栏遮挡、原始键名和不可见焦点；64 次打开页面/弹窗/标签页的检查均无扫描或云端请求；导入三步、上传两步、删除两步、错误示例、首次使用清单均走通；5,000 行性能复测通过 |
 | P8 Python 工具移植 | 已完成 | 3f05e13–48051c6 | 本机 Codex 0.166.0（Homebrew）两端：`roundtrip.mjs` 及其 4 个变体（压缩、仅数据库、原生项目、重复身份）、`missing-image-roundtrip.mjs`（含 `--compressed`）全部通过，结果与移植前 Python 版一致（5/7 轮）；`real-copy-roundtrip.mjs` 以 Lab 中用 `openai` 提供方生成的合成来源通过；`cross-device.mjs` 在 Mac 上依次模拟 source/receive/return 通过，真实 Mac ↔ Arch 待用户验收；应用内快速验证改用共享应答服务后对 0.167.0-alpha.3.2 通过；仓库无 `.py` 文件 |
-| P9 文档、截图与版本 | 未开始 | | |
+| P9 文档、截图与版本 | 已完成 | e43af33–f293e68 | `npm run check:links` 28 条相对链接通过；指南按钮名逐一对照文案表；6 张截图由 `scripts/screenshots.mjs` 重新生成（2 倍分辨率）；`docs/validation/0.7.0.md` 在 P10 补全 |
 | P10 最终验收与打包 | 未开始 | | |
 
 ## 性能基线与结果
@@ -651,6 +651,10 @@ tests/core/      node:test 单元测试
 | 2026-11-07 | P8：Lab 的“同一数据目录同时只有一个 App Server”由 Python 的 `flock` 改为 Lab 内独占创建的锁文件（加进程内集合）；`checked()` 另显式拒绝真实 `~/.codex`。Lab 不在结束时删除（与 Python 版相同），便于检查；位于系统临时目录 | 开发者决定 |
 | 2026-11-07 | P8：本机应答服务统一回复 `Sesshuttle local test reply`（Python 版为另一句合成文本，脚本不检查回复内容）；只接受 `POST /v1/responses`。`real-copy-roundtrip.mjs` 只能用于 `openai` 提供方的历史，开发中用 Lab 内生成的合成历史验证，从未读取真实 `~/.codex` | 开发者决定 |
 | 2026-11-07 | P8：ChatGPT 桌面端自带的 `codex-cli/bin/codex` 是启动脚本（应用内快速验证会拒绝为 `runtime_launcher`），可执行程序在 `codex-cli/CodexCLI.app/Contents/MacOS/codex`；验收脚本若用 0.167 预览版，目标端须先通过快速验证（`runtime_check_needed`），因此开发中两端都用 Homebrew 的 0.166.0 | 开发者核实 |
+| 2026-11-07 | P9：`clientInfo.version` 由 `core/native.mjs` 以 JSON 模块导入 `package.json` 读取（主进程、脚本、测试共用；esbuild 打包时内联）。应用卡片状态「待检查」改为需求所写的「需要快速验证」；云端回收站按钮改为「刷新云端回收站」 | 开发者决定 |
+| 2026-11-07 | P9 截图：测试模式下隐藏仅测试环境才有的提示（测试徽章、“凭据只在本次运行”横幅、Toast），并先用 IPC 上传一条对话、再把它移入本机回收站，使列表同时有本机对话和仅云端对话；用 `--force-device-scale-factor=2` 得到 2 倍图，标注等动画结束后再测量位置 | 开发者决定 |
+| 2026-11-07 | P9：导入弹窗改为点「下一步」才检查应用后，路径检测面板在检查前把所有应用视为缺路径、只提供“返回编辑”。现以“已保存程序和数据目录且没有检查失败”判断路径就绪，恢复 0.6.0 的「使用当前路径，继续导入」 | 开发者决定 |
+| 2026-11-07 | P9：`scripts/verify-import-window.mjs` 按三步导入改写。Mac 上两种 Codex（0.166.0、0.167.0-alpha.3.2）都不提供 `modelProvider/list`，按既有设计导入时不做服务预检、由原生恢复检查在写入后报告缺少服务；因此“写入前已检查服务、补齐后重试成功”一段只在程序提供服务目录时运行（0.6.0 在 Arch 上验证过），否则输出说明。开发构建中英文 first/reopen 均通过 | 开发者核实 |
 
 ## 历史轮次摘要
 
