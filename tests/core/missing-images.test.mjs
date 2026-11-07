@@ -8,7 +8,7 @@ test('only inventoried local images can be waived, and every file requires expli
  assert.throws(()=>assertAttachmentAcceptance({...payload,files:[file,{id:id(),issues:['attachment_missing']}]},[a.key]),{code:'incomplete_history'});
  assert.throws(()=>assertAttachmentAcceptance({...payload,files:[{...file,attachmentReport:[{...a,key:'forged'}]}]},['forged']),{code:'incomplete_history'});
  assert.throws(()=>assertAttachmentAcceptance({format:2,issues:[],files:[{...file,issues:[],attachmentReport:[{...a,status:'toString'}]}]},[a.key]),{code:'incomplete_history'});
- assert.throws(()=>assertAttachmentAcceptance({format:1,issues:['external_attachment'],files:[]},[]),{code:'incomplete_history'});
+ assert.throws(()=>assertAttachmentAcceptance({format:2,issues:['external_attachment'],files:[]},[]),{code:'incomplete_history'});
 });
 test('missing image confirmation protects upload and import; restored image invalidates preview',async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'sesshuttle-missing-'));let state;try{

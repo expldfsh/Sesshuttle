@@ -5,7 +5,7 @@ import {hash,requireThat} from './util.mjs';
 
 // A replacement on download belongs to this plan's private staging area only.
 export async function repairDownload(original, replacements, vault, stage) {
- if(original.format!==2||!Object.keys(replacements).length)return original;
+ if(!Object.keys(replacements).length)return original;
  const payload=structuredClone(original);
  for(const file of payload.files){
    const resolvedIssues=new Set();

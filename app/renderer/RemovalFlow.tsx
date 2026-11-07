@@ -81,7 +81,7 @@ export function RemovalFlow({initial,call,t,size,locale,connected,onClose,onExec
         {!previous&&<p>{t('chooseVersionsHint')}</p>}<p>{t('cloudFreeEstimate')} <b>{size(plan.cloud.freeBytes)}</b>{q.mode==='trash'?' · '+t('binUsesSpace'):''}</p>
         {plan.cloud.items.map((r:any)=><div className="removal-version-group" key={r.id}><h3>{r.title}</h3><small>{r.project??''}</small>
           {r.versions.map((v:any)=><div className="removal-version" key={v.id}><label className="check"><input type="checkbox" checked={(versions[r.id]??r.versions.filter((a:any)=>a.selected).map((a:any)=>a.id)).includes(v.id)} disabled={pending||!!previous} onChange={e=>toggleVersion(r,v.id,e.target.checked)}/>
-            <span><b>{dateLabel(v.at,locale)}</b> · {v.device||'—'} · {size(v.bytes)} {v.current&&<b>{t('currentVersion')}</b>} <code>{v.id.slice(0,12)}</code></span></label>
+            <span><b>{dateLabel(v.at,locale)}</b> · {v.device||'—'} · {size(v.bytes)} {v.current&&<b>{t('currentVersion')}</b>} <code>{v.id.slice(0,12)}</code>{v.legacy&&<small>{t('legacyVersion')}</small>}</span></label>
             <details><summary>{v.files.length} {t('conversations')} · {v.files.reduce((n:number,f:any)=>n+f.assets.length,0)} {t('attachments')}</summary>
               {v.files.map((f:any)=><div className="removal-resource" key={f.id}><b>{f.title}</b> {f.kind&&' · '+t(f.kind==='background'?'backgroundChats':'mainChats')} · {f.project??''}
                 {f.assets.map((a:any,i:number)=><div key={i}><code>{a.path}</code><small>{t('assetDecision_'+a.disposition)} · {size(a.bytes)}{a.sharedWith?.length?' · '+[...new Set(a.sharedWith.map((ref:any)=>ref.title))].join(' / '):''}</small></div>)}</div>)}

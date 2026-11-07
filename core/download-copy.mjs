@@ -14,7 +14,7 @@ export async function downloadCopy(vault,logical,version,folder){
   requireThat(disk.bavail*disk.bsize>bundleBytes(payload)+256*1024*1024,'disk_space');
   const dest=await fs.mkdtemp(path.join(folder,'Sesshuttle-'));
   try{
-    if(payload.format===2)await materialize(payload,vault,dest);
+    await materialize(payload,vault,dest);
     await fs.writeFile(path.join(dest,'history-manifest.json'),JSON.stringify(payload),{mode:0o600,flag:'wx'});
     return dest;
   }catch(e){await fs.rm(dest,{force:true,recursive:true});throw e;}

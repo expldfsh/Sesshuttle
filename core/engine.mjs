@@ -80,10 +80,10 @@ export class Engine{
     if(payload && ['download','resolve'].includes(action))payload=await repairDownload(payload,replacements,this.vault,stage);
     if(copyChoice&&payload)payload.baseVersion=null;
     
-    if(payload){fileCount=payload.files.length;assetCount=payload.format===2?payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0):payload.assets?.length??0;bytes=bundleBytes(payload);issues=payload.issues;}
+    if(payload){fileCount=payload.files.length;assetCount=payload.files.reduce((n,f)=>n+f.artifacts.filter(a=>a.kind==='asset').length,0);bytes=bundleBytes(payload);issues=payload.issues;}
    }catch(e){issues=[...issues,e.code??'operation_failed'];action='blocked';}
 
-   const describe=(p,role)=>p?.files.map(f=>({id:f.id,role,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??p.originProject,bytes:f.artifacts?f.artifacts.reduce((n,a)=>n+a.bytes,0):Buffer.byteLength(f.raw,'base64'),reason:role==='preserve'?'preserveLocal':ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:(f.attachmentReport??[]).map(a=>({...a,role})),omittedAttachments:f.omittedAttachments??[],issues:f.issues??[],missingDependencies:(f.dependencies??[]).filter(dep=>!p.files.some(member=>member.id===dep))}))??[];
+   const describe=(p,role)=>p?.files.map(f=>({id:f.id,role,title:f.title,kind:f.kind??(f.source==='subagent'?'background':'main'),parent:f.parent,originProject:f.originProject??p.originProject,bytes:f.artifacts.reduce((n,a)=>n+a.bytes,0),reason:role==='preserve'?'preserveLocal':ids.includes(f.id)?'selectedChat':['download','resolve'].includes(action)?'backupMember':relatedRows(local,this.local.rows).some(r=>r.id===f.id)?'requiredParent':'selectedDescendant',attachments:(f.attachmentReport??[]).map(a=>({...a,role})),omittedAttachments:f.omittedAttachments??[],issues:f.issues??[],missingDependencies:(f.dependencies??[]).filter(dep=>!p.files.some(member=>member.id===dep))}))??[];
    const primaryReview=attachmentReview(payload);
    const blockingIssues=primaryReview.blockingIssues;
    const optional=[...primaryReview.optional.map(a=>({...a,role:'primary'}))];
@@ -154,9 +154,8 @@ export class Engine{
     requireThat(payload.continuation!==false,'missing_rollout');
     {
       const cfg=this.config(),project=cfg.bindings?.[payload.projectId??item.projectId];requireThat(project,'project_required');
-      const cache=payload.format===2?await this.downloadFolder(item.id,importVersion):null;
+      const cache=await this.downloadFolder(item.id,importVersion);
       const received=()=>{result.historyReady=true;};
-      if(payload.format===1)received();
       const grouped=new Map();for(const entry of item.targets){const target=cfg.targets[entry];if(!target?.home||!target?.binary){result.targets[entry]={status:'not_configured',error:{code:target?.binary?'entry_home_missing':'entry_binary_missing'}};continue;}
        try{const identity=await this.importer.authorize(target.binary),nativeProjectId=cfg.nativeBindings?.[payload.projectId??item.projectId]?.[target.home]??null;
        requireThat(!nativeProjectId||identity.projects,'project_assignment_unsupported');const home=await canonical(target.home);const group=grouped.get(home)??[];group.push({entry,identity,target:{...target,home,project,onStage:step,onMaterialized:received,nativeProjectId}});grouped.set(home,group);}catch(e){result.targets[entry]={status:'failed',stage:result.stage,error:publicError(e)};}}

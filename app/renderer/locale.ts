@@ -1178,6 +1178,8 @@ const compatibilityCopy:Record<string,[string,string]>={
  backToImportSetup:['返回导入，编辑路径','Return to import and edit paths'],
  chooseHistoryOnly:['使用此目录，仅导入历史','Use this folder for history only'],
  downloadFolderOnly:['仅下载到普通文件夹','Download a copy to a folder'],
- historyOnlyHint:['仅导入历史也会验证能否继续同一条对话。可在目标应用的对话列表中查找。','History-only import also verifies continuation. Look in the destination app’s chat list.']
+ historyOnlyHint:['仅导入历史也会验证能否继续同一条对话。可在目标应用的对话列表中查找。','History-only import also verifies continuation. Look in the destination app’s chat list.'],
+ legacy_format_unsupported:['这是早期测试版格式的云端备份，无法导入、比较或下载副本。可以在删除流程中移入回收站或永久删除。','This cloud backup uses an early test-release format. It cannot be imported, compared or downloaded, but it can be moved to the bin or deleted permanently.'],
+ legacyVersion:['早期测试版格式，无法导入，可删除','Early test-release format: cannot be imported, can be deleted']
 };
 for(const [key,[cn,us]] of Object.entries(compatibilityCopy)){zh[key]=cn;en[key]=us;}

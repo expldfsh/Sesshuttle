@@ -18,11 +18,18 @@ function describe(p){
     for(const a of [...reports.values(),...(f.omittedAttachments??[])])assets.push({path:a.path,missing:true,bytes:a.bytes??0});
     return {id:f.id,title:f.title??(f.id===p.logicalId?p.title:f.id),kind:f.kind,project:f.originProject?.name??f.project,assets};
   });
-  if(p.format===1)for(const a of p.assets??[])files.find(f=>f.id===p.logicalId).assets.push({path:a.path,hash:a.hash,bytes:Buffer.byteLength(a.data,'base64'),chunks:[]});
   const header={};
   for(const key of ['logicalId','title','source','project','originProject','projectId','updatedAt','device','messages','kind','parent','agent','archived','issues','continuation'])if(p[key]!==undefined)header[key]=p[key];
   header.bytes=bundleBytes(p);header.omittedImageCount=attachmentReview(p).optional.length+inheritedOmissions(p).length;
   return {header,files,chunks};
+}
+// A manifest from an early release candidate cannot be imported, compared or
+// downloaded. It is listed with its stored size only, so it can still be removed.
+function describeLegacy({manifest,objectBytes}){
+  const header={};
+  for(const key of ['logicalId','title','source','project','updatedAt','device','archived'])if(manifest?.[key]!==undefined)header[key]=manifest[key];
+  header.bytes=objectBytes;header.omittedImageCount=0;
+  return {header,files:[],chunks:new Set(),legacy:true};
 }
 
 // Follow ancestry, including missing intermediate versions recorded in the recycle bin.
@@ -47,7 +54,7 @@ async function catalog(vault){
   const heads=await vault.allHeads(),inventory=(await vault.inventory()).objects,versions=new Map();
   const prefix=vault.prefix+'versions/';
   for(const key of [...inventory.keys()].filter(k=>k.startsWith(prefix)).sort()){
-    const v=key.slice(prefix.length);requireThat(digest.test(v),'corrupt_data');versions.set(v,describe(await vault.version(v)));
+    const v=key.slice(prefix.length);requireThat(digest.test(v),'corrupt_data');const p=await vault.version(v,{legacy:true});versions.set(v,p.legacy?describeLegacy(p):describe(p));
   }
   for(const h of heads)for(const v of metaRows(h))requireThat(versions.get(v.id)?.header.logicalId===h.logicalId,'missing_remote_object');
   return {heads,inventory,versions};
@@ -90,7 +97,7 @@ export async function cloudRemovalPlan(vault,request){
     else{active=rest;tips=survivingTips(head.tips,rest.map(v=>v.id),metaRows(head));}
     if(chosen.length)changes.push({head,bin,chosen,active,tips});
     items.push({id:logical,title:bin?.title??head.title,project:versions.get(available.at(-1).id).header.originProject?.name??head.project,
-      versions:available.map(v=>({id:v.id,at:v.at,device:v.device?.name??v.device?.id,selected:picked.includes(v.id),current:head.tips.includes(v.id),bytes:versions.get(v.id).header.bytes,files:versions.get(v.id).files})),
+      versions:available.map(v=>({id:v.id,at:v.at,device:v.device?.name??v.device?.id,selected:picked.includes(v.id),current:head.tips.includes(v.id),bytes:versions.get(v.id).header.bytes,files:versions.get(v.id).files,...(versions.get(v.id).legacy?{legacy:true}:{})})),
       nextTips:tips.map(id=>{const info=metaRows(head).find(v=>v.id===id);return {id,at:info?.at,device:info?.device?.name??info?.device?.id};})});
   }
   const keepChunks=new Set(),keepAssets=new Map(),wantedChunks=new Set(),retained=[];
