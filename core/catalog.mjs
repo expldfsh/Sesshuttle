@@ -32,10 +32,25 @@ export function tableColumns(db, table) {
     .all()
     .map((x) => x.name);
 }
+// Size, mtime, ctime and inode of every database file and its write-ahead log.
+// Taken before the read transaction starts, so the snapshot is never older. An
+// empty log holds no data (opening read-only may create one), like a missing one.
+async function databaseStamp(paths) {
+  const stat = (file) =>
+    fs.stat(file).then(
+      (s) => (file.endsWith('-wal') && s.size === 0 ? null : [s.size, s.mtimeMs, s.ctimeMs, s.ino]),
+      () => null,
+    );
+  const files = Object.values(paths).sort();
+  return JSON.stringify(
+    await Promise.all(files.map(async (f) => [f, await stat(f), await stat(f + '-wal')])),
+  );
+}
 export async function openCatalog(home) {
   const paths = await dbPaths(home),
     dbs = {};
   try {
+    const stamp = await databaseStamp(paths);
     for (const [kind, file] of Object.entries(paths)) {
       requireThat(!(await fs.lstat(file)).isSymbolicLink(), 'unsafe_path');
       const db = new DatabaseSync(file, { readOnly: true });
@@ -74,10 +89,27 @@ export async function openCatalog(home) {
           .all()
       : [];
     requireThat(threads.length <= 20000, 'space_too_large');
+    const infos = new Map();
     return {
       paths,
+      stamp,
       dbs,
       threads,
+      // Column names and primary key of a table, read once per catalog.
+      tableInfo(kind, table) {
+        const key = kind + '/' + table;
+        if (!infos.has(key)) {
+          const info = dbs[kind].prepare(`PRAGMA table_info("${table}")`).all();
+          infos.set(key, {
+            columns: info.map((x) => x.name),
+            pk: info
+              .filter((x) => x.pk)
+              .sort((a, b) => a.pk - b.pk)
+              .map((x) => x.name),
+          });
+        }
+        return infos.get(key);
+      },
       projects: readProjects(dbs.state),
       edges:
         dbs.state && tableColumns(dbs.state, 'thread_spawn_edges').includes('parent_thread_id')
@@ -102,7 +134,7 @@ export function* databaseRecords(catalog, tid) {
     const db = catalog.dbs[kind];
     if (!db) continue;
     for (const table of tables) {
-      const columns = tableColumns(db, table);
+      const { columns, pk: keys } = catalog.tableInfo(kind, table);
       if (!columns.length) continue;
       let where, args;
       if (table === 'threads') {
@@ -115,12 +147,7 @@ export function* databaseRecords(catalog, tid) {
         where = 'child_thread_id=?';
         args = [tid];
       } else continue;
-      const pk = db
-        .prepare(`PRAGMA table_info("${table}")`)
-        .all()
-        .filter((x) => x.pk)
-        .sort((a, b) => a.pk - b.pk)
-        .map((x) => '"' + x.name + '"');
+      const pk = keys.map((name) => '"' + name + '"');
       for (const row of db
         .prepare(
           `SELECT * FROM "${table}" WHERE ${where}${pk.length ? ' ORDER BY ' + pk.join(',') : ''}`,
@@ -133,7 +160,29 @@ export function* databaseRecords(catalog, tid) {
 export function encodeRecord(record) {
   return Buffer.from(JSON.stringify(record) + '\n');
 }
+// Summaries are cached by the catalog's database stamp and thread: any change to a
+// database file or its write-ahead log computes them again.
+const summaries = new Map();
+let summaryBytes = 0;
+export const summaryCacheStats = { hits: 0, misses: 0 };
 export function databaseSummary(catalog, tid) {
+  const key = catalog.stamp + '\0' + tid;
+  if (summaries.has(key)) {
+    summaryCacheStats.hits++;
+    return summaries.get(key);
+  }
+  summaryCacheStats.misses++;
+  const summary = summarize(catalog, tid);
+  const bytes = 256 + summary.messages.reduce((n, m) => n + m.text.length * 2, 0);
+  if (summaries.size >= 20000 || summaryBytes + bytes > 64 * 1024 * 1024) {
+    summaries.clear();
+    summaryBytes = 0;
+  }
+  summaries.set(key, summary);
+  summaryBytes += bytes;
+  return summary;
+}
+function summarize(catalog, tid) {
   const digest = createHash('sha256');
   let bytes = 0,
     count = 0,

@@ -11,16 +11,60 @@ import {
   displayName,
   projectFor,
 } from './catalog.mjs';
-const digestCache = new Map();
-async function fileDigest(file) {
+// Facts derived only from a rollout's bytes are cached by path, size, mtime and
+// ctime. The stat comes first, so a file changed while it is read is read again
+// on the next scan. Failures are never cached.
+const digestCache = new Map(),
+  headerCache = new Map(),
+  rolloutCache = new Map();
+async function statKey(file) {
   const s = await fs.stat(file);
-  const key = file + '\0' + s.size + '\0' + s.mtimeMs + '\0' + s.ctimeMs;
-  if (digestCache.has(key)) return digestCache.get(key);
-  const d = await digestRollout(file);
-  if (digestCache.size > 5000) digestCache.clear();
-  digestCache.set(key, d);
-  return d;
+  return file + '\0' + s.size + '\0' + s.mtimeMs + '\0' + s.ctimeMs;
 }
+async function cached(cache, key, compute) {
+  if (cache.has(key)) return cache.get(key);
+  const value = await compute();
+  if (cache.size > 5000) cache.clear();
+  cache.set(key, value);
+  return value;
+}
+const fileDigest = (file, key) => cached(digestCache, key, () => digestRollout(file));
+// Only the first record; an unfinished tail does not matter here.
+const readHeader = (file, key) =>
+  cached(headerCache, key, async () => {
+    for await (const record of records(file)) return record;
+    return null;
+  });
+// The header, the last 30 conversation turns and whether a turn is still running.
+// A failure carries the header read before it.
+const readRollout = (file, key) =>
+  cached(rolloutCache, key, async () => {
+    let header,
+      first = true,
+      busy = false;
+    const messages = [];
+    try {
+      for await (const record of records(file)) {
+        if (first) {
+          requireThat(record.type === 'session_meta', 'invalid_history');
+          header = record.payload;
+          first = false;
+        }
+        const p = record.payload;
+        if (record.type === 'event_msg') {
+          if (['task_started', 'turn_started'].includes(p?.type)) busy = true;
+          if (['task_complete', 'turn_complete', 'turn_aborted'].includes(p?.type)) busy = false;
+          // Rollout previews list conversation turns only, not command output.
+          const message = messageFromEvent(p) ?? (p?.item ? messageFromItem(p.item) : null);
+          if (message && message.role !== 'tool') messages.push(message);
+        }
+        if (messages.length > 30) messages.shift();
+      }
+    } catch (e) {
+      throw Object.assign(e, { header });
+    }
+    return { header, messages, busy };
+  });
 export async function scanHistory(homes, { sourceOf }) {
   const rows = [],
     errors = [],
@@ -65,53 +109,40 @@ export async function scanHistory(homes, { sourceOf }) {
           verifiedId = null;
         try {
           if (file) {
-            raw = await fileDigest(file);
-            if (meta) {
-              for await (const first of records(file)) {
-                requireThat(
-                  first.type === 'session_meta' && first.payload?.id === meta.id,
-                  'invalid_history',
-                );
-                const header = first.payload;
-                verifiedId = header.id;
-                meta = {
-                  ...header,
-                  ...meta,
-                  originator: meta.originator ?? header.originator,
-                  parent_thread_id:
-                    meta.parent_thread_id ??
-                    header.parent_thread_id ??
-                    header.source?.subagent?.thread_spawn?.parent_thread_id,
-                };
-                break;
-              }
+            const key = await statKey(file);
+            raw = await fileDigest(file, key);
+            const first = meta ? await readHeader(file, key) : null;
+            if (first) {
+              requireThat(
+                first.type === 'session_meta' && first.payload?.id === meta.id,
+                'invalid_history',
+              );
+              const header = first.payload;
+              verifiedId = header.id;
+              meta = {
+                ...header,
+                ...meta,
+                originator: meta.originator ?? header.originator,
+                parent_thread_id:
+                  meta.parent_thread_id ??
+                  header.parent_thread_id ??
+                  header.source?.subagent?.thread_spawn?.parent_thread_id,
+              };
             }
             if (!meta) {
-              let first = true;
-              const messages = [];
-              let busy = false;
-              for await (const record of records(file)) {
-                if (first) {
-                  requireThat(record.type === 'session_meta', 'invalid_history');
-                  meta = record.payload;
-                  verifiedId = meta?.id;
-                  first = false;
-                }
-                const p = record.payload;
-                if (record.type === 'event_msg') {
-                  if (['task_started', 'turn_started'].includes(p?.type)) busy = true;
-                  if (['task_complete', 'turn_complete', 'turn_aborted'].includes(p?.type))
-                    busy = false;
-                }
-                if (record.type === 'event_msg') {
-                  // Rollout previews list conversation turns only, not command output.
-                  const message = messageFromEvent(p) ?? (p?.item ? messageFromItem(p.item) : null);
-                  if (message && message.role !== 'tool') messages.push(message);
-                }
-                if (messages.length > 30) messages.shift();
+              let rollout;
+              try {
+                rollout = await readRollout(file, key);
+              } catch (e) {
+                // Keep the header read before a failure: it still names the conversation.
+                meta = e.header;
+                verifiedId = meta?.id;
+                throw e;
               }
+              meta = rollout.header;
+              verifiedId = meta?.id;
               requireThat(meta, 'invalid_history');
-              parsed = { messages, busy };
+              parsed = { messages: rollout.messages, busy: rollout.busy };
             }
           }
         } catch (e) {
