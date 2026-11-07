@@ -10,10 +10,11 @@ export async function openSession({
   connect = true,
   size,
   args = [],
+  executablePath,
 } = {}) {
   const root = makeFixture(fixtureArgs);
   const storage = connect ? await startStorage(root) : null;
-  const { app, page } = await launchApp(root, { args });
+  const { app, page } = await launchApp(root, { args, executablePath });
   if (size) await setSize(app, page, size);
   const config = (await invoke(page, 'init')).data.config;
   if (config.language !== language) await invoke(page, 'saveConfig', { ...config, language });

@@ -10,6 +10,7 @@
 //   the result of an action without leaving the page, and a cloud list is only
 //   marked out of date, never read again by itself.
 // Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity]
+//   [--app=<packaged executable>]   by default the development build runs
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -22,6 +23,7 @@ const option = (name, fallback) =>
   process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const language = option('lang', 'zh-CN');
 const only = option('only', 'transfer,removal,native,bins,activity').split(',');
+const executablePath = option('app', undefined);
 
 // Interface text in both languages, so the checks do not depend on the language.
 const TEXT = {
@@ -520,7 +522,7 @@ Object.assign(groups, { bins: binChecks, activity: activityChecks });
 // Each group runs in its own test-mode session; a failed step outside a check is
 // reported as a failed setup with a screenshot.
 for (const name of only) {
-  const session = await openSession({ language });
+  const session = await openSession({ language, executablePath });
   current = session.page;
   session.page.on('pageerror', (e) => pageErrors.push(e.message));
   try {
