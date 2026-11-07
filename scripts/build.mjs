@@ -2,25 +2,27 @@ import { execFileSync } from 'node:child_process';
 import { realpathSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { build } from 'esbuild';
-await build({
-  entryPoints: ['app/main/main.ts'],
+// Minified bundles with external source maps (dist/*.map) for diagnosing stack traces.
+const common = {
   bundle: true,
   platform: 'node',
   format: 'cjs',
   target: 'node22',
+  minify: true,
+  sourcemap: true,
+  logLevel: 'info',
+};
+await build({
+  ...common,
+  entryPoints: ['app/main/main.ts'],
   outfile: 'dist/main.cjs',
   external: ['electron', 'usocket', 'x11'],
-  logLevel: 'info',
 });
 await build({
+  ...common,
   entryPoints: ['app/main/preload.ts'],
-  bundle: true,
-  platform: 'node',
-  format: 'cjs',
-  target: 'node22',
   outfile: 'dist/preload.cjs',
   external: ['electron'],
-  logLevel: 'info',
 });
 
 if (process.platform === 'darwin') {

@@ -37,7 +37,8 @@
       "THIRD_PARTY_NOTICES.txt",
       "assets/font-licenses/**/*",
       "assets/fonts.json",
-      "!dist/macos-keychain.node"
+      "!dist/macos-keychain.node",
+      "!dist/**/*.map"
     ],
     "asar": true,
     "npmRebuild": false,
