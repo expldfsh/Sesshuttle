@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Modal } from './components/Modal';
 
 type Props = {
   target: any;
@@ -96,158 +97,143 @@ export function DetectionPanel({
     }
   }
   return (
-    <div className="modal-backdrop detection-layer">
-      <section
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('detectEnvironment')}
+    <Modal title={t('detectEnvironment')} busy={applying} onClose={onClose}>
+      <p>{t('detectApplyHint')}</p>
+      <button
+        disabled={applying}
+        onClick={async () => {
+          setApplying(true);
+          try {
+            const next = await onRetry();
+            setChosen(suggestions(next.candidates));
+            setHomes([]);
+            setError('');
+          } catch (e: any) {
+            setError(t(e.code ?? 'operation_failed'));
+          } finally {
+            setApplying(false);
+          }
+        }}
       >
-        <div className="card-title">
-          <h2>{t('detectEnvironment')}</h2>
-          <button disabled={applying} onClick={onClose}>
-            {t('close')}
-          </button>
-        </div>
-        <p>{t('detectApplyHint')}</p>
-        <button
-          disabled={applying}
-          onClick={async () => {
-            setApplying(true);
-            try {
-              const next = await onRetry();
-              setChosen(suggestions(next.candidates));
-              setHomes([]);
-              setError('');
-            } catch (e: any) {
-              setError(t(e.code ?? 'operation_failed'));
-            } finally {
-              setApplying(false);
-            }
-          }}
-        >
-          {t('restartDetection')}
-        </button>
-        {entries.map((entry) => (
-          <section className="candidate-group" key={entry}>
-            <h3>{t(entry)}</h3>
-            {cfg.targets[entry]?.binary && (
-              <div className="saved-paths">
-                <small>
-                  {t('savedKernelPath')} <code>{cfg.targets[entry].binary}</code>
-                </small>
-                <small>
-                  {t('savedHistoryPath')} <code>{cfg.targets[entry]?.home}</code>
-                </small>
-              </div>
-            )}
-            {entry === 'desktop' && report.launchers?.length > 0 && (
-              <div>
-                <small>{t('detectedLauncher')}</small>
-                {report.launchers.map((file: string) => (
-                  <code key={file}>{file}</code>
-                ))}
-              </div>
-            )}
-            {!report.candidates.some((c: any) => c.entry === entry) && (
-              <p className="warning-box">
-                {t(entry === 'desktop' ? 'launchDesktopToDetect' : 'noCandidate')}
-              </p>
-            )}
-            {report.candidates.map((c: any, i: number) => {
-              if (c.entry !== entry) return null;
-              const same =
-                cfg.targets[entry]?.binary === c.binary && cfg.targets[entry]?.home === c.home;
-              return (
-                <label className="candidate" key={i}>
-                  <input
-                    type="checkbox"
-                    disabled={!c.runtime || !c.homeAvailable || same || applying}
-                    checked={same || chosen[entry] === i}
-                    onChange={(e) =>
-                      setChosen((old) => {
-                        const next = { ...old };
-                        if (e.target.checked) next[entry] = i;
-                        else delete next[entry];
-                        return next;
-                      })
-                    }
-                  />
-                  <span>
-                    <strong>
-                      {t(
-                        same
-                          ? 'configured'
-                          : cfg.targets[entry]?.binary
-                            ? 'replaceSaved'
-                            : 'suggested',
-                      )}{' '}
-                      · {t(c.evidence)}
-                    </strong>
-                    {c.app && (
-                      <small>
-                        {t('desktopApp')} <code>{c.app}</code>
-                      </small>
-                    )}
-                    <small>
-                      {t('kernelProgram')} <code>{c.binary}</code>{' '}
-                      {c.runtime || t(c.error || 'binary_unavailable')}
-                    </small>
-                    <small>
-                      {t('historyFolder')} <code>{c.home}</code>{' '}
-                      {t(
-                        !c.homeAvailable
-                          ? 'pathMissing'
-                          : c.assumedHome
-                            ? 'checkProposedFolder'
-                            : 'pathFound',
-                      )}
-                    </small>
-                  </span>
-                </label>
-              );
-            })}
-          </section>
-        ))}
-        {!count && (
-          <small>
-            {t(inFlow ? (pathsReady ? 'reusePathsHint' : 'manualPathsHint') : 'noChangesToApply')}
-          </small>
-        )}
-        <details>
-          <summary>{t('sourceHomes')}</summary>
-          {report.sourceHomes.map((x: any) => (
-            <label className="check" key={x.path}>
-              <input
-                type="checkbox"
-                disabled={!x.available || cfg.sourceHomes.includes(x.path)}
-                checked={cfg.sourceHomes.includes(x.path) || homes.includes(x.path)}
-                onChange={(e) =>
-                  setHomes(
-                    e.target.checked ? [...homes, x.path] : homes.filter((h) => h !== x.path),
-                  )
-                }
-              />
-              <code>{x.path}</code>
-            </label>
-          ))}
-        </details>
-        {error && (
-          <p role="alert" className="warning-box">
-            {error}
-          </p>
-        )}
-        <div className="modal-actions">
-          <button disabled={applying} className={!count ? 'primary' : ''} onClick={onClose}>
-            {t(inFlow ? (pathsReady ? 'reuseAndReturn' : 'backToImportSetup') : 'returnManual')}
-          </button>
-          {count > 0 && (
-            <button disabled={applying} className="primary" onClick={apply}>
-              {t(applying ? 'applying' : inFlow ? 'saveAndReturn' : 'applySelected')} ({count})
-            </button>
+        {t('restartDetection')}
+      </button>
+      {entries.map((entry) => (
+        <section className="candidate-group" key={entry}>
+          <h3>{t(entry)}</h3>
+          {cfg.targets[entry]?.binary && (
+            <div className="saved-paths">
+              <small>
+                {t('savedKernelPath')} <code>{cfg.targets[entry].binary}</code>
+              </small>
+              <small>
+                {t('savedHistoryPath')} <code>{cfg.targets[entry]?.home}</code>
+              </small>
+            </div>
           )}
-        </div>
-      </section>
-    </div>
+          {entry === 'desktop' && report.launchers?.length > 0 && (
+            <div>
+              <small>{t('detectedLauncher')}</small>
+              {report.launchers.map((file: string) => (
+                <code key={file}>{file}</code>
+              ))}
+            </div>
+          )}
+          {!report.candidates.some((c: any) => c.entry === entry) && (
+            <p className="warning-box">
+              {t(entry === 'desktop' ? 'launchDesktopToDetect' : 'noCandidate')}
+            </p>
+          )}
+          {report.candidates.map((c: any, i: number) => {
+            if (c.entry !== entry) return null;
+            const same =
+              cfg.targets[entry]?.binary === c.binary && cfg.targets[entry]?.home === c.home;
+            return (
+              <label className="candidate" key={i}>
+                <input
+                  type="checkbox"
+                  disabled={!c.runtime || !c.homeAvailable || same || applying}
+                  checked={same || chosen[entry] === i}
+                  onChange={(e) =>
+                    setChosen((old) => {
+                      const next = { ...old };
+                      if (e.target.checked) next[entry] = i;
+                      else delete next[entry];
+                      return next;
+                    })
+                  }
+                />
+                <span>
+                  <strong>
+                    {t(
+                      same
+                        ? 'configured'
+                        : cfg.targets[entry]?.binary
+                          ? 'replaceSaved'
+                          : 'suggested',
+                    )}{' '}
+                    · {t(c.evidence)}
+                  </strong>
+                  {c.app && (
+                    <small>
+                      {t('desktopApp')} <code>{c.app}</code>
+                    </small>
+                  )}
+                  <small>
+                    {t('kernelProgram')} <code>{c.binary}</code>{' '}
+                    {c.runtime || t(c.error || 'binary_unavailable')}
+                  </small>
+                  <small>
+                    {t('historyFolder')} <code>{c.home}</code>{' '}
+                    {t(
+                      !c.homeAvailable
+                        ? 'pathMissing'
+                        : c.assumedHome
+                          ? 'checkProposedFolder'
+                          : 'pathFound',
+                    )}
+                  </small>
+                </span>
+              </label>
+            );
+          })}
+        </section>
+      ))}
+      {!count && (
+        <small>
+          {t(inFlow ? (pathsReady ? 'reusePathsHint' : 'manualPathsHint') : 'noChangesToApply')}
+        </small>
+      )}
+      <details>
+        <summary>{t('sourceHomes')}</summary>
+        {report.sourceHomes.map((x: any) => (
+          <label className="check" key={x.path}>
+            <input
+              type="checkbox"
+              disabled={!x.available || cfg.sourceHomes.includes(x.path)}
+              checked={cfg.sourceHomes.includes(x.path) || homes.includes(x.path)}
+              onChange={(e) =>
+                setHomes(e.target.checked ? [...homes, x.path] : homes.filter((h) => h !== x.path))
+              }
+            />
+            <code>{x.path}</code>
+          </label>
+        ))}
+      </details>
+      {error && (
+        <p role="alert" className="warning-box">
+          {error}
+        </p>
+      )}
+      <div className="modal-actions">
+        <button disabled={applying} className={!count ? 'primary' : ''} onClick={onClose}>
+          {t(inFlow ? (pathsReady ? 'reuseAndReturn' : 'backToImportSetup') : 'returnManual')}
+        </button>
+        {count > 0 && (
+          <button disabled={applying} className="primary" onClick={apply}>
+            {t(applying ? 'applying' : inFlow ? 'saveAndReturn' : 'applySelected')} ({count})
+          </button>
+        )}
+      </div>
+    </Modal>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Modal } from './components/Modal';
 import { RuntimeCheck } from './RuntimeCheck';
 import { DetectionPanel, EntryFields } from './Environment';
 import { Select } from './Select';
@@ -298,325 +299,323 @@ export function TransferFlow({
           }
         />
       ) : (
-        <div className="modal-backdrop">
-          <section className="modal flow" role="dialog" aria-modal="true" aria-label={title}>
-            <div className="card-title">
-              <h2>{title}</h2>
-              <button disabled={!!pending || !!checking} onClick={() => void close()}>
-                {t('close')}
-              </button>
-            </div>
-            <fieldset disabled={!!pending} className="flow-fields">
-              <p>
-                {t('selectedScope')}{' '}
-                <strong>
-                  {needed.length} / {chosen.length}
-                </strong>{' '}
-                · {needed.length === 1 ? needed[0].title : t('conversations')}
+        <Modal
+          title={title}
+          className="flow"
+          size="large"
+          busy={!!pending || !!checking}
+          onClose={() => void close()}
+        >
+          <fieldset disabled={!!pending} className="flow-fields">
+            <p>
+              {t('selectedScope')}{' '}
+              <strong>
+                {needed.length} / {chosen.length}
+              </strong>{' '}
+              · {needed.length === 1 ? needed[0].title : t('conversations')}
+            </p>
+            {chosen.length > needed.length && (
+              <p className="warning-box">
+                {t('skippedScope')}{' '}
+                {chosen
+                  .filter((r: any) => !needed.includes(r))
+                  .map((r: any) => r.title)
+                  .join('、')}
               </p>
-              {chosen.length > needed.length && (
-                <p className="warning-box">
-                  {t('skippedScope')}{' '}
-                  {chosen
-                    .filter((r: any) => !needed.includes(r))
-                    .map((r: any) => r.title)
-                    .join('、')}
-                </p>
-              )}
-              {importing && (
-                <>
-                  <div className="card-title">
-                    <h3>1. {t('chooseApp')}</h3>
-                    <button
-                      disabled={!!pending || !!checking}
-                      onClick={() =>
-                        run('checkingEntries', async () => setReport(await call('detectPaths')))
-                      }
-                    >
-                      {t('detectEnvironment')}
-                    </button>
-                  </div>
-                  {pathsApplied && (
-                    <p className="notice" role="status">
-                      {t('detectedApplied')}
-                    </p>
-                  )}
-                  <div className="entry-choices">
-                    {entries.map((entry) => (
-                      <label className="entry-choice" key={entry}>
-                        <input
-                          type="checkbox"
-                          disabled={!!checking}
-                          checked={targets.includes(entry)}
-                          onChange={(e) =>
-                            setTargets(
-                              e.target.checked
-                                ? [...targets, entry]
-                                : targets.filter((v) => v !== entry),
-                            )
-                          }
-                        />
-                        <b>{t(entry)}</b>
-                        <small>
-                          {t(
-                            infoFor(entry)?.error ??
-                              (infoFor(entry)?.proof?.status === 'untested'
-                                ? 'runtimePendingShort'
-                                : infoFor(entry)
-                                  ? 'configured'
-                                  : 'needsCheck'),
-                          )}
-                        </small>
-                      </label>
-                    ))}
-                  </div>
-                  {targets.some((e) => info[e]?.manualOpen) && (
-                    <p className="warning-box">{t('launchManualHint')}</p>
-                  )}
-                  {targets.map((entry) => (
-                    <div key={entry}>
-                      {infoFor(entry)?.proof && (
-                        <RuntimeCheck
-                          key={draft.targets[entry].binary}
-                          binary={draft.targets[entry].binary}
-                          info={infoFor(entry).proof}
-                          t={t}
-                          call={call}
-                          onBusy={(busy: boolean) => setChecking(busy ? entry : '')}
-                          disabled={!!checking}
-                          onDone={() => inspect()}
-                        />
-                      )}
-                      {infoFor(entry)?.projectWarning && (
-                        <p className="warning-box">{t(infoFor(entry).projectWarning)}</p>
-                      )}
-                      {infoFor(entry) && !infoFor(entry)?.error && editing !== entry && (
-                        <button disabled={!!checking} onClick={() => setEditing(entry)}>
-                          {t('editPaths')} · {t(entry)}
-                        </button>
-                      )}
-                      {(infoFor(entry)?.error || editing === entry || !infoFor(entry)) && (
-                        <div className="setup-repair">
-                          <strong>
-                            {t(entry)} · {t(infoFor(entry)?.error ?? 'needsCheck')}
-                          </strong>
-                          <EntryFields
-                            t={t}
-                            entry={entry}
-                            target={draft.targets[entry]}
-                            pick={call}
-                            change={(v) =>
-                              setDraft({ ...draft, targets: { ...draft.targets, [entry]: v } })
-                            }
-                          />
-                          <button
-                            disabled={!!pending || !!checking}
-                            onClick={() =>
-                              run('checkingEntries', async () => {
-                                await inspect();
-                                setEditing('');
-                              })
-                            }
-                          >
-                            {t('checkAgain')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+            )}
+            {importing && (
+              <>
+                <div className="card-title">
+                  <h3>1. {t('chooseApp')}</h3>
+                  <button
+                    disabled={!!pending || !!checking}
+                    onClick={() =>
+                      run('checkingEntries', async () => setReport(await call('detectPaths')))
+                    }
+                  >
+                    {t('detectEnvironment')}
+                  </button>
+                </div>
+                {pathsApplied && (
+                  <p className="notice" role="status">
+                    {t('detectedApplied')}
+                  </p>
+                )}
+                <div className="entry-choices">
+                  {entries.map((entry) => (
+                    <label className="entry-choice" key={entry}>
+                      <input
+                        type="checkbox"
+                        disabled={!!checking}
+                        checked={targets.includes(entry)}
+                        onChange={(e) =>
+                          setTargets(
+                            e.target.checked
+                              ? [...targets, entry]
+                              : targets.filter((v) => v !== entry),
+                          )
+                        }
+                      />
+                      <b>{t(entry)}</b>
+                      <small>
+                        {t(
+                          infoFor(entry)?.error ??
+                            (infoFor(entry)?.proof?.status === 'untested'
+                              ? 'runtimePendingShort'
+                              : infoFor(entry)
+                                ? 'configured'
+                                : 'needsCheck'),
+                        )}
+                      </small>
+                    </label>
                   ))}
-                  {(missingEntry || untested.length > 0) && ready.length > 0 && (
-                    <button disabled={!!checking} onClick={() => setTargets(ready)}>
-                      {t('useReadyEntries')} · {ready.map(t).join(' + ')}
-                    </button>
-                  )}
-                  {(request.offerCopy || missingEntry || untested.length > 0) &&
-                    needed
-                      .filter((r: any) => r.remote && (request.version || r.tips?.length === 1))
-                      .map((r: any) => (
-                        <button
-                          key={r.id}
-                          disabled={!!checking}
-                          onClick={() =>
-                            run('stageDownload', async () => {
-                              const folder = await call('downloadCopy', {
-                                logical: r.id,
-                                version: request.version ?? r.tips[0],
-                              });
-                              if (folder) setCopyResult(folder);
-                            })
+                </div>
+                {targets.some((e) => info[e]?.manualOpen) && (
+                  <p className="warning-box">{t('launchManualHint')}</p>
+                )}
+                {targets.map((entry) => (
+                  <div key={entry}>
+                    {infoFor(entry)?.proof && (
+                      <RuntimeCheck
+                        key={draft.targets[entry].binary}
+                        binary={draft.targets[entry].binary}
+                        info={infoFor(entry).proof}
+                        t={t}
+                        call={call}
+                        onBusy={(busy: boolean) => setChecking(busy ? entry : '')}
+                        disabled={!!checking}
+                        onDone={() => inspect()}
+                      />
+                    )}
+                    {infoFor(entry)?.projectWarning && (
+                      <p className="warning-box">{t(infoFor(entry).projectWarning)}</p>
+                    )}
+                    {infoFor(entry) && !infoFor(entry)?.error && editing !== entry && (
+                      <button disabled={!!checking} onClick={() => setEditing(entry)}>
+                        {t('editPaths')} · {t(entry)}
+                      </button>
+                    )}
+                    {(infoFor(entry)?.error || editing === entry || !infoFor(entry)) && (
+                      <div className="setup-repair">
+                        <strong>
+                          {t(entry)} · {t(infoFor(entry)?.error ?? 'needsCheck')}
+                        </strong>
+                        <EntryFields
+                          t={t}
+                          entry={entry}
+                          target={draft.targets[entry]}
+                          pick={call}
+                          change={(v) =>
+                            setDraft({ ...draft, targets: { ...draft.targets, [entry]: v } })
                           }
-                        >
-                          {t('downloadFolderOnly')} · {r.title}
-                        </button>
-                      ))}
-                  {copyResult && (
-                    <p role="status" className="notice">
-                      {t('savedCopyAt')} {copyResult}
-                    </p>
-                  )}
-                  <h3>2. {t('localProject')}</h3>
-                  <small>{t('userHandoff')}</small>
-                  {projects.map((r) => (
-                    <section className="setup-project" key={r.projectId}>
-                      <strong>
-                        {t('originProject')} · {r.originProject?.name || r.project}
-                      </strong>
-                      {homeGroups.map((home) => {
-                        const catalog = databases[home],
-                          value = draft.nativeBindings?.[r.projectId]?.[home],
-                          selectable = catalog?.supported ? catalog.projects : [];
-                        const proposed = selectable.filter(
-                          (p: any) => p.name === r.originProject?.name,
-                        );
-                        return (
-                          <div key={home}>
-                            <small>
-                              {targets
-                                .filter((e) => draft.targets[e]?.home === home)
-                                .map(t)
-                                .join(' + ')}
-                            </small>
-                            <Select
-                              label={t('destinationProject')}
-                              value={value === undefined ? '__choose__' : value || '__history__'}
-                              onChange={(id) => {
-                                if (id !== '__choose__')
-                                  selectProject(r.projectId, home, id === '__history__' ? '' : id);
-                              }}
-                              options={[
-                                { value: '__choose__', label: t('chooseDestination') },
-                                ...selectable.map((p: any) => ({
-                                  value: p.id,
-                                  label:
-                                    p.name +
-                                    (p.roots[0] ? ' · ' + p.roots[0] : ' · ' + p.id.slice(0, 8)),
-                                })),
-                                { value: '__history__', label: t('historyOnly') },
-                              ]}
-                            />
-                            {proposed.length === 1 && value === undefined && (
-                              <button
-                                className="text-button"
-                                onClick={() => selectProject(r.projectId, home, proposed[0].id)}
-                              >
-                                {t('chooseMatching')} {proposed[0].name}
-                              </button>
-                            )}
-                            {value !== '' &&
-                              (!selectable.length ||
-                                (value && !selectable.some((p: any) => p.id === value))) && (
-                                <button onClick={() => selectProject(r.projectId, home, '')}>
-                                  {t('chooseHistoryOnly')}
-                                </button>
-                              )}
-                            {(!selectable.length || value === '') && (
-                              <small>{t('historyOnlyHint')}</small>
-                            )}
-                            {value && (
-                              <small>
-                                {t('selectedDestination')}{' '}
-                                {selectable.find((p: any) => p.id === value)?.name ??
-                                  t('destination_project_missing')}
-                              </small>
-                            )}
-                          </div>
-                        );
-                      })}
-                      <label className="field">
-                        <span>{t('projectPath')}</span>
-                        <input
-                          value={draft.bindings[r.projectId] ?? ''}
-                          placeholder={t('workingFolderHint')}
-                          onChange={(e) => setBinding(r.projectId, e.target.value)}
                         />
-                      </label>
-                      <div className="actions">
                         <button
+                          disabled={!!pending || !!checking}
                           onClick={() =>
-                            run('chooseFolder', async () => {
-                              const dir = await call('pickDirectory');
-                              if (dir) setBinding(r.projectId, dir);
+                            run('checkingEntries', async () => {
+                              await inspect();
+                              setEditing('');
                             })
                           }
                         >
-                          {t('bind')}
-                        </button>
-                        <button
-                          onClick={() =>
-                            run('chooseFolder', async () => {
-                              setBinding(
-                                r.projectId,
-                                await call('createWorkspace', { projectId: r.projectId }),
-                              );
-                            })
-                          }
-                        >
-                          {t('createWorkingFolder')}
+                          {t('checkAgain')}
                         </button>
                       </div>
-                    </section>
-                  ))}
-                </>
-              )}
-              {uploading && (
-                <section className="setup-project">
+                    )}
+                  </div>
+                ))}
+                {(missingEntry || untested.length > 0) && ready.length > 0 && (
+                  <button disabled={!!checking} onClick={() => setTargets(ready)}>
+                    {t('useReadyEntries')} · {ready.map(t).join(' + ')}
+                  </button>
+                )}
+                {(request.offerCopy || missingEntry || untested.length > 0) &&
+                  needed
+                    .filter((r: any) => r.remote && (request.version || r.tips?.length === 1))
+                    .map((r: any) => (
+                      <button
+                        key={r.id}
+                        disabled={!!checking}
+                        onClick={() =>
+                          run('stageDownload', async () => {
+                            const folder = await call('downloadCopy', {
+                              logical: r.id,
+                              version: request.version ?? r.tips[0],
+                            });
+                            if (folder) setCopyResult(folder);
+                          })
+                        }
+                      >
+                        {t('downloadFolderOnly')} · {r.title}
+                      </button>
+                    ))}
+                {copyResult && (
+                  <p role="status" className="notice">
+                    {t('savedCopyAt')} {copyResult}
+                  </p>
+                )}
+                <h3>2. {t('localProject')}</h3>
+                <small>{t('userHandoff')}</small>
+                {projects.map((r) => (
+                  <section className="setup-project" key={r.projectId}>
+                    <strong>
+                      {t('originProject')} · {r.originProject?.name || r.project}
+                    </strong>
+                    {homeGroups.map((home) => {
+                      const catalog = databases[home],
+                        value = draft.nativeBindings?.[r.projectId]?.[home],
+                        selectable = catalog?.supported ? catalog.projects : [];
+                      const proposed = selectable.filter(
+                        (p: any) => p.name === r.originProject?.name,
+                      );
+                      return (
+                        <div key={home}>
+                          <small>
+                            {targets
+                              .filter((e) => draft.targets[e]?.home === home)
+                              .map(t)
+                              .join(' + ')}
+                          </small>
+                          <Select
+                            label={t('destinationProject')}
+                            value={value === undefined ? '__choose__' : value || '__history__'}
+                            onChange={(id) => {
+                              if (id !== '__choose__')
+                                selectProject(r.projectId, home, id === '__history__' ? '' : id);
+                            }}
+                            options={[
+                              { value: '__choose__', label: t('chooseDestination') },
+                              ...selectable.map((p: any) => ({
+                                value: p.id,
+                                label:
+                                  p.name +
+                                  (p.roots[0] ? ' · ' + p.roots[0] : ' · ' + p.id.slice(0, 8)),
+                              })),
+                              { value: '__history__', label: t('historyOnly') },
+                            ]}
+                          />
+                          {proposed.length === 1 && value === undefined && (
+                            <button
+                              className="text-button"
+                              onClick={() => selectProject(r.projectId, home, proposed[0].id)}
+                            >
+                              {t('chooseMatching')} {proposed[0].name}
+                            </button>
+                          )}
+                          {value !== '' &&
+                            (!selectable.length ||
+                              (value && !selectable.some((p: any) => p.id === value))) && (
+                              <button onClick={() => selectProject(r.projectId, home, '')}>
+                                {t('chooseHistoryOnly')}
+                              </button>
+                            )}
+                          {(!selectable.length || value === '') && (
+                            <small>{t('historyOnlyHint')}</small>
+                          )}
+                          {value && (
+                            <small>
+                              {t('selectedDestination')}{' '}
+                              {selectable.find((p: any) => p.id === value)?.name ??
+                                t('destination_project_missing')}
+                            </small>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <label className="field">
+                      <span>{t('projectPath')}</span>
+                      <input
+                        value={draft.bindings[r.projectId] ?? ''}
+                        placeholder={t('workingFolderHint')}
+                        onChange={(e) => setBinding(r.projectId, e.target.value)}
+                      />
+                    </label>
+                    <div className="actions">
+                      <button
+                        onClick={() =>
+                          run('chooseFolder', async () => {
+                            const dir = await call('pickDirectory');
+                            if (dir) setBinding(r.projectId, dir);
+                          })
+                        }
+                      >
+                        {t('bind')}
+                      </button>
+                      <button
+                        onClick={() =>
+                          run('chooseFolder', async () => {
+                            setBinding(
+                              r.projectId,
+                              await call('createWorkspace', { projectId: r.projectId }),
+                            );
+                          })
+                        }
+                      >
+                        {t('createWorkingFolder')}
+                      </button>
+                    </div>
+                  </section>
+                ))}
+              </>
+            )}
+            {uploading && (
+              <section className="setup-project">
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={children}
+                    onChange={(e) => setChildren(e.target.checked)}
+                  />
+                  {t('includeDescendants')}
+                </label>
+                <label className="field">
+                  {t('uploadLimit')}
+                  <input
+                    type="number"
+                    min="1"
+                    value={limit}
+                    onChange={(e) => setLimit(Number(e.target.value))}
+                  />
+                </label>
+                {direction === 'upload' && (
                   <label className="check">
                     <input
                       type="checkbox"
-                      checked={children}
-                      onChange={(e) => setChildren(e.target.checked)}
+                      checked={incomplete}
+                      onChange={(e) => setIncomplete(e.target.checked)}
                     />
-                    {t('includeDescendants')}
+                    {t('incomplete')}
                   </label>
-                  <label className="field">
-                    {t('uploadLimit')}
-                    <input
-                      type="number"
-                      min="1"
-                      value={limit}
-                      onChange={(e) => setLimit(Number(e.target.value))}
-                    />
-                  </label>
-                  {direction === 'upload' && (
-                    <label className="check">
-                      <input
-                        type="checkbox"
-                        checked={incomplete}
-                        onChange={(e) => setIncomplete(e.target.checked)}
-                      />
-                      {t('incomplete')}
-                    </label>
-                  )}
-                </section>
-              )}
-              {activity}
-              {issue}
-              {invalid && <p className="warning-box">{t(invalid)}</p>}
-              <div className="modal-actions">
-                <button disabled={!!pending || !!checking} onClick={() => void close()}>
-                  {t('cancel')}
-                </button>
-                <button
-                  className="primary"
-                  disabled={!!pending || !!checking || !!invalid || !needed.length}
-                  onClick={() =>
-                    run('preparingPreview', async () => {
-                      if (importing) {
-                        await setConfig(draft);
-                        await call('validateFolders', {
-                          projectIds: projects.map((p) => p.projectId),
-                        });
-                      }
-                      await rebuild();
-                    })
-                  }
-                >
-                  {t('reviewAction')}
-                </button>
-              </div>
-            </fieldset>
-          </section>
-        </div>
+                )}
+              </section>
+            )}
+            {activity}
+            {issue}
+            {invalid && <p className="warning-box">{t(invalid)}</p>}
+            <div className="modal-actions">
+              <button disabled={!!pending || !!checking} onClick={() => void close()}>
+                {t('cancel')}
+              </button>
+              <button
+                className="primary"
+                disabled={!!pending || !!checking || !!invalid || !needed.length}
+                onClick={() =>
+                  run('preparingPreview', async () => {
+                    if (importing) {
+                      await setConfig(draft);
+                      await call('validateFolders', {
+                        projectIds: projects.map((p) => p.projectId),
+                      });
+                    }
+                    await rebuild();
+                  })
+                }
+              >
+                {t('reviewAction')}
+              </button>
+            </div>
+          </fieldset>
+        </Modal>
       )}
       {report && (
         <DetectionPanel

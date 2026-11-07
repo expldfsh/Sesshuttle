@@ -1,3 +1,9 @@
+// Synthetic test-mode fixture: a marked temp root, a Codex data folder with demo
+// conversations and saved app settings. Prints the root.
+// Usage: node scripts/ui-fixture.mjs [synthetic lab rollout] [--count=N] [--binary=<path>]
+//   --count   adds N more synthetic conversations (list performance checks)
+//   --binary  the Codex program saved for every app; by default a stand-in script
+//             inside the root that only reports version 0.166.0
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,7 +18,16 @@ await fs.mkdir(project);
 const target = path.join(root, 'destination');
 await fs.mkdir(target);
 const state = new State(path.join(root, 'app-data'));
-const synthetic = process.argv[2] ? await fs.readFile(process.argv[2], 'utf8') : null;
+const args = process.argv.slice(2);
+const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+const lab = args.find((a) => !a.startsWith('--'));
+const synthetic = lab ? await fs.readFile(lab, 'utf8') : null;
+let binary = option('binary');
+if (!binary) {
+  binary = path.join(root, 'bin', 'codex');
+  await fs.mkdir(path.dirname(binary));
+  await fs.writeFile(binary, '#!/bin/sh\necho "codex-cli 0.166.0"\n', { mode: 0o700 });
+}
 if (synthetic && JSON.parse(synthetic.split('\n')[0]).payload.originator !== 'sesshuttle_lab')
   throw Error('Synthetic lab fixture required');
 const records = [
@@ -61,15 +76,47 @@ for (const [, originator, source, title, text] of records) {
     content,
   );
 }
+const extra = Number(option('count') ?? 0);
+const sources = [
+  ['codex_work_desktop', 'vscode'],
+  ['codex_vscode', 'vscode'],
+  ['codex_cli_rs', 'cli'],
+];
+for (let start = 0; start < extra; start += 200)
+  await Promise.all(
+    Array.from({ length: Math.min(200, extra - start) }, async (_, k) => {
+      const i = start + k,
+        tid = id(),
+        [originator, source] = sources[i % 3];
+      const minute = String(i % 60).padStart(2, '0');
+      const data = [
+        {
+          type: 'session_meta',
+          payload: {
+            id: tid,
+            cli_version: '0.164.0',
+            timestamp: `2026-10-01T10:${minute}:00Z`,
+            cwd: project,
+            originator,
+            source,
+          },
+        },
+        {
+          type: 'event_msg',
+          payload: { type: 'user_message', message: `合成对话 Synthetic #${i + 1}` },
+        },
+        { type: 'event_msg', payload: { type: 'agent_message', message: 'Synthetic reply ' + i } },
+      ];
+      await fs.writeFile(
+        path.join(home, 'sessions/2026/11/01', `rollout-2026-10-01T10-${minute}-00-${tid}.jsonl`),
+        data.map((x) => JSON.stringify(x)).join('\n') + '\n',
+      );
+    }),
+  );
 state.set('config', {
   language: 'zh-CN',
   sourceHomes: [home],
-  targets: Object.fromEntries(
-    ['desktop', 'cli', 'ide'].map((x) => [
-      x,
-      { home: target, binary: '/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex' },
-    ]),
-  ),
+  targets: Object.fromEntries(['desktop', 'cli', 'ide'].map((x) => [x, { home: target, binary }])),
   bindings: {},
 });
 state.set('device', { id: id(), name: 'Mac · 隔离测试', platform: 'darwin' });

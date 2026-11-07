@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { Modal } from './components/Modal';
 
 const dateLabel = (v: string | undefined, locale: string) =>
   v ? new Date(v).toLocaleString(locale) : '—';
@@ -68,20 +69,7 @@ export function RemovalFlow({
     [error, setError] = useState<any>(null),
     [permanent, setPermanent] = useState(false),
     [upgrade, setUpgrade] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null),
-    title = useRef<HTMLHeadingElement>(null),
-    lock = useRef(false);
-  useEffect(() => {
-    const d = dialog.current;
-    d?.showModal();
-    return () => d?.close();
-  }, []);
-  const reviewing = !!plan;
-  // Move focus to the title only when switching between options and review.
-  useEffect(() => {
-    title.current?.focus();
-    if (dialog.current) dialog.current.scrollTop = 0;
-  }, [reviewing]);
+  const lock = useRef(false);
   const refresh = async (request: any, revise = false) => {
     if (lock.current) return;
     lock.current = true;
@@ -163,24 +151,58 @@ export function RemovalFlow({
       )}
     </div>
   );
-  return (
-    <dialog
-      className="removal-dialog"
-      ref={dialog}
-      aria-labelledby="removal-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!pending) onClose();
-      }}
-    >
-      <header className="card-title">
-        <h2 id="removal-title" tabIndex={-1} ref={title}>
-          {t(plan ? 'reviewRemoval' : q.kind === 'bin' ? 'manageBinCopy' : 'removeChats')}
-        </h2>
-        <button disabled={pending} onClick={onClose}>
-          {t('close')}
+  const footer = (
+    <>
+      <button disabled={pending} onClick={onClose}>
+        {t('cancel')}
+      </button>
+      {!plan ? (
+        <button className="primary" disabled={pending} onClick={() => refresh(q)}>
+          {t('showRemovalList')}
         </button>
-      </header>
+      ) : (
+        <>
+          {!previous && (
+            <button disabled={pending} onClick={reset}>
+              {t('changeDeleteOptions')}
+            </button>
+          )}
+          {previous && wrongVersion && (
+            <button disabled={pending} onClick={() => refresh(q, true)}>
+              {t('reviewChangedRemoval')}
+            </button>
+          )}
+          {changed ? (
+            <button
+              className="primary"
+              disabled={pending}
+              onClick={() => refresh({ ...q, versions: { ...q.versions, ...versions } })}
+            >
+              {t('recomputeRemoval')}
+            </button>
+          ) : (
+            <button
+              className={q.mode === 'purge' ? 'permanent-action' : 'primary'}
+              disabled={!canRun}
+              onClick={() => onExecute(plan, permanent, upgrade)}
+            >
+              <ConfirmationLabel t={t} mode={q.mode} local={totalLocal} cloud={totalCloud} />
+            </button>
+          )}
+        </>
+      )}
+    </>
+  );
+  return (
+    <Modal
+      className="removal-dialog"
+      size="large"
+      title={t(plan ? 'reviewRemoval' : q.kind === 'bin' ? 'manageBinCopy' : 'removeChats')}
+      busy={pending}
+      onClose={onClose}
+      step={plan ? 'review' : 'options'}
+      footer={footer}
+    >
       {!plan ? (
         <>
           <p>{initial.titles?.join(' · ')}</p>
@@ -536,47 +558,7 @@ export function RemovalFlow({
           )}
         </div>
       )}
-      <footer className="modal-actions">
-        <button disabled={pending} onClick={onClose}>
-          {t('cancel')}
-        </button>
-        {!plan ? (
-          <button className="primary" disabled={pending} onClick={() => refresh(q)}>
-            {t('showRemovalList')}
-          </button>
-        ) : (
-          <>
-            {!previous && (
-              <button disabled={pending} onClick={reset}>
-                {t('changeDeleteOptions')}
-              </button>
-            )}
-            {previous && wrongVersion && (
-              <button disabled={pending} onClick={() => refresh(q, true)}>
-                {t('reviewChangedRemoval')}
-              </button>
-            )}
-            {changed ? (
-              <button
-                className="primary"
-                disabled={pending}
-                onClick={() => refresh({ ...q, versions: { ...q.versions, ...versions } })}
-              >
-                {t('recomputeRemoval')}
-              </button>
-            ) : (
-              <button
-                className={q.mode === 'purge' ? 'permanent-action' : 'primary'}
-                disabled={!canRun}
-                onClick={() => onExecute(plan, permanent, upgrade)}
-              >
-                <ConfirmationLabel t={t} mode={q.mode} local={totalLocal} cloud={totalCloud} />
-              </button>
-            )}
-          </>
-        )}
-      </footer>
-    </dialog>
+    </Modal>
   );
 }
 

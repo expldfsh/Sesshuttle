@@ -198,7 +198,7 @@ export function Select({ label, value, options, onChange, disabled = false }: Pr
               </div>
             ))}
           </div>,
-          trigger.current?.closest('[role="dialog"]') ?? document.body,
+          trigger.current?.closest('dialog, [role="dialog"]') ?? document.body,
         )}
     </>
   );

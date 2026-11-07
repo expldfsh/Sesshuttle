@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -612,6 +612,12 @@ export function createHandlers(ctx: Context): Handlers {
       return continueEntry(ctx, args);
     },
     diagnostics: () => diagnostics(ctx),
+    // The renderer cannot use the web clipboard: every permission request is denied.
+    copyText: (args) => {
+      requireThat(typeof args.text === 'string' && args.text.length <= 100000, 'invalid_selection');
+      clipboard.writeText(args.text);
+      return true;
+    },
   };
 }
 

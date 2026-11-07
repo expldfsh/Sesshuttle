@@ -45,6 +45,7 @@ export const IPC_METHODS = {
   projectInfo: {},
   continue: {},
   diagnostics: {},
+  copyText: {},
 } as const satisfies Record<string, { exclusive?: true }>;
 
 export type IpcMethod = keyof typeof IPC_METHODS;
