@@ -1,7 +1,7 @@
 import {readOmissionText} from './attachment-policy.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';import {constants} from 'node:fs';
 import {records} from './stream.mjs';import {databaseRecords,openCatalog} from './catalog.mjs';import {imageType} from './codex.mjs';import {hash,inside,requireThat} from './util.mjs';
-export function resourceReferences(value,resources=new Set(),issues=new Set(),omissions=new Map()){
+function resourceReferences(value,resources=new Set(),issues=new Set(),omissions=new Map()){
  if(!value||typeof value!=='object')return {resources,issues,omissions};
  const omission=['text','input_text'].includes(value.type)?readOmissionText(value.text):null;if(omission)omissions.set(JSON.stringify(omission),omission);
  if(['localImage','local_image'].includes(value.type)&&typeof value.path==='string')resources.add(value.path);

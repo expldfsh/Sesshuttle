@@ -5,7 +5,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { requireThat,id } from './util.mjs';
 export const CHUNK=4*1024*1024;
-export const RECORD_LIMIT=128*1024*1024;
+const RECORD_LIMIT=128*1024*1024;
 export async function* readBlocks(file,size=CHUNK){
  const h=await fs.open(file,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);
  try{const before=await h.stat();requireThat(before.isFile(),'unsafe_path');let offset=0;
