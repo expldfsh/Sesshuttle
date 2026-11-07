@@ -1,17 +1,31 @@
-import { memo, useCallback, useDeferredValue, useMemo, useState } from 'react';
-import { useApp } from '../App';
+import { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import { PlaceError, useApp, useRefresh } from '../App';
 import { useI18n } from '../i18n/I18n';
-import { ENTRIES, hasMissingImages, projectKey, projectLabel } from './rows';
 import { call } from '../hooks/useApi';
 import { Select } from '../Select';
-import { StatusBadge } from '../components/StatusBadge';
+import { StatusBadge, toneOf } from '../components/StatusBadge';
+import { EmptyState } from '../components/EmptyState';
+import { Icon } from '../components/Icon';
 import { ConversationActions } from '../ConversationActions';
 import { ConversationTable } from './ConversationTable';
+import { Onboarding } from './Onboarding';
+import { ENTRIES, hasMissingImages, projectKey, projectLabel } from './rows';
+
+export const SOURCES = ['desktop', 'cli', 'ide', 'unknown'];
+export const STATUSES = [
+  'local_only',
+  'remote_only',
+  'local_changes',
+  'remote_changes',
+  'conflict',
+  'synced',
+];
 
 export function ConversationsPage() {
   const app = useApp();
-  const { t, date } = useI18n();
-  const { data, init, busy, work, view, updateView } = app;
+  const { t, tn } = useI18n();
+  const refresh = useRefresh();
+  const { data, init, cfg, busy, work, view, updateView } = app;
   const query = useDeferredValue(view.query);
   const projectOptions = useMemo(
     () =>
@@ -20,31 +34,43 @@ export function ConversationsPage() {
       ).map(([value, label]: any) => ({ value, label })),
     [data.rows, t],
   );
-  const visible = useMemo(() => {
+  // Every filter except status; the status chips count within this set.
+  const scoped = useMemo(() => {
     const needle = query.toLowerCase();
     return data.rows.filter(
       (r: any) =>
-        (view.filter === 'all'
-          ? true
-          : view.filter === 'cloud'
-            ? r.remote
-            : view.filter === 'main'
-              ? r.kind !== 'background'
-              : r.source === view.filter) &&
-        (view.status === 'all' || r.status === view.status) &&
+        (view.location === 'all' || (view.location === 'local' ? r.local : r.remote)) &&
+        (r.kind === 'background'
+          ? view.showBackground
+          : !view.sources.length || view.sources.includes(r.source)) &&
         (view.projectFilter === 'all' || projectKey(r) === view.projectFilter) &&
-        `${r.title} ${r.project} ${projectLabel(r, t)}`.toLowerCase().includes(needle),
+        (!needle || `${r.title} ${r.project} ${projectLabel(r, t)}`.toLowerCase().includes(needle)),
     );
-  }, [data.rows, view.filter, view.status, view.projectFilter, query, t]);
-  const stats = useMemo(() => {
-    const count = (fn: (r: any) => boolean) => data.rows.filter(fn).length;
-    return {
-      main: count((r: any) => r.kind !== 'background'),
-      background: count((r: any) => r.kind === 'background'),
-      local: count((r: any) => ['local_only', 'local_changes'].includes(r.status)),
-      remote: count((r: any) => ['remote_only', 'remote_changes'].includes(r.status)),
-    };
-  }, [data.rows]);
+  }, [data.rows, view.location, view.sources, view.showBackground, view.projectFilter, query, t]);
+  const counts = useMemo(() => {
+    const out: Record<string, number> = { all: scoped.length };
+    for (const r of scoped) out[r.status] = (out[r.status] ?? 0) + 1;
+    return out;
+  }, [scoped]);
+  const visible = useMemo(() => {
+    const rows =
+      view.status === 'all' ? [...scoped] : scoped.filter((r: any) => r.status === view.status);
+    const { key, descending } = view.sort;
+    const value = (r: any) =>
+      key === 'title'
+        ? r.title.toLowerCase()
+        : key === 'size'
+          ? (r.bytes ?? 0)
+          : (r.updatedAt ?? r.cloudUpdatedAt ?? '');
+    rows.sort((a: any, b: any) => {
+      const x = value(a),
+        y = value(b);
+      const order = typeof x === 'number' ? x - (y as number) : String(x).localeCompare(String(y));
+      // Equal values keep one order across reloads, so rows do not trade places.
+      return (descending ? -order : order) || a.id.localeCompare(b.id);
+    });
+    return rows;
+  }, [scoped, view.status, view.sort]);
   const visibleIds = useMemo(() => new Set(visible.map((r: any) => r.id)), [visible]);
   const chosenRows = useMemo(
     () => data.rows.filter((r: any) => view.selected.has(r.id)),
@@ -52,17 +78,34 @@ export function ConversationsPage() {
   );
   const hiddenCount = chosenRows.filter((r: any) => !visibleIds.has(r.id)).length;
   const row = visible.find((r: any) => r.id === view.focus);
-  const [version, setVersion] = useState('');
-
+  const filtered =
+    view.location !== 'all' ||
+    view.sources.length > 0 ||
+    view.showBackground ||
+    view.status !== 'all' ||
+    view.projectFilter !== 'all' ||
+    !!view.query;
+  const clearFilters = () =>
+    updateView({
+      location: 'all',
+      sources: [],
+      showBackground: false,
+      status: 'all',
+      projectFilter: 'all',
+      query: '',
+    });
   const focusRow = useCallback(
     (id: string) => {
       updateView({ focus: id });
-      setVersion('');
       if (window.innerWidth <= 1150)
         requestAnimationFrame(() =>
-          document.querySelector('.detail-head')?.scrollIntoView({ block: 'start' }),
+          document.querySelector('.detail-head')?.scrollIntoView({ block: 'nearest' }),
         );
     },
+    [updateView],
+  );
+  const setSelection = useCallback(
+    (selected: Set<string>) => updateView({ selected }),
     [updateView],
   );
   const selectAll = (checked: boolean) => {
@@ -71,11 +114,12 @@ export function ConversationsPage() {
       if (checked) next.add(r.id);
       else next.delete(r.id);
     }
-    updateView({ selected: next });
+    setSelection(next);
   };
-  const actions = (items: any[]) => (
+  const actions = (items: any[], compact = false) => (
     <ConversationActions
       items={items}
+      compact={compact}
       t={t}
       busy={busy}
       open={(dir: string) =>
@@ -84,7 +128,9 @@ export function ConversationsPage() {
           items.map((r) => r.id),
         )
       }
-      resume={(id: string, e: string) => work(() => app.openNative(id, e), 'openingNative')}
+      resume={(id: string, e: string) =>
+        work(() => app.openNative(id, e), 'openingNative', 'detail')
+      }
       versions={() => app.showVersions(items[0].id)}
       remove={() => {
         app.notify(null);
@@ -97,190 +143,253 @@ export function ConversationsPage() {
       }}
     />
   );
-  async function downloadVersion(logical: string, chosen: string) {
-    if (!(await app.ask(t('saveCloudCopyHint')))) return;
-    const location = await call('downloadCopy', { logical, version: chosen });
-    if (location) app.notify({ text: t('savedCopyAt'), detail: location });
-  }
-  const filtered = view.query || view.status !== 'all' || view.projectFilter !== 'all';
+  const detected = ENTRIES.some((e) => cfg.targets?.[e]?.binary && cfg.targets?.[e]?.home);
+  const empty = !data.rows.length ? (
+    !detected ? (
+      <EmptyState
+        icon="app"
+        title={t('emptyNoCodex')}
+        action={<button onClick={() => detect(app)}>{t('detect')}</button>}
+      >
+        {t('emptyNoCodexHint')}
+      </EmptyState>
+    ) : (
+      <EmptyState
+        icon="refresh"
+        title={t(data.checkedAt ? 'empty' : 'notCheckedYet')}
+        action={
+          <button className="primary" disabled={busy} onClick={refresh}>
+            <Icon name="refresh" /> {t('refresh')}
+          </button>
+        }
+      >
+        {t(data.checkedAt ? 'emptyHint' : 'manualRefreshHint')}
+      </EmptyState>
+    )
+  ) : filtered ? (
+    <EmptyState
+      icon="info"
+      title={t('empty')}
+      action={
+        <>
+          {view.location === 'cloud' && !init.connected && (
+            <button className="primary" onClick={() => app.setPage('settings', 'storage')}>
+              {t('openConnection')}
+            </button>
+          )}
+          <button onClick={clearFilters}>{t('clearFilters')}</button>
+        </>
+      }
+    >
+      {view.location === 'cloud' && !data.rows.some((r: any) => r.remote)
+        ? init.connected
+          ? t('cloudEmptyHint')
+          : t('connectHint')
+        : t('emptyFiltered')}
+    </EmptyState>
+  ) : null;
 
   return (
-    <>
-      {app.needsRefresh && (
-        <div className="notice">
-          <span>{t('manualRefreshHint')}</span>
-          <button disabled={busy} onClick={() => work(app.refresh, 'refreshing')}>
-            {t('refresh')}
-          </button>
-        </div>
-      )}
-      {!init?.connected && (
-        <div className="connect-banner">
-          <span>{t('connectHint')}</span>
-          <button onClick={() => app.setPage('settings')}>{t('configure')}</button>
-        </div>
-      )}
+    <div className="conversations">
+      <Onboarding />
       {data.cloudError && (
-        <div className="notice error">
-          {t('cloudStale')} {t(data.cloudError.code)}
+        <div className="banner danger" role="alert">
+          <Icon name="alert" />
+          <span>
+            {t('cloudStale')} {t(data.cloudError.code)}
+          </span>
+          <button disabled={busy} onClick={refresh}>
+            {t('refreshAndRetry')}
+          </button>
         </div>
       )}
       <ScanIssues errors={data.errors} showIssue={app.showIssue} />
-      <div className="stats">
-        <div>
-          <span>{t('mainChats')}</span>
-          <strong>{stats.main}</strong>
-        </div>
-        <div>
-          <span>{t('backgroundChats')}</span>
-          <strong>{stats.background}</strong>
-        </div>
-        <div>
-          <span>{t('local_changes')}</span>
-          <strong>{stats.local}</strong>
-        </div>
-        <div>
-          <span>{t('remote_changes')}</span>
-          <strong>{stats.remote}</strong>
-        </div>
-        <div>
-          <span>{t('lastCheck')}</span>
-          <small>{date(data.checkedAt)}</small>
-        </div>
-      </div>
-      {chosenRows.length > 0 && (
-        <div className="selection-bar">
-          <div>
-            <strong>
-              {t('selectedScope')} {chosenRows.length}
-            </strong>
-            {hiddenCount > 0 && (
-              <small>
-                {t('hiddenSelection')} {hiddenCount}
-              </small>
-            )}
-          </div>
-          {actions(chosenRows)}
-          <button className="text-button" onClick={() => updateView({ selected: new Set() })}>
-            {t('clearSelection')}
-          </button>
-          <details className="selection-list">
-            <summary>{t('reviewSelectedTitles')}</summary>
-            <ul>
-              {chosenRows.map((r: any) => (
-                <li key={r.id}>
-                  {r.title} · {projectLabel(r, t)}
-                  {!visibleIds.has(r.id) && <small>{t('outsideFilters')}</small>}
-                </li>
-              ))}
-            </ul>
-          </details>
-        </div>
-      )}
+      <Filters
+        projectOptions={projectOptions}
+        counts={counts}
+        filtered={filtered}
+        clearFilters={clearFilters}
+      />
       <section className="workspace">
         <div className="list-pane">
-          <div className="filters">
-            <div className="tabs">
-              {['main', 'cloud', ...ENTRIES, 'unknown', 'subagent', 'all'].map((x) => (
-                <button
-                  className={view.filter === x ? 'active' : ''}
-                  key={x}
-                  onClick={() => updateView({ filter: x })}
-                >
-                  {t(x)}
-                </button>
-              ))}
-            </div>
-            <div className="search-row">
-              <Select
-                label={t('originProject')}
-                value={view.projectFilter}
-                onChange={(projectFilter) => updateView({ projectFilter })}
-                options={[{ value: 'all', label: t('allProjects') }, ...projectOptions]}
-              />
-              <input
-                value={view.query}
-                onChange={(e) => updateView({ query: e.target.value })}
-                placeholder={t('search')}
-              />
-              <Select
-                label={t('status')}
-                value={view.status}
-                onChange={(status) => updateView({ status })}
-                options={[
-                  'all',
-                  'local_only',
-                  'remote_only',
-                  'local_changes',
-                  'remote_changes',
-                  'synced',
-                  'conflict',
-                ].map((value) => ({ value, label: t(value) }))}
-              />
-            </div>
-          </div>
           <ConversationTable
             rows={visible}
             selected={view.selected}
             focus={view.focus}
+            sort={view.sort}
+            onSort={(sort) => updateView({ sort })}
             onToggle={app.toggleSelected}
             onFocus={focusRow}
             onSelectAll={selectAll}
-            empty={
-              <div className="empty">
-                <h3>{t('empty')}</h3>
-                <p>
-                  {t(
-                    filtered
-                      ? 'emptyFiltered'
-                      : view.filter === 'cloud'
-                        ? 'cloudEmptyHint'
-                        : 'emptyHint',
-                  )}
-                </p>
-                <button
-                  onClick={() =>
-                    updateView({ filter: 'all', query: '', status: 'all', projectFilter: 'all' })
-                  }
-                >
-                  {t('refreshEmpty')}
-                </button>
-              </div>
-            }
+            onSelect={setSelection}
+            empty={empty}
+            padded={chosenRows.length > 0}
           />
           <div className="list-footer">
-            {chosenRows.length} {t('selected')}{' '}
-            {hiddenCount > 0 && (
-              <small>
-                {t('hiddenSelection')} {hiddenCount}
-              </small>
+            <span>{tn('countConversations', visible.length)}</span>
+            {visible.length !== data.rows.length && (
+              <small>{t('ofTotal', { n: data.rows.length })}</small>
             )}
-            <button className="text-button" onClick={() => updateView({ selected: new Set() })}>
-              {t('clearSelection')}
-            </button>
-            <span>
-              {visible.length} / {data.rows.length}
-            </span>
           </div>
+          {/* Floats over the bottom of the list, so the table keeps its size. */}
+          {chosenRows.length > 0 && (
+            <SelectionBar
+              chosenRows={chosenRows}
+              hiddenCount={hiddenCount}
+              visibleIds={visibleIds}
+              actions={actions(chosenRows, true)}
+            />
+          )}
         </div>
-        <aside className="detail">
+        <aside className="detail" aria-label={t('details')}>
           {row ? (
             <Detail
+              key={row.id}
               row={row}
               actions={!chosenRows.length ? actions([row]) : null}
               selecting={chosenRows.length > 0}
-              version={version}
-              setVersion={setVersion}
-              downloadVersion={downloadVersion}
             />
           ) : (
-            <div className="empty detail-empty">
-              <p>{t('noHistory')}</p>
-            </div>
+            <EmptyState icon="info" title={t('noHistory')} />
           )}
         </aside>
       </section>
-    </>
+    </div>
+  );
+}
+
+const detect = (app: any) =>
+  app.work(async () => app.setDetection(await call('detectPaths')), 'checkingEntries');
+
+function Filters({ projectOptions, counts, filtered, clearFilters }: any) {
+  const app = useApp();
+  const { t } = useI18n();
+  const { view, updateView } = app;
+  return (
+    <div className="filters">
+      <div className="filter-row">
+        <div className="segmented" role="radiogroup" aria-label={t('location')}>
+          {(['all', 'local', 'cloud'] as const).map((value) => (
+            <button
+              key={value}
+              role="radio"
+              aria-checked={view.location === value}
+              className={view.location === value ? 'active' : ''}
+              onClick={() => updateView({ location: value })}
+            >
+              {value !== 'all' && <Icon name={value === 'local' ? 'laptop' : 'cloud'} />}
+              {t(value === 'all' ? 'allLocations' : value === 'local' ? 'thisComputer' : 'cloud')}
+            </button>
+          ))}
+        </div>
+        <div className="source-tags" role="group" aria-label={t('source')}>
+          {SOURCES.map((source) => {
+            const on = view.sources.includes(source);
+            return (
+              <button
+                key={source}
+                aria-pressed={on}
+                className={'tag' + (on ? ' active' : '')}
+                onClick={() =>
+                  updateView({
+                    sources: on
+                      ? view.sources.filter((s: string) => s !== source)
+                      : [...view.sources, source],
+                  })
+                }
+              >
+                {on && <Icon name="check" />}
+                {t(source)}
+              </button>
+            );
+          })}
+        </div>
+        <label className="switch">
+          <input
+            type="checkbox"
+            role="switch"
+            checked={view.showBackground}
+            onChange={(e) => updateView({ showBackground: e.target.checked })}
+          />
+          <span>{t('showBackground')}</span>
+        </label>
+      </div>
+      <div className="filter-row">
+        <Select
+          label={t('originProject')}
+          value={view.projectFilter}
+          onChange={(projectFilter) => updateView({ projectFilter })}
+          options={[{ value: 'all', label: t('allProjects') }, ...projectOptions]}
+        />
+        <input
+          id="conversation-search"
+          className="search"
+          type="search"
+          value={view.query}
+          aria-keyshortcuts="Meta+F Control+F"
+          onChange={(e) => updateView({ query: e.target.value })}
+          placeholder={t('search')}
+          aria-label={t('search')}
+        />
+        {filtered && (
+          <button className="text-button" onClick={clearFilters}>
+            {t('clearFilters')}
+          </button>
+        )}
+      </div>
+      <div className="status-chips" role="group" aria-label={t('status')}>
+        {['all', ...STATUSES].map((status) => {
+          const on = view.status === status;
+          return (
+            <button
+              key={status}
+              aria-pressed={on}
+              className={'chip' + (on ? ' active' : '')}
+              onClick={() => updateView({ status: on || status === 'all' ? 'all' : status })}
+            >
+              {status !== 'all' && <StatusDot status={status} />}
+              {t(status === 'all' ? 'allStatuses' : status)}
+              <span className="chip-count">{counts[status] ?? 0}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  return <span className={'status-dot tone-' + toneOf(status)} aria-hidden="true" />;
+}
+
+function SelectionBar({ chosenRows, hiddenCount, visibleIds, actions }: any) {
+  const app = useApp();
+  const { t, tn } = useI18n();
+  return (
+    <div className="selection-bar" role="region" aria-label={t('selectedScope')}>
+      <div className="selection-count">
+        <strong>{t('selectedCount', { n: chosenRows.length })}</strong>
+        {hiddenCount > 0 && <small>{t('hiddenSelectionCount', { n: hiddenCount })}</small>}
+      </div>
+      {actions}
+      <details className="selection-list">
+        <summary>{t('reviewSelectedTitles')}</summary>
+        <div className="popover">
+          <p>{tn('countConversations', chosenRows.length)}</p>
+          <ul>
+            {chosenRows.map((r: any) => (
+              <li key={r.id}>
+                {r.title} · {projectLabel(r, t)}
+                {!visibleIds.has(r.id) && <small>{t('outsideFilters')}</small>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </details>
+      <button className="text-button" onClick={() => app.updateView({ selected: new Set() })}>
+        {t('clearSelection')}
+      </button>
+    </div>
   );
 }
 
@@ -294,7 +403,8 @@ const ScanIssues = memo(function ScanIssues({
   const { t, has } = useI18n();
   if (!errors.length) return null;
   return (
-    <div className="notice error">
+    <div className="banner warning">
+      <Icon name="alert" />
       <details className="scan-issues" open={errors.length === 1}>
         <summary>
           {t('scanSummary')} ({errors.length})
@@ -314,196 +424,330 @@ const ScanIssues = memo(function ScanIssues({
   );
 });
 
-function Detail({ row, actions, selecting, version, setVersion, downloadVersion }: any) {
+function Section({ title, children, open = true }: any) {
+  return (
+    <details className="detail-section" open={open}>
+      <summary>
+        <Icon name="chevron" className="section-caret" />
+        {title}
+      </summary>
+      <div className="detail-section-body">{children}</div>
+    </details>
+  );
+}
+
+function Detail({ row, actions, selecting }: any) {
   const app = useApp();
   const { t, date, size } = useI18n();
   const { busy, work } = app;
+  const [version, setVersion] = useState('');
+  async function downloadVersion(logical: string, chosen: string) {
+    const ok = await app.ask({
+      title: t('saveCloudCopy'),
+      message: t('saveCloudCopyHint'),
+      confirm: t('chooseFolderAndSave'),
+    });
+    if (!ok) return;
+    const location = await call('downloadCopy', { logical, version: chosen });
+    if (location) app.notify({ text: t('savedCopyAt'), detail: location });
+  }
+  const more = [
+    row.versions.length > 0 && {
+      key: 'compare',
+      label: t('compareVersions'),
+      icon: 'history',
+      run: () => app.showVersions(row.id),
+    },
+    row.local &&
+      row.remote && {
+        key: 'both',
+        label: t('both') + '…',
+        icon: 'refresh',
+        run: () => app.startFlow('both', [row.id]),
+      },
+    row.remote &&
+      row.tips.length === 1 && {
+        key: 'copy',
+        label: t('saveCloudCopy') + '…',
+        icon: 'download',
+        run: () => work(() => downloadVersion(row.id, row.tips[0]), 'stageDownload', 'detail'),
+      },
+    {
+      key: 'remove',
+      label: t('removeChats') + '…',
+      icon: 'trash',
+      danger: true,
+      run: () =>
+        app.setRemoval({
+          ids: [row.id],
+          titles: [row.title],
+          hasLocal: row.local,
+          hasCloud: row.remote,
+        }),
+    },
+  ].filter(Boolean) as any[];
   return (
     <>
       <div className="detail-head">
-        <span className="source-tag">{t(row.source)}</span>
-        <h2>{row.title}</h2>
-        {actions}
-        <StatusBadge status={row.status} />
-        {row.busy && <StatusBadge status="busy" />}
-        {row.cloudRemoved && <small>{t('cloudRemovalHistory')}</small>}
-        {hasMissingImages(row) && <small className="amber-text">{t('someImagesMissing')}</small>}
-      </div>
-      <dl>
-        <dt>{t('originProject')}</dt>
-        <dd>
-          {projectLabel(row, t)}
-          <small>{t('projectMatch_' + (row.originProject?.match ?? 'directory'))}</small>
-        </dd>
-        <dt>{t('local')}</dt>
-        <dd>{date(row.updatedAt)}</dd>
-        <dt>{t('cloud')}</dt>
-        <dd>{date(row.cloudUpdatedAt)}</dd>
-        <dt>{t('sourceDevice')}</dt>
-        <dd>{row.device?.name ?? '—'}</dd>
-        <dt>{t('bytes')}</dt>
-        <dd>{size(row.bytes)}</dd>
-        {row.local && (
-          <>
-            <dt>{t('fileSize')}</dt>
-            <dd>{size(row.fileBytes)}</dd>
-            {row.compressed && (
-              <>
-                <dt>{t('expandedSize')}</dt>
-                <dd>{size(row.historyBytes)}</dd>
-              </>
-            )}
-            <dt>{t('databaseSize')}</dt>
-            <dd>{size(row.databaseBytes)}</dd>
-          </>
-        )}
-        {row.parent && (
-          <>
-            <dt>{t('parentChat')}</dt>
-            <dd>{row.parentTitle ?? row.parent}</dd>
-          </>
-        )}
-      </dl>
-      {row.local && <small className="muted">{t('sizeHint')}</small>}
-      {row.continuation === false && <p className="warning-box">{t('missing_rollout')}</p>}
-      {row.issues.length > 0 && (
-        <div className="warning-box">
-          {row.issues.map((x: string) => (
-            <p key={x}>{t(x)}</p>
-          ))}
+        <div className="detail-tags">
+          <span className="source-tag">{t(row.source)}</span>
+          <StatusBadge status={row.status} />
+          {row.busy && <StatusBadge status="busy" />}
         </div>
-      )}
-      {!!row.copies?.length && (
-        <section id="copy-choices" className="scope-item">
-          <h3>{t('inspectCopies')}</h3>
-          <p>{t('copyInstructions')}</p>
-          {row.copies.map((c: any) => (
-            <div className="scope-file" key={c.file}>
-              <strong>{c.title}</strong>
-              <code>{c.file}</code>
-              <small>
-                {size(c.bytes)} · {date(c.updatedAt)}
-              </small>
-              {c.sample && <p>{c.sample}</p>}
-              {!c.canUse ? (
-                <p>
-                  {t('copies_indexed')} <code>{c.indexedFile}</code>
-                </p>
-              ) : (
-                <div className="actions">
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      app.startFlow('upload', [row.id], {
-                        copyChoice: { file: c.file, token: row.copyToken },
-                      })
-                    }
-                  >
-                    {t('uploadThisCopy')}
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => work(() => app.keepCopy(row, c.file), 'stageBackup')}
-                  >
-                    {t('keepThisCopy')}
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-      <h3>{t('entryStates')}</h3>
-      {Object.values(row.targets).some((r: any) => r.omittedAttachments?.length > 0) && (
-        <p className="warning-box">{t('missingImageNotice')}</p>
-      )}
-      {ENTRIES.map((entry) => {
-        const target = row.targets[entry];
-        return (
-          <div className="entry-state" key={entry}>
-            <div>
-              <strong>{t(entry)}</strong>
-              {target && (
+        <h2>{row.title}</h2>
+        <div className="detail-actions">
+          {actions}
+          <MoreMenu items={more} disabled={busy || selecting} />
+        </div>
+        {row.cloudRemoved && <small className="muted">{t('cloudRemovalHistory')}</small>}
+        {hasMissingImages(row) && <small className="amber-text">{t('someImagesMissing')}</small>}
+        <PlaceError place="detail" />
+      </div>
+      <div className="detail-body">
+        <Section title={t('overview')}>
+          <dl>
+            <dt>{t('originProject')}</dt>
+            <dd>
+              {projectLabel(row, t)}
+              <small>{t('projectMatch_' + (row.originProject?.match ?? 'directory'))}</small>
+            </dd>
+            <dt>{t('local')}</dt>
+            <dd>{date(row.updatedAt)}</dd>
+            <dt>{t('cloud')}</dt>
+            <dd>{date(row.cloudUpdatedAt)}</dd>
+            <dt>{t('sourceDevice')}</dt>
+            <dd>{row.device?.name ?? '—'}</dd>
+            <dt>{t('bytes')}</dt>
+            <dd>
+              {size(row.bytes)}
+              {row.local && (
                 <small>
-                  {t('importVersion')} · {t(target.syncStatus)}{' '}
-                  {target.nativeProjectName && (
-                    <b>
-                      {t('projectLabelVerified')} · {target.nativeProjectName}
-                    </b>
-                  )}
+                  {t('fileSize')} {size(row.fileBytes)}
+                  {row.compressed && ` · ${t('expandedSize')} ${size(row.historyBytes)}`} ·{' '}
+                  {t('databaseSize')} {size(row.databaseBytes)}
                 </small>
               )}
-            </div>
-            {target ? (
-              <StatusBadge
-                status={
-                  target.status === 'verified' && target.omittedAttachments?.length
-                    ? 'imported_missing_attachments'
-                    : target.status
-                }
-              />
-            ) : (
-              <small>{t('notImported')}</small>
+            </dd>
+            {row.parent && (
+              <>
+                <dt>{t('parentChat')}</dt>
+                <dd>{row.parentTitle ?? row.parent}</dd>
+              </>
             )}
-            {target?.status === 'verified' ? (
-              <button onClick={() => work(() => app.openNative(row.id, entry), 'openingNative')}>
-                {t('continue')} · {t(entry)}
-              </button>
-            ) : row.remote && !selecting ? (
+          </dl>
+          {row.local && <small className="muted">{t('sizeHint')}</small>}
+          {row.continuation === false && <p className="warning-box">{t('missing_rollout')}</p>}
+          {row.issues.length > 0 && (
+            <div className="warning-box">
+              {row.issues.map((x: string) => (
+                <p key={x}>{t(x)}</p>
+              ))}
+            </div>
+          )}
+        </Section>
+        {!!row.copies?.length && (
+          <section id="copy-choices" className="scope-item">
+            <h3>{t('inspectCopies')}</h3>
+            <p>{t('copyInstructions')}</p>
+            {row.copies.map((c: any) => (
+              <div className="scope-file" key={c.file}>
+                <strong>{c.title}</strong>
+                <code>{c.file}</code>
+                <small>
+                  {size(c.bytes)} · {date(c.updatedAt)}
+                </small>
+                {c.sample && <p>{c.sample}</p>}
+                {!c.canUse ? (
+                  <p>
+                    {t('copies_indexed')} <code>{c.indexedFile}</code>
+                  </p>
+                ) : (
+                  <div className="actions">
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        app.startFlow('upload', [row.id], {
+                          copyChoice: { file: c.file, token: row.copyToken },
+                        })
+                      }
+                    >
+                      {t('uploadThisCopy')}
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => work(() => app.keepCopy(row, c.file), 'stageBackup', 'detail')}
+                    >
+                      {t('keepThisCopy')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+        <Section title={t('entryStates')}>
+          {Object.values(row.targets).some((r: any) => r.omittedAttachments?.length > 0) && (
+            <p className="warning-box">{t('missingImageNotice')}</p>
+          )}
+          {ENTRIES.map((entry) => {
+            const target = row.targets[entry];
+            return (
+              <div className="entry-state" key={entry}>
+                <div>
+                  <strong>{t(entry)}</strong>
+                  {target ? (
+                    <small>
+                      {t('importVersion')} · {t(target.syncStatus)}
+                      {target.nativeProjectName &&
+                        ` · ${t('projectLabelVerified')} · ${target.nativeProjectName}`}
+                    </small>
+                  ) : (
+                    <small>{t('notImported')}</small>
+                  )}
+                </div>
+                {target && (
+                  <StatusBadge
+                    status={
+                      target.status === 'verified' && target.omittedAttachments?.length
+                        ? 'imported_missing_attachments'
+                        : target.status
+                    }
+                  />
+                )}
+                {target?.status === 'verified' ? (
+                  <button
+                    onClick={() =>
+                      work(() => app.openNative(row.id, entry), 'openingNative', 'detail')
+                    }
+                  >
+                    {t('continue')}
+                  </button>
+                ) : row.remote && !selecting ? (
+                  <button
+                    disabled={busy}
+                    onClick={() => app.startFlow('download', [row.id], { targets: [entry] })}
+                  >
+                    <Icon name="download" /> {t('importHere')}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+          <small className="muted">{t('nativeHint')}</small>
+        </Section>
+        {row.versions.length > 0 && (
+          <Section title={t('versions')} open={row.status === 'conflict'}>
+            <Select
+              label={t('versions')}
+              value={version}
+              onChange={setVersion}
+              options={[
+                { value: '', label: t('chooseVersionOption') },
+                ...row.versions.map((v: any) => ({
+                  value: v.id,
+                  label: `${date(v.at)} · ${v.device?.name ?? '—'} · ${v.id.slice(0, 6)}${
+                    row.tips.includes(v.id) ? ' · ' + t('currentVersion') : ''
+                  }`,
+                })),
+              ]}
+            />
+            <div className="actions">
               <button
-                disabled={busy}
-                onClick={() => app.startFlow('download', [row.id], { targets: [entry] })}
+                disabled={!version || busy}
+                onClick={() => app.startFlow('download', [row.id], { version })}
               >
-                {t('importLocal')} · {t(entry)}…
+                {t('useVersion')}
               </button>
-            ) : null}
+              <button
+                disabled={busy || (!version && row.tips.length !== 1)}
+                onClick={() =>
+                  work(
+                    () => downloadVersion(row.id, version || row.tips[0]),
+                    'stageDownload',
+                    'detail',
+                  )
+                }
+              >
+                {t('saveCloudCopy')}…
+              </button>
+            </div>
+            <small className="muted">{t('versionHint')}</small>
+          </Section>
+        )}
+        <Section title={t('history')}>
+          <small className="muted">{t('recentMessages')}</small>
+          <div className="messages">
+            {row.messages.map((m: any, i: number) => (
+              <Message key={i} message={m} />
+            ))}
+            {!row.messages.length && <p className="muted">{t('noMessages')}</p>}
           </div>
-        );
-      })}
-      <small className="muted">{t('nativeHint')}</small>
-      {row.versions.length > 0 && (
-        <>
-          <h3 id="cloud-versions">{t('versions')}</h3>
-          <Select
-            label={t('versions')}
-            value={version}
-            onChange={setVersion}
-            options={[
-              { value: '', label: '—' },
-              ...row.versions.map((v: any) => ({
-                value: v.id,
-                label: `${date(v.at)} · ${v.device?.name ?? '—'} · ${v.id.slice(0, 6)}`,
-              })),
-            ]}
-          />
-          <button
-            disabled={!version || busy}
-            onClick={() => app.startFlow('download', [row.id], { version })}
-          >
-            {t('useVersion')}
-          </button>
-          <button
-            disabled={busy || (!version && row.tips.length !== 1)}
-            onClick={() =>
-              work(() => downloadVersion(row.id, version || row.tips[0]), 'stageDownload')
-            }
-          >
-            {t('saveCloudCopy')}…
-          </button>
-          <small className="muted">{t('versionHint')}</small>
-        </>
-      )}
-      <h3>{t('history')}</h3>
-      <small className="muted">{t('recentMessages')}</small>
-      <div className="messages">
-        {row.messages.map((m: any, i: number) => (
-          <div className={`message ${m.role}`} key={i}>
-            <small>{m.role === 'user' ? t('you') : m.role === 'tool' ? t('tool') : 'Codex'}</small>
-            <p>{m.text}</p>
-          </div>
-        ))}
-        {!row.messages.length && <p className="muted">{t('noMessages')}</p>}
+        </Section>
       </div>
     </>
+  );
+}
+
+// User messages on the right, Codex on the left; tool output folds into one line.
+function Message({ message: m }: any) {
+  const { t, tn } = useI18n();
+  if (m.role === 'tool') {
+    const lines = m.text.split('\n').length;
+    return (
+      <details className="message tool">
+        <summary>{tn('toolOutputLines', lines)}</summary>
+        <pre>{m.text}</pre>
+      </details>
+    );
+  }
+  return (
+    <div className={`message ${m.role}`}>
+      <small>{m.role === 'user' ? t('you') : 'Codex'}</small>
+      <p>{m.text}</p>
+    </div>
+  );
+}
+
+// "⋯": less frequent actions for the conversation in the details panel.
+function MoreMenu({ items, disabled }: { items: any[]; disabled: boolean }) {
+  const { t } = useI18n();
+  const ref = useRef<HTMLDetailsElement>(null);
+  const close = () => ref.current?.removeAttribute('open');
+  return (
+    <details
+      className="more-menu"
+      ref={ref}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && ref.current?.open) {
+          e.stopPropagation();
+          close();
+          ref.current.querySelector('summary')?.focus();
+        }
+      }}
+    >
+      <summary
+        aria-label={t('moreActions')}
+        title={t('moreActions')}
+        className={'icon-button' + (disabled ? ' disabled' : '')}
+      >
+        <Icon name="more" />
+      </summary>
+      <div className="menu" role="menu">
+        {items.map((item) => (
+          <button
+            key={item.key}
+            role="menuitem"
+            disabled={disabled}
+            className={item.danger ? 'danger-text' : ''}
+            onClick={() => {
+              close();
+              item.run();
+            }}
+          >
+            <Icon name={item.icon} /> {item.label}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }

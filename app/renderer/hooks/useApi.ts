@@ -22,12 +22,13 @@ export async function call<T = any>(method: string, args: any = {}): Promise<T> 
 
 // One user-started operation at a time. `phase` names it for the status line;
 // a failure is handed to `onError` instead of being thrown.
-export function useWork(onStart: () => void, onError: (error: ApiError) => void) {
+// `place` names where a failure is shown: a dialog, the details panel, a card or the page.
+export function useWork(onStart: () => void, onError: (error: ApiError, place: string) => void) {
   const lock = useRef(false);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState('');
   const work = useCallback(
-    async <T>(fn: () => Promise<T>, label = 'working'): Promise<T | undefined> => {
+    async <T>(fn: () => Promise<T>, label = 'working', place = 'page'): Promise<T | undefined> => {
       if (lock.current) return;
       lock.current = true;
       setPhase(label);
@@ -36,7 +37,7 @@ export function useWork(onStart: () => void, onError: (error: ApiError) => void)
       try {
         return await fn();
       } catch (e: any) {
-        onError(e);
+        onError(e, place);
       } finally {
         lock.current = false;
         setPhase('');

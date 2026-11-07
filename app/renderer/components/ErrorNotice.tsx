@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18n';
 import { Icon } from './Icon';
 
@@ -20,10 +20,17 @@ export function ErrorNotice({
   onDismiss?: () => void;
 }) {
   const { t } = useI18n();
+  const box = useRef<HTMLDivElement>(null);
+  // A notice that appears out of view (a scrolled page or dialog) is brought into view.
+  useEffect(() => box.current?.scrollIntoView({ block: 'nearest' }), []);
   const code = error.code ?? 'operation_failed';
   const technical = [code, error.detail, error.stage && t(error.stage)].filter(Boolean).join('\n');
   return (
-    <div className={`error-notice ${severity}`} role={severity === 'info' ? 'status' : 'alert'}>
+    <div
+      ref={box}
+      className={`error-notice ${severity}`}
+      role={severity === 'info' ? 'status' : 'alert'}
+    >
       <Icon name={severity === 'info' ? 'info' : 'alert'} />
       <div className="error-body">
         <strong>{t(code)}</strong>
@@ -43,7 +50,7 @@ export function ErrorNotice({
       </div>
       {onDismiss && (
         <button type="button" className="icon-button" aria-label={t('close')} onClick={onDismiss}>
-          ×
+          <Icon name="close" />
         </button>
       )}
     </div>

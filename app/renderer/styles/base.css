@@ -34,6 +34,10 @@
   font-synthesis: none;
   color: var(--fg);
   background: var(--bg);
+  /* Three levels of elevation, all from the theme's shadow color. */
+  --elevation-card: 0 1px 3px var(--shadow);
+  --elevation-float: 0 12px 32px var(--shadow);
+  --elevation-modal: 0 25px 100px var(--shadow);
 }
 * {
   box-sizing: border-box;
@@ -76,9 +80,15 @@ button:disabled {
 }
 button:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+/* The list keeps its outline inside its scrolling frame. */
+table[role='grid']:focus-visible {
+  outline-offset: -2px;
 }
 .primary {
   background: var(--accent);
@@ -167,7 +177,6 @@ h3 {
   color: var(--danger);
   border-color: var(--danger);
 }
-.more-actions summary,
 .candidate-group summary,
 details > summary {
   color: var(--accent);
@@ -179,16 +188,6 @@ progress {
   accent-color: var(--accent);
   display: block;
   margin: 8px 0;
-}
-.permanent-action {
-  background: var(--danger);
-  color: var(--on-accent);
-  font-weight: 700;
-  border-color: var(--danger);
-}
-.permanent-action:hover:not(:disabled) {
-  background: var(--danger);
-  filter: brightness(1.08);
 }
 .icon-button {
   min-width: 34px;
@@ -210,4 +209,31 @@ progress {
 .danger-action:hover:not(:disabled) {
   background: var(--danger);
   filter: brightness(1.08);
+}
+.danger-text {
+  color: var(--danger);
+}
+kbd {
+  font: inherit;
+  font-size: 13px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  white-space: nowrap;
+}
+.icon.sort-down {
+  transform: rotate(90deg);
+}
+.icon.sort-up {
+  transform: rotate(-90deg);
+}
+.icon.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

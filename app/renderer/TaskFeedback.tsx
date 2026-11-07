@@ -1,31 +1,9 @@
-import React, { useState } from 'react';
-const repairLabel = (code: string) => {
-  if (code === 'native_provider_missing') return 'retryProviderImport';
-  if (code === 'duplicate_identity') return 'inspectCopies';
-  if (code === 'scan_incomplete') return 'scanSummary';
-  if (['recovery_required', 'import_needs_recovery', 'trash_recovery_required'].includes(code))
-    return 'backups';
-  if (
-    [
-      'entry_home_missing',
-      'entry_binary_missing',
-      'binary_unavailable',
-      'working_folder_missing',
-      'project_required',
-    ].includes(code)
-  )
-    return 'configureAndContinue';
-  if (
-    [
-      'storage_permission',
-      'storage_write_permission',
-      'storage_not_connected',
-      'decrypt_failed',
-    ].includes(code)
-  )
-    return 'manageConnection';
-  return 'reviewAndRetry';
-};
+import { Icon } from './components/Icon';
+import { useState } from 'react';
+import { fixLabel } from './errors';
+import { taskFraction } from './TaskPanel';
+
+const repairLabel = (code: string) => fixLabel(code) ?? 'reviewAndRetry';
 const ok = (v: any) => v.status === 'verified';
 export function TaskFeedback({ job, t, size, onDismiss, onActivity, onRepair, onOpen }: any) {
   const [expanded, setExpanded] = useState(false);
@@ -122,13 +100,20 @@ export function TaskFeedback({ job, t, size, onDismiss, onActivity, onRepair, on
           </span>
         )}
         {!running && (
-          <button className="text-button" onClick={onDismiss} aria-label={t('close')}>
-            ×
+          <button className="icon-button" onClick={onDismiss} aria-label={t('close')}>
+            <Icon name="close" />
           </button>
         )}
       </div>
       {running ? (
-        <progress aria-label={t('running')} />
+        <div className="task-progress">
+          <progress aria-label={t('running')} max={1} value={taskFraction(job) ?? undefined} />
+          {progress?.bytesTotal > 0 && (
+            <small>
+              {size(Math.min(progress.bytes, progress.bytesTotal))} / {size(progress.bytesTotal)}
+            </small>
+          )}
+        </div>
       ) : (
         <>
           {(problems.length > 0 || warnings.length > 0 || expanded) && (

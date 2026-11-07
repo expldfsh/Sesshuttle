@@ -1,5 +1,18 @@
-import React from 'react';
-export function ConversationActions({ items, t, busy, open, remove, resume, versions }: any) {
+import { Icon } from './components/Icon';
+import { DirectionIcon } from './transfer/DirectionIcon';
+
+// The likely next step is the primary button: continue in a verified app, compare a
+// conflict, or import when the cloud has news; otherwise upload.
+export function ConversationActions({
+  items,
+  t,
+  busy,
+  open,
+  remove,
+  resume,
+  versions,
+  compact = false,
+}: any) {
   const local = items.filter((i: any) => i.local).length,
     remote = items.filter((i: any) => i.remote).length;
   const single = items.length === 1 ? items[0] : null;
@@ -13,6 +26,7 @@ export function ConversationActions({ items, t, busy, open, remove, resume, vers
       className={!importFirst && !targets.length ? 'primary' : ''}
       onClick={() => open('upload')}
     >
+      <DirectionIcon direction="upload" />
       {t('uploadCloud')}
       {!single && ' (' + local + ')'}…
     </button>
@@ -23,13 +37,14 @@ export function ConversationActions({ items, t, busy, open, remove, resume, vers
       className={importFirst ? 'primary' : ''}
       onClick={() => open('download')}
     >
+      <DirectionIcon direction="download" />
       {t('importLocal')}
       {!single && ' (' + remote + ')'}…
     </button>
   );
   return (
     <div className="actions conversation-actions">
-      {targets.map(([entry]) => (
+      {targets.slice(0, 1).map(([entry]) => (
         <button
           key={entry}
           className="primary"
@@ -55,18 +70,16 @@ export function ConversationActions({ items, t, busy, open, remove, resume, vers
           {remote > 0 && download}
         </>
       )}
-      <button className="danger-button" disabled={busy} onClick={remove}>
-        {t('removeChats')}…
-      </button>
-      {items.length > 1 && local > 0 && remote > 0 && (
-        <details className="more-actions">
-          <summary>{t('moreActions')}</summary>
-          <div>
-            <button disabled={busy} onClick={() => open('both')}>
-              {t('both')}…
-            </button>
-          </div>
-        </details>
+      {!single && local > 0 && remote > 0 && (
+        <button disabled={busy} onClick={() => open('both')}>
+          <DirectionIcon direction="both" />
+          {t('both')}…
+        </button>
+      )}
+      {compact && (
+        <button className="danger-button" disabled={busy} onClick={remove}>
+          <Icon name="trash" /> {t('removeChats')}…
+        </button>
       )}
     </div>
   );

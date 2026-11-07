@@ -1,10 +1,24 @@
-import React, { useRef, useState } from 'react';
+import { Icon } from './components/Icon';
+import { useRef, useState } from 'react';
 import { Modal } from './components/Modal';
 import { useI18n } from './i18n/I18n';
+import { ErrorNotice } from './components/ErrorNotice';
+import { errorRule, fixLabel, type FixAction } from './errors';
 
 const dateLabel = (v: string | undefined, locale: string) =>
   v ? new Date(v).toLocaleString(locale) : '—';
 const scopes = ['local', 'cloud', 'both'];
+// Repairs that leave the dialog for another place.
+const REPAIR_PLACE: Partial<Record<FixAction, string>> = {
+  openSettings: 'settings',
+  openBackups: 'backups',
+  showScanIssues: 'scan',
+  openApps: 'projects',
+  inspectCopies: 'conversations',
+  compareVersions: 'conversations',
+};
+const scopeHint = (s: string) =>
+  ({ local: 'removeHereHint', cloud: 'removeCloudHint', both: 'removeBothHint' })[s] ?? s;
 const scopeKey = (s: string) =>
   ({ local: 'removeHere', cloud: 'removeCloud', both: 'removeBoth' })[s] ?? s;
 const modeKey = (s: string) =>
@@ -20,6 +34,53 @@ function ConfirmationLabel({ t, mode, local, cloud }: any) {
     <>
       {t(modeKey(mode))} · {destinations.join(' + ')}
     </>
+  );
+}
+// Radio choices drawn as cards, each with one line on what it changes.
+function ChoiceCards({
+  legend,
+  name,
+  value,
+  options,
+  disabled,
+  danger,
+  onChange,
+}: {
+  legend: string;
+  name: string;
+  value: string;
+  options: { value: string; label: string; hint: string; available: boolean }[];
+  disabled: boolean;
+  danger?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <fieldset className="choice-cards">
+      <legend>{legend}</legend>
+      {options.map((o) => (
+        <label
+          key={o.value}
+          className={
+            'choice-card' +
+            (value === o.value ? ' chosen' : '') +
+            (danger === o.value ? ' danger' : '') +
+            (o.available ? '' : ' unavailable')
+          }
+        >
+          <input
+            type="radio"
+            name={name}
+            checked={value === o.value}
+            disabled={disabled || !o.available}
+            onChange={() => onChange(o.value)}
+          />
+          <span>
+            <b>{o.label}</b>
+            <small>{o.hint}</small>
+          </span>
+        </label>
+      ))}
+    </fieldset>
   );
 }
 function CopyList({ items, t, locale }: any) {
@@ -140,6 +201,7 @@ export function RemovalFlow({
         ? connected && initial.hasCloud
         : connected && initial.hasLocal && initial.hasCloud;
   const wrongVersion = previous?.error?.code === 'stale_plan';
+  const repair: FixAction | undefined = error ? errorRule(error.code).fix : undefined;
   const warning = (
     <div className="other-device-note">
       <b>{t('otherDevices')}</b>{' '}
@@ -185,7 +247,7 @@ export function RemovalFlow({
             </button>
           ) : (
             <button
-              className={q.mode === 'purge' ? 'permanent-action' : 'primary'}
+              className={q.mode === 'purge' ? 'danger-action' : 'primary'}
               disabled={!canRun}
               onClick={() => onExecute(plan, permanent, upgrade)}
             >
@@ -211,21 +273,19 @@ export function RemovalFlow({
           <p>{initial.titles?.join(' · ')}</p>
           {q.kind === 'live' ? (
             <>
-              <fieldset className="remove-options">
-                <legend>1. {t('deleteWhere')}</legend>
-                {scopes.map((s) => (
-                  <label key={s}>
-                    <input
-                      type="radio"
-                      name="place"
-                      checked={q.scope === s}
-                      disabled={pending || !scopeAvailable(s)}
-                      onChange={() => setQ({ ...q, scope: s })}
-                    />
-                    {t(scopeKey(s))}
-                  </label>
-                ))}
-              </fieldset>
+              <ChoiceCards
+                legend={'1. ' + t('deleteWhere')}
+                name="place"
+                value={q.scope}
+                disabled={pending}
+                options={scopes.map((s) => ({
+                  value: s,
+                  label: t(scopeKey(s)),
+                  hint: t(scopeHint(s)),
+                  available: scopeAvailable(s),
+                }))}
+                onChange={(scope) => setQ({ ...q, scope })}
+              />
               {(!initial.hasLocal || !initial.hasCloud || !connected) && (
                 <p className="muted">
                   {t(
@@ -237,22 +297,20 @@ export function RemovalFlow({
                   )}
                 </p>
               )}
-              <fieldset className="remove-options">
-                <legend>2. {t('deleteHow')}</legend>
-                {['trash', 'purge'].map((m) => (
-                  <label key={m}>
-                    <input
-                      type="radio"
-                      name="method"
-                      checked={q.mode === m}
-                      disabled={pending}
-                      onChange={() => setQ({ ...q, mode: m })}
-                    />
-                    {t(modeKey(m))}
-                  </label>
-                ))}
-              </fieldset>
-              <p>{t(q.mode === 'trash' ? 'binPolicy' : 'permanentPolicy')}</p>
+              <ChoiceCards
+                legend={'2. ' + t('deleteHow')}
+                name="method"
+                value={q.mode}
+                disabled={pending}
+                danger="purge"
+                options={['trash', 'purge'].map((m) => ({
+                  value: m,
+                  label: t(modeKey(m)),
+                  hint: t(m === 'trash' ? 'binPolicy' : 'permanentPolicy'),
+                  available: true,
+                }))}
+                onChange={(mode) => setQ({ ...q, mode })}
+              />
             </>
           ) : (
             <p>
@@ -543,25 +601,24 @@ export function RemovalFlow({
           <p>{t('reviewConsentHint')}</p>
         )}
       {error && (
-        <div role="alert" className="notice error">
-          <span>
-            {t(error.code ?? 'operation_failed')} {error.detail}
-          </span>
-          {error.code === 'scan_incomplete' && (
-            <button onClick={() => onRepair('scan')}>{t('scanSummary')}</button>
-          )}
-          {['cloud_cleanup_pending', 'trash_recovery_required', 'storage_not_connected'].includes(
-            error.code,
-          ) && (
-            <button
-              onClick={() =>
-                onRepair(error.code === 'storage_not_connected' ? 'settings' : 'backups')
-              }
-            >
-              {t(error.code === 'storage_not_connected' ? 'settings' : 'backups')}
-            </button>
-          )}
-        </div>
+        <ErrorNotice
+          error={error}
+          severity={errorRule(error.code).severity}
+          action={
+            repair && (
+              <button
+                disabled={pending}
+                onClick={() =>
+                  repair === 'refreshRetry' || repair === 'retry'
+                    ? refresh(q, !!previous && wrongVersion)
+                    : onRepair(REPAIR_PLACE[repair])
+                }
+              >
+                {t(fixLabel(error.code)!)}
+              </button>
+            )
+          }
+        />
       )}
     </Modal>
   );
@@ -598,8 +655,8 @@ export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: a
           {t(label)} · {t(modeKey(job.mode))}
         </strong>
         {!running && onDismiss && (
-          <button onClick={onDismiss} aria-label={t('close')}>
-            ×
+          <button className="icon-button" onClick={onDismiss} aria-label={t('close')}>
+            <Icon name="close" />
           </button>
         )}
       </div>
@@ -652,72 +709,42 @@ export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: a
   );
 }
 
-export function RemovalBins({ data, connected, t, date, busy, open, resume, settings }: any) {
+// One recycle bin, local or cloud. Restoring or deleting opens the removal review.
+export function BinList({ side, items, connected, t, date, busy, open }: any) {
   const { tn } = useI18n();
-  if (!data) return <p role="status">{t('loadingBins')}</p>;
+  const local = side === 'local';
   return (
     <>
-      {['local', 'cloud'].map((side) => {
-        const local = side === 'local',
-          items = local ? data.local : data.cloud.bins;
+      {items.map((b: any) => {
+        const label = local ? b.rows.map((r: any) => r.title).join(' · ') : b.title,
+          base = { binId: b.id, ids: local ? b.ids : [b.logicalId], scope: side, titles: [label] };
         return (
-          <section key={side} className="card">
-            <h2>{t(local ? 'localTrash' : 'cloudBin')}</h2>
-            <p>{t(local ? 'localBinHint' : 'cloudBinHint')}</p>
-            {!local && !connected && (
-              <button onClick={settings}>{t('configureRemovalStorage')}</button>
+          <div className="backup-row" key={b.id + (b.logicalId ?? '')}>
+            <div>
+              <b>{label}</b>
+              <small>
+                {date(b.at ?? b.createdAt)} · {local ? b.home : tn('countBackupVersions', b.count)}
+              </small>
+              {local && <small>{t('trashStatus_' + b.status)}</small>}
+            </div>
+            {(!local || !['restored', 'purging'].includes(b.status)) && (
+              <button
+                disabled={busy || (!local && !connected)}
+                onClick={() => open({ ...base, mode: 'restore' })}
+              >
+                {t('restoreCopy')}…
+              </button>
             )}
-            {!local && data.cloudError && <p role="alert">{t(data.cloudError.code)}</p>}
-            {!local && data.cloud.pending && (
-              <div className="warning-box">
-                <p>{t('cloud_cleanup_pending')}</p>
-                <button
-                  disabled={busy}
-                  onClick={() => resume(data.cloud.pending.id, data.storageKey)}
-                >
-                  {t('finishConfirmedCloud')}
-                </button>
-              </div>
+            {(!local || ['removed', 'restored', 'purging'].includes(b.status)) && (
+              <button
+                className="danger-button"
+                disabled={busy || (!local && !connected)}
+                onClick={() => open({ ...base, mode: 'purge' })}
+              >
+                {t('permanentDelete')}…
+              </button>
             )}
-            {!items.length && (local || (connected && !data.cloudError)) && (
-              <p>{t('noBinItems')}</p>
-            )}
-            {items.map((b: any) => {
-              const label = local ? b.rows.map((r: any) => r.title).join(' · ') : b.title,
-                base = {
-                  binId: b.id,
-                  ids: local ? b.ids : [b.logicalId],
-                  scope: side,
-                  titles: [label],
-                };
-              return (
-                <div className="backup-row" key={b.id + (b.logicalId ?? '')}>
-                  <div>
-                    <b>{label}</b>
-                    <small>
-                      {date(b.at ?? b.createdAt)} ·{' '}
-                      {local ? b.home : tn('countBackupVersions', b.count)}
-                    </small>
-                    {local && <small>{t('trashStatus_' + b.status)}</small>}
-                  </div>
-                  {(!local || !['restored', 'purging'].includes(b.status)) && (
-                    <button disabled={busy} onClick={() => open({ ...base, mode: 'restore' })}>
-                      {t('restoreCopy')}…
-                    </button>
-                  )}
-                  {(!local || ['removed', 'restored', 'purging'].includes(b.status)) && (
-                    <button
-                      className="danger-button"
-                      disabled={busy}
-                      onClick={() => open({ ...base, mode: 'purge' })}
-                    >
-                      {t('permanentDelete')}…
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </section>
+          </div>
         );
       })}
     </>

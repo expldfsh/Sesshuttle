@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useI18n } from '../i18n/I18n';
 
@@ -70,7 +71,7 @@ export function Modal({
           disabled={busy}
           onClick={onClose}
         >
-          ×
+          <Icon name="close" />
         </button>
       </header>
       <div className="modal-body">{children}</div>

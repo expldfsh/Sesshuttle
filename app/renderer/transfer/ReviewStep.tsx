@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import { Modal } from './components/Modal';
-import { useI18n } from './i18n/I18n';
+import { useState, type ReactNode } from 'react';
+import { useI18n } from '../i18n/I18n';
+import { Modal } from '../components/Modal';
+import { Stepper } from '../components/Stepper';
+import { DirectionIcon, actionDirection } from './DirectionIcon';
 
-export function SyncPlan({
+// The last step of a transfer: everything that will happen, attachment choices,
+// capacity and the confirmation. Nothing has been uploaded or imported yet.
+export function ReviewStep({
+  title,
+  steps,
+  current,
   plan,
   cfg,
   busy,
-  t,
-  size,
   feedback,
   onClose,
   onBack,
@@ -15,8 +20,13 @@ export function SyncPlan({
   onUndo,
   onRebuild,
   onExecute,
-}: any) {
-  const { tn } = useI18n();
+}: {
+  title: ReactNode;
+  steps: string[];
+  current: number;
+  [key: string]: any;
+}) {
+  const { t, tn, size } = useI18n();
   const [omitted, setOmitted] = useState<Record<string, Record<string, string[]>>>({});
   const [approved, setApproved] = useState<string[]>(plan.selection?.approvedAttachments ?? []);
   const [large, setLarge] = useState(false);
@@ -41,7 +51,7 @@ export function SyncPlan({
     plan.overLimit ||
     (plan.largeUpload && !large);
   const destination = [...new Set<string>(runnable.flatMap((i: any) => i.targets))]
-    .map(t)
+    .map((e) => t(e))
     .join(' + ');
   function accept(item: string, role: string, keys: string[], include: boolean) {
     setOmitted((old) => {
@@ -52,6 +62,7 @@ export function SyncPlan({
       return { ...old, [item]: { ...old[item], [role]: next } };
     });
   }
+  // The final button names the action, its scope and its destination.
   const confirm = excluded.length
     ? t(
         plan.direction === 'upload'
@@ -59,18 +70,39 @@ export function SyncPlan({
           : plan.direction === 'download'
             ? 'onlyImportEligible'
             : 'onlySyncEligible',
-      ).replace('{n}', String(runnable.length))
+        { n: runnable.length },
+      )
     : hasImport
-      ? (hasUpload ? t('confirmBoth') : t('confirmImport')) + ' ' + destination
+      ? t(hasUpload ? 'confirmBothTo' : 'confirmImportTo', { apps: destination })
       : tn('confirmUploadN', runnable.length);
+  const footer = (
+    <>
+      <button disabled={busy} onClick={onBack}>
+        {t('previousStep')}
+      </button>
+      <button disabled={busy} onClick={() => onRebuild(approved)}>
+        {t(changed ? 'rebuildPreview' : 'checkAgain')}
+      </button>
+      <button
+        className="primary"
+        disabled={disabled}
+        onClick={() => onExecute(large, omitted, excluded.length > 0)}
+      >
+        {confirm}
+      </button>
+    </>
+  );
   return (
     <Modal
-      title={t('reviewAction')}
-      className="sync-plan"
+      title={title}
+      className="flow sync-plan"
       size="large"
       busy={busy}
       onClose={onClose}
+      step="review"
+      footer={footer}
     >
+      <Stepper steps={steps} current={current} />
       <p className="preview-state">
         {t('previewOnly')} · {tn('previewScope', count, { direct: plan.ids.length })}
       </p>
@@ -81,11 +113,7 @@ export function SyncPlan({
       )}
       {excluded.length > 0 && (
         <div className="warning-box" role="status">
-          <b>
-            {t('batchEligibility')
-              .replace('{ready}', String(runnable.length))
-              .replace('{blocked}', String(excluded.length))}
-          </b>
+          <b>{t('batchEligibility', { ready: runnable.length, blocked: excluded.length })}</b>
           <ul>
             {excluded.map((i: any) => (
               <li key={i.id}>
@@ -126,7 +154,12 @@ export function SyncPlan({
         {plan.items.map((item: any) => (
           <section className="scope-item" key={item.id}>
             <div className="card-title">
-              <strong>{item.title}</strong>
+              <strong>
+                {actionDirection(item.action) && !item.excludedReason && (
+                  <DirectionIcon direction={actionDirection(item.action)!} />
+                )}
+                {item.title}
+              </strong>
               <span>
                 {t(item.excludedReason ? 'excluded' : item.action)} · {size(item.bytes)}
               </span>
@@ -143,7 +176,7 @@ export function SyncPlan({
               </details>
             ))}
             {item.issues.length > 0 && (
-              <p className="warning-box">{item.issues.map(t).join(' · ')}</p>
+              <p className="warning-box">{item.issues.map((x: string) => t(x)).join(' · ')}</p>
             )}
             {item.continuation === false && <p>{t('missing_rollout')}</p>}
             {item.files.map((file: any) => {
@@ -153,7 +186,10 @@ export function SyncPlan({
               const accepted = omitted[item.id]?.[file.role] ?? [];
               return (
                 <div className="scope-file" key={file.id + file.reason}>
-                  <strong>{file.title}</strong>
+                  {/* A single conversation named like its item does not repeat the title. */}
+                  {!(item.files.length === 1 && file.title === item.title) && (
+                    <strong>{file.title}</strong>
+                  )}
                   <small>
                     {t(file.kind === 'background' ? 'backgroundChats' : 'mainChats')} ·{' '}
                     {t(file.reason)} · {file.originProject?.name || t('unassignedProject')} ·{' '}
@@ -184,7 +220,7 @@ export function SyncPlan({
                         checked={keys.every((k) => accepted.includes(k))}
                         onChange={(e) => accept(item.id, file.role, keys, e.target.checked)}
                       />
-                      {t('acceptConversationImages').replace('{n}', String(keys.length))}
+                      {t('acceptConversationImages', { n: keys.length })}
                     </label>
                   )}
                   {!!file.attachments?.length && (
@@ -266,21 +302,6 @@ export function SyncPlan({
       )}
       {!runnable.length && <p role="alert">{t('nothingEligible')}</p>}
       {feedback}
-      <div className="modal-actions">
-        <button disabled={busy} onClick={onBack}>
-          {t('editScope')}
-        </button>
-        <button disabled={busy} onClick={() => onRebuild(approved)}>
-          {t(changed ? 'rebuildPreview' : 'checkAgain')}
-        </button>
-        <button
-          className="primary"
-          disabled={disabled}
-          onClick={() => onExecute(large, omitted, excluded.length > 0)}
-        >
-          {confirm}
-        </button>
-      </div>
     </Modal>
   );
 }

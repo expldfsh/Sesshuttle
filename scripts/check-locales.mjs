@@ -18,18 +18,19 @@ const DYNAMIC_PREFIXES = [
   'trashStatus_',
   'assetDecision_',
   'trash_',
+  'onboard',
 ];
 // Values that core produces and the interface shows with t(value): conversation and
 // task states, transfer and runtime-check stages, plan reasons, removal places,
-// detection evidence and issue codes recorded on conversations.
+// detection evidence, issue codes recorded on conversations, app states from
+// appStatus and the state of a removal replaced by a newer review.
 const DATA_VALUES = `locally_removed paused restored_needs_validation unchecked
   stageUpload stageVerify stageWrite runtimeContinue runtimeImport runtimeProjects
   noLocalForUpload noBackupToImport preserveLocal requiredParent selectedChat selectedDescendant backupMember
   cloudActive localBin unlistedVersion
   liveDatabase liveEnvironment liveBinary savedPath installedBinary
-  history_unavailable external_image remote_resource unknown_version runtime_unfinished runtimeCatalogUnavailable`.split(
-  /\s+/,
-);
+  history_unavailable external_image remote_resource unknown_version runtime_unfinished runtimeCatalogUnavailable
+  missingRuntime missingFolder replaced`.split(/\s+/);
 // Issue codes that cloud heads written by early test releases can still carry.
 const LEGACY = ['external_attachment'];
 // Statuses used inside attachment inspection only; they never reach the interface.
@@ -84,6 +85,10 @@ for (const m of ui.matchAll(/\b(?:t|tn|has)\(\s*'([^']+)'\s*[,)]/g))
   if (!defined(m[1])) fail(`used but not defined: ${m[1]}`);
 for (const m of ui.matchAll(/\btranslate\(\s*[^,]+,\s*'([^']+)'/g))
   if (!defined(m[1])) fail(`used but not defined: ${m[1]}`);
+// Keys chosen by a condition inside the call: t(done ? 'stepDone' : 'stepTodo').
+for (const call of ui.matchAll(/\b(?:t|tn)\(((?:[^()]|\([^()]*\))*)\)/g))
+  for (const m of call[1].matchAll(/(?<!\?)(?:\?(?!\?)|:)\s*'([A-Za-z_]\w*)'(?!\s*\+)/g))
+    if (!defined(m[1])) fail(`used but not defined: ${m[1]}`);
 
 const codes = await errorCodes(repo);
 for (const code of codes)

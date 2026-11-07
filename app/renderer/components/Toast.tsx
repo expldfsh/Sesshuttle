@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n/I18n';
 
@@ -37,7 +38,7 @@ export function Toasts() {
             aria-label={t('close')}
             onClick={() => setItems((old) => old.filter((x) => x.id !== item.id))}
           >
-            ×
+            <Icon name="close" />
           </button>
         </div>
       ))}
