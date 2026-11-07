@@ -538,20 +538,20 @@ tests/core/      node:test 单元测试
   - 用 `deviceScaleFactor: 2`；
   - 叠加与现有风格一致的编号标注：琥珀色圆形数字加描边框，颜色取 `--warning`；
   - 脚本可重复运行。
-- [ ] 新建 `docs/validation/0.7.0.md`：构建提交、测试结果、性能前后对比、走查结论、已验证与待用户验收的项目、安装包 SHA-256。
+- [x] 新建 `docs/validation/0.7.0.md`：构建提交、测试结果、性能前后对比、走查结论、已验证与待用户验收的项目、安装包 SHA-256。
 
 **自验收**：文档中没有失效的相对链接（脚本检查）；指南中的按钮名称与界面一致（对照文案表抽查）。
 
 ## P10 最终验收与打包
 
-- [ ] `npm run format:check`、`npm run lint`、`npm test`、`npm run check`、`npm run build` 全部通过。
-- [ ] `npm run package:mac`：生成 `release/sesshuttle-0.7.0-mac-arm64.dmg`。
-- [ ] `npm run package:linux`：生成 `release/sesshuttle-0.7.0-linux-x64.tar.gz` 和 `-linux-amd64.deb`（在 Mac 上交叉构建）。
-- [ ] 生成 `release/SHA256SUMS-0.7.0.txt`，并写入 `docs/validation/0.7.0.md`。
-- [ ] 从 dmg 启动测试模式应用做冒烟检查：窗口打开、字体正确（WOFF2 生效）、刷新合成数据、打开导入三步弹窗、关闭。
-- [ ] 比较 0.6.0 与 0.7.0 的安装包大小，写入验收记录。
-- [ ] 更新本文第三部分：所有阶段状态、决策与偏差、性能对比、待用户验收清单。
-- [ ] 最终提交后输出一份给用户的验收报告（在对话中），包括：
+- [x] `npm run format:check`、`npm run lint`、`npm test`、`npm run check`、`npm run build` 全部通过。
+- [x] `npm run package:mac`：生成 `release/sesshuttle-0.7.0-mac-arm64.dmg`。
+- [x] `npm run package:linux`：生成 `release/sesshuttle-0.7.0-linux-x64.tar.gz` 和 `-linux-amd64.deb`（在 Mac 上交叉构建）。
+- [x] 生成 `release/SHA256SUMS-0.7.0.txt`，并写入 `docs/validation/0.7.0.md`。
+- [x] 从 dmg 启动测试模式应用做冒烟检查：窗口打开、字体正确（WOFF2 生效）、刷新合成数据、打开导入三步弹窗、关闭。
+- [x] 比较 0.6.0 与 0.7.0 的安装包大小，写入验收记录。
+- [x] 更新本文第三部分：所有阶段状态、决策与偏差、性能对比、待用户验收清单。
+- [x] 最终提交后输出一份给用户的验收报告（在对话中），包括：
   - 完成内容摘要（按阶段）；
   - 偏差与原因；
   - 性能前后对比；
@@ -576,18 +576,18 @@ tests/core/      node:test 单元测试
 | P7 UI/UX 改版 | 已完成 | 665d218–15ffae1 | `scripts/ui-walkthrough.mjs`：中英文 × 1320×860 / 780×600 共 100 张截图，无水平滚动、顶栏遮挡、原始键名和不可见焦点；64 次打开页面/弹窗/标签页的检查均无扫描或云端请求；导入三步、上传两步、删除两步、错误示例、首次使用清单均走通；5,000 行性能复测通过 |
 | P8 Python 工具移植 | 已完成 | 3f05e13–48051c6 | 本机 Codex 0.166.0（Homebrew）两端：`roundtrip.mjs` 及其 4 个变体（压缩、仅数据库、原生项目、重复身份）、`missing-image-roundtrip.mjs`（含 `--compressed`）全部通过，结果与移植前 Python 版一致（5/7 轮）；`real-copy-roundtrip.mjs` 以 Lab 中用 `openai` 提供方生成的合成来源通过；`cross-device.mjs` 在 Mac 上依次模拟 source/receive/return 通过，真实 Mac ↔ Arch 待用户验收；应用内快速验证改用共享应答服务后对 0.167.0-alpha.3.2 通过；仓库无 `.py` 文件 |
 | P9 文档、截图与版本 | 已完成 | e43af33–f293e68 | `npm run check:links` 28 条相对链接通过；指南按钮名逐一对照文案表；6 张截图由 `scripts/screenshots.mjs` 重新生成（2 倍分辨率）；`docs/validation/0.7.0.md` 在 P10 补全 |
-| P10 最终验收与打包 | 未开始 | | |
+| P10 最终验收与打包 | 已完成 | 6d74e21–（本记录提交） | 安装包由 `fa40be4` 构建；全部检查通过；DMG 只读挂载后测试模式冒烟通过；SHA-256 与待用户验收清单见 `docs/validation/0.7.0.md` |
 
 ## 性能基线与结果
 
 | 指标 | 0.6.0 基线 | 0.7.0 结果 |
 | --- | --- | --- |
-| 本机扫描 2,000 条（首次 / 第二次） | 496 ms / 322 ms | 456 ms / 88 ms（P4） |
-| 云端刷新 300 条，40ms 延迟 | 12,447 ms（302 次请求） | 1,714 ms（302 次请求，7.3×，P4） |
-| 删除预览，300 个版本（首次 / 缓存后） | 16,636 ms / 16,632 ms | 2,346 ms / 726 ms（P4） |
-| 上传 50 MiB，模拟延迟 | 1,366 ms（28 次请求） | 780 ms（28 次请求，P4） |
-| `app.asar` 大小 | 54.7 MB | 19.0 MB（P4，`electron-builder --dir`） |
-| dmg / tar.gz 大小 | 144.9 MB / 143.7 MB | |
+| 本机扫描 2,000 条（首次 / 第二次） | 496 ms / 322 ms | 491 ms / 94 ms（P10；P4 时 456 / 88 ms） |
+| 云端刷新 300 条，40ms 延迟 | 12,447 ms（302 次请求） | 1,675 ms（302 次请求，7.4×，P10） |
+| 删除预览，300 个版本（首次 / 缓存后） | 16,636 ms / 16,632 ms | 2,336 ms / 718 ms（P10） |
+| 上传 50 MiB，模拟延迟 | 1,366 ms（28 次请求） | 782 ms（28 次请求，P10） |
+| `app.asar` 大小 | 54.7 MB | 19.0 MB（P10 安装包内） |
+| dmg / tar.gz 大小 | 144.9 MB / 143.7 MB | 135.7 MB / 135.4 MB（P10；deb 117.2 MB） |
 
 ### 前端性能（P5，测试模式，`scripts/ui-performance.mjs`）
 
@@ -597,7 +597,7 @@ tests/core/      node:test 单元测试
 | DOM 中实际渲染的行 | 14 行（超过 100 行启用窗口化，上下各多渲染 8 行） |
 | 逐半屏滚动到底（1,799 帧） | 帧间隔中位数 8.3 ms，P95 9.9 ms；最后一行可达 |
 | 搜索框逐字输入 5 个字符并完成筛选 | 186 ms（含 30 ms/字的输入间隔） |
-| 主进程上传 20 条对话期间的进度事件 | 对话表格重渲染 0 次、行重渲染 0 次；只有任务面板更新（以渲染计数器 `sesshuttleRenderStats` 记录） |
+| 主进程上传 20 条对话期间的进度事件 | 对话表格重渲染 0 次、行重渲染 0 次；只有任务面板更新（以渲染计数器 `sesshuttleRenderStats` 记录）。P7 后任务面板改为顶栏指示器加浮层，复测仍为 0 次（刷新 2,829 ms、DOM 13 行、滚动中位数 8.3 ms、搜索 183 ms） |
 
 ## 决策与偏差记录
 
@@ -655,6 +655,19 @@ tests/core/      node:test 单元测试
 | 2026-11-07 | P9 截图：测试模式下隐藏仅测试环境才有的提示（测试徽章、“凭据只在本次运行”横幅、Toast），并先用 IPC 上传一条对话、再把它移入本机回收站，使列表同时有本机对话和仅云端对话；用 `--force-device-scale-factor=2` 得到 2 倍图，标注等动画结束后再测量位置 | 开发者决定 |
 | 2026-11-07 | P9：导入弹窗改为点「下一步」才检查应用后，路径检测面板在检查前把所有应用视为缺路径、只提供“返回编辑”。现以“已保存程序和数据目录且没有检查失败”判断路径就绪，恢复 0.6.0 的「使用当前路径，继续导入」 | 开发者决定 |
 | 2026-11-07 | P9：`scripts/verify-import-window.mjs` 按三步导入改写。Mac 上两种 Codex（0.166.0、0.167.0-alpha.3.2）都不提供 `modelProvider/list`，按既有设计导入时不做服务预检、由原生恢复检查在写入后报告缺少服务；因此“写入前已检查服务、补齐后重试成功”一段只在程序提供服务目录时运行（0.6.0 在 Arch 上验证过），否则输出说明。开发构建中英文 first/reopen 均通过 | 开发者核实 |
+| 2026-11-07 | P10：安装包另附 `sesshuttle-0.7.0-sourcemaps.tar.gz`（主进程与 preload 的 sourcemap；渲染层构建不生成 sourcemap），一并列入 `SHA256SUMS-0.7.0.txt`。`scripts/smoke.mjs --ui` 以 `@font-face` 的来源全部为 WOFF2 且两种字体均已加载来判断字体生效（`file:` 资源不进入 Resource Timing） | 开发者决定 |
+| 2026-11-07 | P10：P9 的标签修改留下两行未格式化的文案，单独提交格式化（6d74e21）并写入 `.git-blame-ignore-revs` | 开发者决定 |
+
+## 待用户验收（0.7.0）
+
+开发环境没有 Arch 虚拟机、真实 R2 或 Linux 系统密码库，以下项目由用户在真实环境确认（步骤见 `docs/validation/0.7.0.md` 与 Linux 验收指南）：
+
+- [ ] Mac ↔ Arch 真实换机往返（安装包、真实 Codex 应用）
+- [ ] 真实 R2 连接：创建空间、导出连接文件、另一台电脑导入加入
+- [ ] Linux 系统密码库授权（记住连接 / 解锁并连接 / 取消后仅本次可用）
+- [ ] `scripts/cross-device.mjs` 的 Arch 端，以及 `scripts/verify-import-window.mjs` 在安装包上用提供模型服务目录的 Codex 运行“补齐服务后重试”
+- [ ] 在真实 GPT 桌面端继续导入的对话
+- [ ] `.deb` 在 Debian / Ubuntu 上安装启动
 
 ## 历史轮次摘要
 
