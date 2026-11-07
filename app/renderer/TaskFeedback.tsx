@@ -24,7 +24,7 @@ export function TaskFeedback({job,t,size,onDismiss,onActivity,onRepair,onOpen}:a
  return <section className={'task-feedback '+(running?'active':problems.length||warnings.length?'attention':'success')} aria-label={t('taskResult')}>
    <div className="task-heading"><strong role="status" aria-live="polite">{running?t(progress?.stage??'stageCheck'):t(job.status==='attention'?(uploaded||imported||existing?'partial':'attention'):job.status==='completed'?'transferFinished':job.status)}</strong>
     {running&&progress&&<span>{progress.index} / {progress.total} · {progress.title} {progress.bytes>0?' · '+size(progress.bytes):''}</span>}
-    {!running&&<span>{uploaded>0&&<>{t('uploaded')} {uploaded}　</>}{existing>0&&<>{t('alreadyBackedUp')} {existing}　</>}{received>0&&<>{t('historyReceived')} {received}　</>}{entryCounts.filter(x=>x.count).map(x=><span key={x.entry}>{t(x.entry)} · {t('entryReady')} {x.count}　</span>)}{problems.length>0&&<>{t('issues')} {problems.length}　</>}{warnings.length>0&&t('someImagesMissing')}</span>}
+    {!running&&<span>{uploaded>0&&<>{t('uploaded')} {uploaded}{'\u3000'}</>}{existing>0&&<>{t('alreadyBackedUp')} {existing}{'\u3000'}</>}{received>0&&<>{t('historyReceived')} {received}{'\u3000'}</>}{entryCounts.filter(x=>x.count).map(x=><span key={x.entry}>{t(x.entry)} · {t('entryReady')} {x.count}{'\u3000'}</span>)}{problems.length>0&&<>{t('issues')} {problems.length}{'\u3000'}</>}{warnings.length>0&&t('someImagesMissing')}</span>}
     {!running&&<button className="text-button" onClick={onDismiss} aria-label={t('close')}>×</button>}
    </div>
    {running?<progress aria-label={t('running')}/>:<>
