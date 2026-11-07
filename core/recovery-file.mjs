@@ -1,3 +1,4 @@
+import { BUCKET } from './connection-rules.mjs';
 import { parseKey } from './crypto.mjs';
 import { Fault, requireThat } from './util.mjs';
 
@@ -22,7 +23,7 @@ export function readRecovery(text, knownConnection = null) {
       typeof file.endpoint === 'string' &&
       file.endpoint.length <= 2048 &&
       typeof file.bucket === 'string' &&
-      /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(file.bucket) &&
+      BUCKET.test(file.bucket) &&
       typeof file.space === 'string' &&
       /^[0-9a-f-]{36}$/i.test(file.space),
     'invalid_recovery_file',

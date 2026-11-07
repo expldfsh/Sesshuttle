@@ -1,4 +1,4 @@
-import { app, clipboard, dialog, ipcMain } from 'electron';
+import { app, clipboard, dialog, ipcMain, shell } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -16,7 +16,7 @@ import { changeCloud } from '../../core/cloud-trash.mjs';
 import { bundleBytes } from '../../core/bundle.mjs';
 import { detectEnvironment } from '../../core/discovery.mjs';
 import { localProjects } from '../../core/local-projects.mjs';
-import { runtimeInfo } from '../../core/runtime.mjs';
+import { runtimeInfo, savedRuntimeStatus } from '../../core/runtime.mjs';
 import { verifyRuntime } from '../../core/runtime-check.mjs';
 import { downloadCopy } from '../../core/download-copy.mjs';
 import { keepLocalCopy, inspectTarget } from '../../core/local-copies.mjs';
@@ -62,6 +62,78 @@ function sortedJobs(state: any) {
 }
 
 const ACTIVITY_PAGE = 50;
+// The only external pages the interface may open.
+const DOCS: Record<string, string> = {
+  r2Credentials: 'https://developers.cloudflare.com/r2/api/tokens/',
+};
+
+// Work waiting for the user in Backups & recovery, from saved local state only.
+function backupAttention(ctx: Context) {
+  const { state } = ctx;
+  const trash = ctx.trash
+    .list()
+    .filter((t: any) =>
+      ['needs_recovery', 'prepared', 'removing', 'restoring'].includes(t.status),
+    ).length;
+  const imports = state
+    .keys('import/')
+    .filter((k: string) => state.get(k)?.status === 'needs_recovery').length;
+  const restores = state
+    .keys('restore/')
+    .filter((k: string) => state.get(k)?.status === 'prepared').length;
+  return trash + imports + restores;
+}
+const hasCompletedTransfer = (state: any) =>
+  state
+    .keys('job/')
+    .some((k: string) =>
+      state.get(k)?.items?.some((i: any) => ['uploaded', 'downloaded'].includes(i.status)),
+    );
+
+// Existence only: no file is read. Test mode never looks outside its root.
+async function folderStatus(ctx: Context, paths: unknown) {
+  requireThat(Array.isArray(paths) && paths.length <= 200, 'invalid_selection');
+  const out: Record<string, string> = {};
+  for (const p of paths as unknown[]) {
+    if (typeof p !== 'string' || !path.isAbsolute(p)) continue;
+    if (ctx.testRoot && !p.startsWith(ctx.testRoot + path.sep)) {
+      out[p] = 'unknown';
+      continue;
+    }
+    const s = await fs.stat(p).catch(() => null);
+    out[p] = s?.isDirectory() ? 'ok' : s ? 'notFolder' : 'missing';
+  }
+  return out;
+}
+
+// Each app's state from saved settings, stat calls and saved runtime checks; no
+// Codex program runs and no Codex data folder is read.
+async function appStatus(ctx: Context) {
+  const targets = ctx.engine.config().targets ?? {};
+  const out: Record<string, any> = {};
+  for (const entry of ['desktop', 'cli', 'ide']) {
+    const { home, binary } = targets[entry] ?? {};
+    const runtime = binary ? await savedRuntimeStatus(binary, ctx.state) : 'unset';
+    const folder = home
+      ? (await fs.stat(home).catch(() => null))?.isDirectory()
+        ? 'ok'
+        : 'missing'
+      : 'unset';
+    out[entry] = {
+      runtime,
+      folder,
+      status:
+        runtime === 'unset' || runtime === 'missing'
+          ? 'missingRuntime'
+          : folder !== 'ok'
+            ? 'missingFolder'
+            : ['builtin', 'verified'].includes(runtime)
+              ? 'appReady'
+              : 'needsCheck',
+    };
+  }
+  return out;
+}
 function activityTimeline(ctx: Context, options: { limit: number }) {
   const removalJobs = ctx.removals.jobs();
   const page = activityPage(ctx.state, removalJobs, options);
@@ -167,6 +239,9 @@ async function saveConfig(ctx: Context, input: any) {
   const cfg: any = {
     theme: getTheme(input.theme).id,
     language: input.language,
+    // Interface preferences: the getting-started card is hidden, native apps open without asking.
+    onboardingDismissed: input.onboardingDismissed === true,
+    skipNativeConfirm: input.skipNativeConfirm === true,
     sourceHomes: [],
     targets: {},
     bindings: {},
@@ -256,6 +331,7 @@ async function connect(ctx: Context, input: any) {
   });
   if (input.mode === 'create') await vault.create();
   else await vault.open();
+  if (input.mode === 'create') state.set('spaceCreated', space);
   // If secure persistence is unavailable, keep the successful connection in memory
   // and return an explicit warning; never write plaintext credentials.
   await engine.clearDownloads();
@@ -360,6 +436,13 @@ export function createHandlers(ctx: Context): Handlers {
       testMode: !!ctx.testRoot,
       // The newest page of the activity timeline; older pages come from activityPage.
       ...activityTimeline(ctx, { limit: ACTIVITY_PAGE }),
+      backupAttention: backupAttention(ctx),
+      hasCompletedTransfer: hasCompletedTransfer(state),
+      // A space created on this computer reminds the user to export its connection file.
+      exportReminder:
+        !!state.get('connection') &&
+        state.get('spaceCreated') === state.get('connection')?.space &&
+        state.get('connectionExported') !== state.get('connection')?.space,
     }),
     saveConfig: (args) => saveConfig(ctx, args),
     detectPaths: () =>
@@ -506,6 +589,7 @@ export function createHandlers(ctx: Context): Handlers {
       });
       if (r.canceled || !r.filePath) return null;
       await atomic(r.filePath, text);
+      state.set('connectionExported', state.get('connection').space);
       return { saved: true };
     },
     preview: (args) => {
@@ -617,6 +701,20 @@ export function createHandlers(ctx: Context): Handlers {
       requireThat(typeof args.text === 'string' && args.text.length <= 100000, 'invalid_selection');
       clipboard.writeText(args.text);
       return true;
+    },
+    appStatus: () => appStatus(ctx),
+    folderStatus: (args) => folderStatus(ctx, args.paths),
+    localBins: () => ({
+      local: ctx.trash.list().filter((t: any) => t.status !== 'staging'),
+      jobs: ctx.removals.jobs(),
+      storageKey: ctx.removals.storageKey(),
+    }),
+    openDocs: (args) => {
+      requireThat(
+        typeof args.topic === 'string' && Object.hasOwn(DOCS, args.topic),
+        'invalid_selection',
+      );
+      return shell.openExternal(DOCS[args.topic]).then(() => true);
     },
   };
 }

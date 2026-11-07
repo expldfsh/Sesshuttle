@@ -69,10 +69,10 @@ async function identity(binary) {
     }
     const result = {
       file,
+      stamp,
       version,
       script,
-      key:
-        'runtime-proof/' + hash([rule, process.platform, process.arch, version, stamp].join('\0')),
+      key: proofKey(version, stamp),
     };
     if (versions.size > 100) versions.clear();
     versions.set(stamp, result);
@@ -85,8 +85,15 @@ async function identity(binary) {
 export async function readVersion(binary) {
   return (await identity(binary)).version;
 }
+const proofKey = (version, stamp) =>
+  'runtime-proof/' + hash([rule, process.platform, process.arch, version, stamp].join('\0'));
+const seenKey = (file) => 'runtime-seen/' + hash(file);
 export async function runtimeInfo(binary, state) {
   const info = await identity(binary);
+  // Remember the version of this exact file so its status can be shown later
+  // without running it again (see savedRuntimeStatus).
+  if (state && state.get(seenKey(info.file))?.stamp !== info.stamp)
+    state.set(seenKey(info.file), { stamp: info.stamp, version: info.version });
   const builtin = KNOWN_VERSIONS.includes(info.version),
     saved = state?.get(info.key);
   return {
@@ -124,4 +131,22 @@ export async function rememberRuntime(
     checkedAt: new Date().toISOString(),
   });
   return runtimeInfo(binary, state);
+}
+
+// The status of a configured runtime from saved state only: the file is resolved
+// and stat'ed, never executed. 'unchecked' means this exact file has not been
+// checked on this computer yet.
+export async function savedRuntimeStatus(binary, state) {
+  try {
+    const file = await executable(binary),
+      stat = await fs.stat(file, { bigint: true });
+    if (!stat.isFile()) return 'missing';
+    const stamp = [file, stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join('|');
+    const seen = state.get(seenKey(file));
+    if (seen?.stamp !== stamp) return 'unchecked';
+    if (KNOWN_VERSIONS.includes(seen.version)) return 'builtin';
+    return state.get(proofKey(seen.version, stamp))?.passed ? 'verified' : 'untested';
+  } catch {
+    return 'missing';
+  }
 }

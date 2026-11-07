@@ -60,3 +60,36 @@ test('old receipts survive a known-version upgrade path, but do not attest a rep
   assert.ok(receiptMatchesRuntime(proof, identity));
   assert.equal(receiptMatchesRuntime(proof, { ...identity, key: 'replacement' }), false);
 });
+
+test('saved runtime status reads only saved state and never runs the program', async (t) => {
+  const { savedRuntimeStatus } = await import('../../core/runtime.mjs');
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-saved-runtime-'));
+  const state = new State(path.join(root, 'app'));
+  t.after(async () => {
+    state.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const file = path.join(root, 'codex'),
+    marker = path.join(root, 'ran');
+  // The program leaves a marker whenever it runs.
+  const program = (version) => `#!/bin/sh\ntouch '${marker}'\necho "codex-cli ${version}"\n`;
+  await fs.writeFile(file, program('9.9.9-dev.2'), { mode: 0o700 });
+  assert.equal(await savedRuntimeStatus(path.join(root, 'absent'), state), 'missing');
+  assert.equal(await savedRuntimeStatus(file, state), 'unchecked');
+  await assert.rejects(fs.stat(marker));
+  const info = await runtimeInfo(file, state);
+  await fs.rm(marker);
+  assert.equal(await savedRuntimeStatus(file, state), 'untested');
+  state.set(info.key, { passed: true });
+  assert.equal(await savedRuntimeStatus(file, state), 'verified');
+  await fs.writeFile(file, program('0.166.0'), { mode: 0o700 });
+  assert.equal(
+    await savedRuntimeStatus(file, state),
+    'unchecked',
+    'a replaced file needs a new check',
+  );
+  await runtimeInfo(file, state);
+  await fs.rm(marker);
+  assert.equal(await savedRuntimeStatus(file, state), 'builtin');
+  await assert.rejects(fs.stat(marker), 'status checks never run the program');
+});

@@ -7,30 +7,12 @@ import {
 } from '@aws-sdk/client-s3';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Fault, requireThat, id, LIMIT } from './util.mjs';
+import { bucketProblem, endpointProblem } from './connection-rules.mjs';
 export class R2Store {
   constructor(config, { allowLocal = false } = {}) {
-    let url;
-    try {
-      url = new URL(config.endpoint);
-    } catch {
-      throw new Fault('invalid_endpoint');
-    }
-    requireThat(
-      allowLocal
-        ? url.hostname === '127.0.0.1'
-        : url.protocol === 'https:' &&
-            /^[a-z0-9]+(?:\.[a-z]+)?\.r2\.cloudflarestorage\.com$/.test(url.hostname),
-      'invalid_endpoint',
-    );
-    requireThat(
-      !url.username &&
-        !url.password &&
-        !url.search &&
-        !url.hash &&
-        (url.pathname === '/' || url.pathname === ''),
-      'invalid_endpoint',
-    );
-    requireThat(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(config.bucket), 'invalid_bucket');
+    requireThat(!endpointProblem(config.endpoint, { allowLocal }), 'invalid_endpoint');
+    requireThat(!bucketProblem(config.bucket), 'invalid_bucket');
+    const url = new URL(config.endpoint);
     this.bucket = config.bucket;
     this.endpoint = url.origin;
     this.client = new S3Client({

@@ -46,6 +46,10 @@ export const IPC_METHODS = {
   continue: {},
   diagnostics: {},
   copyText: {},
+  appStatus: {},
+  folderStatus: {},
+  localBins: {},
+  openDocs: {},
 } as const satisfies Record<string, { exclusive?: true }>;
 
 export type IpcMethod = keyof typeof IPC_METHODS;
