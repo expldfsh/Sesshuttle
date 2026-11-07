@@ -29,4 +29,4 @@
 - **同步记录** 可以清除操作日志，对话和同步状态都会保留。
 - **备份与恢复** 可以手动创建、恢复或删除本机备份。导入和恢复都不会自动创建备份。
 
-[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [0.5.0 验收记录](docs/validation/0.5.0.md)
+[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.6.0.md)

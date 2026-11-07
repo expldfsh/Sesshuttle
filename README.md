@@ -29,4 +29,4 @@ Choose the 0.5.0 package for your computer. Public downloads will be available o
 - **Sync activity** lets you clear operation records while keeping your chats and sync status.
 - **Backups & recovery** lets you create, restore or delete a device backup. Importing and restoring do not create backups automatically.
 
-[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [0.5.0 validation notes](docs/validation/0.5.0.md)
+[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.6.0.md)

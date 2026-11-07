@@ -58,7 +58,7 @@ Choose **Import to this computer…** to continue in Codex. Saving a copy to a f
 
 **More actions** includes two-way transfer. Use **Delete chats…** for removal. If both devices edited independently, compare the versions before choosing the one to import.
 
-[Compatibility](../../compatibility/0.4.0.md) · [Verification report](../../validation/0.5.0.md)
+[Verification report](../../validation/0.6.0.md)
 
 ## Delete chats and manage recovery copies
 
