@@ -285,21 +285,21 @@ tests/core/      node:test 单元测试
 
 所有并发改动都必须保持现有顺序保证：**分块先于版本清单，版本清单先于对话头**；`writeBudget` 和 `onBytes` 计数在并发下仍然准确；空间写锁语义不变。
 
-- [ ] **字体**：四个 TTF 转为 WOFF2（字形和字重不变，Regular 与 Medium 都保留）。
+- [x] **字体**：四个 TTF 转为 WOFF2（字形和字重不变，Regular 与 Medium 都保留）。
   - 更新 `style.css` 的 `@font-face`、`assets/fonts.json`（新文件名、sha256、bytes、来源说明「由官方 TTF 无损转换」）、`assets/font-licenses/README.md`；
   - 转换工具推荐 `fonttools`（`pip install fonttools brotli`），把转换命令写进 `scripts/fonts.mjs` 或 README，保证可复现；
   - 删除仓库中的 TTF 文件。
-- [ ] **云端刷新并发**：`vault.allHeads()` 改为限制并发（默认 8）的并行读取，结果顺序稳定。实现一个不依赖第三方库的小型并发工具（`core/concurrency.mjs`，例如 `mapLimit`）。
-- [ ] **删除预览的版本缓存**：`cloud-trash` 的 `catalog()` 每次都会下载并解密空间内所有版本清单。版本按内容寻址、不可变，因此把 `describe()` 结果按 `space + versionId` 缓存到本机状态（`version-desc/<space>/<id>`），只下载缓存里没有的版本。缓存并发读取同样限制为 8。
-- [ ] **分块传输并发**：
+- [x] **云端刷新并发**：`vault.allHeads()` 改为限制并发（默认 8）的并行读取，结果顺序稳定。实现一个不依赖第三方库的小型并发工具（`core/concurrency.mjs`，例如 `mapLimit`）。
+- [x] **删除预览的版本缓存**：`cloud-trash` 的 `catalog()` 每次都会下载并解密空间内所有版本清单。版本按内容寻址、不可变，因此把 `describe()` 结果按 `space + versionId` 缓存到本机状态（`version-desc/<space>/<id>`），只下载缓存里没有的版本。缓存并发读取同样限制为 8。
+- [x] **分块传输并发**：
   - `vault.uploadChunks` 用 `mapLimit`（默认 4）并发上传；
   - 每次任务只获取一次空间清单，同一任务内多条对话共用，并在上传后更新；
   - `artifactData`/`materialize` 下载分块时预取（并发 4），写入顺序保持不变。
-- [ ] **扫描缓存**：`databaseSummary` 结果按「数据库文件及其 `-wal` 的 size+mtime 均未变化 + 线程 id」缓存（与 `fileDigest` 的缓存方式一致）。只要任一数据库文件变化就重新计算，不能因缓存漏掉变化。`catalog.databaseRecords` 中每张表的 `PRAGMA table_info` 每个 catalog 只查一次。
-- [ ] **去掉 O(n²) 查找**：`engine.refresh`、`engine.preview`、`scanner`（`parentTitle`）、`relatedRows`（找子会话）、`TaskFeedback` 等处循环内的 `rows.find`/`filter` 改用预先建好的 Map。
-- [ ] **减少重复全量扫描**：`importBundle` 中第三次扫描（`recordBundle` 内）复用写入后的扫描结果。写入前的 `checkUnchanged` 重新扫描**必须保留**，不得为了性能削弱写入前的安全检查。
-- [ ] **主进程包**：`scripts/build.mjs` 开启 esbuild `minify`，保留 sourcemap 用于诊断。
-- [ ] **同步记录分页**：`init` 只返回最近 50 条任务；新增 IPC `activityPage({before, limit})`。
+- [x] **扫描缓存**：`databaseSummary` 结果按「数据库文件及其 `-wal` 的 size+mtime 均未变化 + 线程 id」缓存（与 `fileDigest` 的缓存方式一致）。只要任一数据库文件变化就重新计算，不能因缓存漏掉变化。`catalog.databaseRecords` 中每张表的 `PRAGMA table_info` 每个 catalog 只查一次。
+- [x] **去掉 O(n²) 查找**：`engine.refresh`、`engine.preview`、`scanner`（`parentTitle`）、`relatedRows`（找子会话）、`TaskFeedback` 等处循环内的 `rows.find`/`filter` 改用预先建好的 Map。（core 部分在 P4 完成；渲染层的 `TaskFeedback`、已选行等随 P5 重写一并改为 Map/Set）
+- [x] **减少重复全量扫描**：`importBundle` 中第三次扫描（`recordBundle` 内）复用写入后的扫描结果。写入前的 `checkUnchanged` 重新扫描**必须保留**，不得为了性能削弱写入前的安全检查。
+- [x] **主进程包**：`scripts/build.mjs` 开启 esbuild `minify`，保留 sourcemap 用于诊断。
+- [x] **同步记录分页**：`init` 只返回最近 50 条任务；新增 IPC `activityPage({before, limit})`。
 
 **自验收**：
 
@@ -570,7 +570,7 @@ tests/core/      node:test 单元测试
 | P1 清理与修复 | 已完成 | 39d67c4–bb0de81 | 测试 64→65 通过（另 1 个 Linux 专属用例在 Mac 跳过），增减见决策记录 |
 | P2 格式化与静态检查 | 已完成 | da5b92f–92ebddf | 格式化提交 04801ae 已写入 `.git-blame-ignore-revs`；lint 0 错误 0 警告 |
 | P3 core 与主进程重构 | 已完成 | afae909–c19e531 | 测试 65→67（+2 history-items）；`main.ts` 134 行；test-mode 冒烟脚本 `scripts/smoke.mjs` 通过 |
-| P4 后端性能 | 未开始 | | |
+| P4 后端性能 | 已完成 | bd6806d–cc1b2e3 | 测试 67→76；性能见下表（P4 结束时测量，最终数字在 P10 更新） |
 | P5 渲染层重构与前端性能 | 未开始 | | |
 | P6 文案资源重组 | 未开始 | | |
 | P7 UI/UX 改版 | 未开始 | | |
@@ -582,11 +582,11 @@ tests/core/      node:test 单元测试
 
 | 指标 | 0.6.0 基线 | 0.7.0 结果 |
 | --- | --- | --- |
-| 本机扫描 2,000 条（首次 / 第二次） | 496 ms / 322 ms | |
-| 云端刷新 300 条，40ms 延迟 | 12,447 ms（302 次请求） | |
-| 删除预览，300 个版本（首次 / 缓存后） | 16,636 ms / 16,632 ms | |
-| 上传 50 MiB，模拟延迟 | 1,366 ms（28 次请求） | |
-| `app.asar` 大小 | 54.7 MB | |
+| 本机扫描 2,000 条（首次 / 第二次） | 496 ms / 322 ms | 456 ms / 88 ms（P4） |
+| 云端刷新 300 条，40ms 延迟 | 12,447 ms（302 次请求） | 1,714 ms（302 次请求，7.3×，P4） |
+| 删除预览，300 个版本（首次 / 缓存后） | 16,636 ms / 16,632 ms | 2,346 ms / 726 ms（P4） |
+| 上传 50 MiB，模拟延迟 | 1,366 ms（28 次请求） | 780 ms（28 次请求，P4） |
+| `app.asar` 大小 | 54.7 MB | 19.0 MB（P4，`electron-builder --dir`） |
 | dmg / tar.gz 大小 | 144.9 MB / 143.7 MB | |
 
 ## 决策与偏差记录
@@ -613,6 +613,13 @@ tests/core/      node:test 单元测试
 | 2026-11-06 | P3：`history-items.mjs` 另导出 `messageFromEvent()`（rollout 的 `user_message`/`agent_message` 事件）和通用 `walkObjects()`；`resourceReferences` 同一次遍历还要检查外部图片和远程资源，所以基于 `walkObjects` + `isLocalImage`，`remap-history` 和 `real-copy-roundtrip` 用 `visitLocalImages`。扫描器的 rollout 预览仍不收录命令输出（与 0.6.0 相同） | 开发者决定 |
 | 2026-11-06 | P3：`list()`/`inventory()` 共用 `listObjects(prefix, limit, entry)`，各自的上限（2 万 / 20 万）与逐项校验保持原样（`list` 不要求 `Size`，测试中的模拟 S3 也不返回它） | 开发者决定 |
 | 2026-11-06 | P3：主进程共享状态集中在 `app/main/context.ts` 的 `Context` 对象；`Handlers` 类型由 `IpcMethod` 映射而来，漏写或多写 handler 都是类型错误。另加开发依赖 `playwright-core`（精确版本）和 `scripts/lib/test-app.mjs`、`scripts/smoke.mjs`，用于测试模式启动应用（P5/P7 走查、P9 截图、P10 冒烟共用） | 开发者决定 |
+| 2026-11-06 | P4 字体：WOFF2 转换会去掉 TTF 的数字签名表 `DSIG`（重新编码后签名必然失效），其余所有表、字形顺序、cmap、每个字形轮廓与原 TTF 逐一比对一致；`assets/fonts.json` 的 `format` 仍为 1（只新增字段，没有读取方）。转换用 fontTools 4.68.0 + brotli 1.2.1，输出可逐字节复现。四个文件 51.8 MB → 17.3 MB | 开发者决定 |
+| 2026-11-06 | P4 版本描述缓存：通过 `cloudRemovalPlan(vault, request, {cache})` / `changeCloud(..., {cache})` 显式传入本机状态（`Removals` 与主进程传 `state`），条目带 `v:1` 结构校验，损坏即重算；空间中已不存在的版本条目在下次目录读取时删除 | 开发者决定 |
+| 2026-11-06 | P4 共享空间清单：一次传输任务（`vault.beginTransfer()`…`endTransfer()`）内只列一次空间对象；若空间标记的 `completed`（已完成的云端删除）在两次上传之间变化，则重新列出，避免沿用已被其他设备永久删除的分块。下载侧预取 4 个分块，写入顺序不变 | 开发者决定 |
+| 2026-11-06 | P4 扫描缓存：除数据库摘要外，rollout 的首条记录和预览解析也按“路径+大小+mtime+ctime”缓存（与 `fileDigest` 相同），每个文件每次扫描只 stat 一次；数据库戳记含每个库文件及其 `-wal` 的大小、mtime、ctime、inode，在读事务开始前取得，空的 `-wal`（只读打开会创建）视同不存在。读取失败从不缓存 | 开发者决定 |
+| 2026-11-06 | P4 第三次扫描：`recordBundle` 的扫描发生在原生验证之后（验证会改写数据库，必须在此之后记录回执），因此改为把这次扫描返回给调用方；当唯一的来源目录正是刚验证过的目录时，引擎不再为同步状态重新扫描。写入前的 `checkUnchanged` 重新扫描保留 | 开发者决定 |
+| 2026-11-06 | P4 sourcemap：`dist/*.map` 不打进安装包（`build.files` 排除），P10 随安装包另存一份到 `release/`，用于诊断 | 开发者决定 |
+| 2026-11-06 | P4 同步记录分页：`activityPage` 把传输与删除任务合并为一条时间线，用 `{at,id}` 游标；`init` 另返回全部任务中“需处理”的数量和所有中断的删除任务（不受分页影响）；`clearActivity({all:true})` 清除全部已完成记录（含未加载的页） | 开发者决定 |
 | 2026-11-06 | P1 测试数量：+1 工作区文件夹名；−1 `relation()` 的字节前缀比较（format 1 专属）；+2 legacy 版本（删除预览可见且可永久删除、导入/比较/下载副本/预览拒绝；与新上传并存为冲突分支且可移入回收站）。`attachments` 用例改为 `captureBundle`+`remapHistory`，删去只适用于 format 1 回执的“下一轮还原原始路径”部分；`sync` 中“未完成记录不可快照”改为通过扫描器和 `captureBundle` 验证。其余 format 1 用例改用 format 2 数据，断言保持 | 开发者决定 |
 
 ## 历史轮次摘要
