@@ -259,20 +259,20 @@ tests/core/      node:test 单元测试
 
 目标是减少重复和超长函数，行为不变。
 
-- [ ] 新建 `core/guards.mjs`，集中重复逻辑：
+- [x] 新建 `core/guards.mjs`，集中重复逻辑：
   - `ensureFreeSpace(dir, bytes)`：替换 8 处 `disk.bavail*disk.bsize > x + 256MiB` 检查（download-copy、import-bundle、manual-backups、removals、trash ×2、vault ×2）；
-  - `hasPendingImport(state, home)`：替换 importer、import-bundle、local-copies、manual-backups 中 5 处 `['prepared','validating','needs_recovery']` 判断。
-- [ ] 新建 `core/history-items.mjs`，合并重复的解析逻辑：
+  - `hasPendingImport(state, home)`（另有 `pendingImports(state)`）：替换 importer、import-bundle、local-copies、manual-backups 中 5 处 `['prepared','validating','needs_recovery']` 判断。
+- [x] 新建 `core/history-items.mjs`，合并重复的解析逻辑：
   - `messageFromItem(item)`：合并 `scanner.mjs`、`catalog.databaseSummary` 和旧 `parseRollout` 中 3 份消息提取逻辑；
   - `visitLocalImages(value, fn)`：合并 `attachments.resourceReferences`、`remap-history.change` 等处的 `localImage`/`local_image` 遍历。
-- [ ] `core/storage.mjs` 的 `list()` 与 `inventory()` 合并为一个分页遍历函数。
-- [ ] `Engine.execute`（约 80 行的单函数）拆成：校验与准备、`uploadItem`、`importItem`（含多应用分组）、收尾。语义和状态记录保持完全一致。
-- [ ] `Engine.refresh` 中组装单行数据的部分抽成 `buildRow(local, head)`。
-- [ ] **IPC 单一来源**：新建 `app/shared/ipc.ts`，定义方法名列表与「互斥」标记。
+- [x] `core/storage.mjs` 的 `list()` 与 `inventory()` 合并为一个分页遍历函数。
+- [x] `Engine.execute`（约 80 行的单函数）拆成：校验与准备、`uploadItem`、`importItem`（含多应用分组）、收尾。语义和状态记录保持完全一致。
+- [x] `Engine.refresh` 中组装单行数据的部分抽成 `buildRow(local, head)`。
+- [x] **IPC 单一来源**：新建 `app/shared/ipc.ts`，定义方法名列表与「互斥」标记。
   - `app/main/main.ts` 的 `switch` 改为 `handlers` 对象（每个方法一个函数），互斥集合从这张表读取；
   - `preload.ts` 的白名单从同一张表生成；
   - 新增或删除方法只需改一处。
-- [ ] `main.ts` 拆分：`app/main/ipc-handlers.ts`（各 handler）、`app/main/menu.ts`、`app/main/continue.ts`（打开原生应用与 CLI 启动脚本）、`app/main/window.ts`。`main.ts` 只负责启动流程。
+- [x] `main.ts` 拆分：`app/main/ipc-handlers.ts`（各 handler）、`app/main/menu.ts`、`app/main/continue.ts`（打开原生应用与 CLI 启动脚本）、`app/main/window.ts`。`main.ts` 只负责启动流程。
 
 **自验收**：
 
@@ -569,7 +569,7 @@ tests/core/      node:test 单元测试
 | P0 准备与基线 | 已完成 | 615cdf7–39a7aac | 基线见下表；bench 在 M 系列 Mac 上运行，两次结果差异 <2% |
 | P1 清理与修复 | 已完成 | 39d67c4–bb0de81 | 测试 64→65 通过（另 1 个 Linux 专属用例在 Mac 跳过），增减见决策记录 |
 | P2 格式化与静态检查 | 已完成 | da5b92f–92ebddf | 格式化提交 04801ae 已写入 `.git-blame-ignore-revs`；lint 0 错误 0 警告 |
-| P3 core 与主进程重构 | 未开始 | | |
+| P3 core 与主进程重构 | 已完成 | afae909–c19e531 | 测试 65→67（+2 history-items）；`main.ts` 134 行；test-mode 冒烟脚本 `scripts/smoke.mjs` 通过 |
 | P4 后端性能 | 未开始 | | |
 | P5 渲染层重构与前端性能 | 未开始 | | |
 | P6 文案资源重组 | 未开始 | | |
@@ -609,6 +609,10 @@ tests/core/      node:test 单元测试
 | 2026-11-06 | ESLint 关闭 `@typescript-eslint/no-explicit-any`（IPC 数据在主进程校验，界面层沿用宽松类型）和 `no-require-imports`（钥匙串原生模块用 require 加载）；空 `catch {}` 允许。`react-hooks` 只开启两条经典规则，不启用 7.x 的 React Compiler 规则 | 开发者决定 |
 | 2026-11-06 | 格式化前先把 `TaskFeedback` 中字面的全角空格改写为 `{'\u3000'}` 表达式（单独提交）：Prettier 会把 JSX 文本中的 U+3000 当作空白删除，改变显示。格式化提交用 esbuild 压缩输出逐文件比对，除 JSX 文本拆成相邻字符串子节点外完全一致 | 开发者决定 |
 | 2026-11-06 | 6 个 `exhaustive-deps` 警告都是有意的“只在打开时运行”或按 key 运行的 effect，补依赖会改变行为，因此加了带理由的禁用注释；这些组件在 P5 重写时重新处理 | 开发者决定 |
+| 2026-11-06 | P3：pending-import 判断在 P1 删除 format 1 导入后只剩 4 处；`manual-backups` 按备份 ID、`importer.restore` 按目录批量改状态，因此 guards 另导出 `pendingImports(state)` 供这两处使用 | 开发者决定 |
+| 2026-11-06 | P3：`history-items.mjs` 另导出 `messageFromEvent()`（rollout 的 `user_message`/`agent_message` 事件）和通用 `walkObjects()`；`resourceReferences` 同一次遍历还要检查外部图片和远程资源，所以基于 `walkObjects` + `isLocalImage`，`remap-history` 和 `real-copy-roundtrip` 用 `visitLocalImages`。扫描器的 rollout 预览仍不收录命令输出（与 0.6.0 相同） | 开发者决定 |
+| 2026-11-06 | P3：`list()`/`inventory()` 共用 `listObjects(prefix, limit, entry)`，各自的上限（2 万 / 20 万）与逐项校验保持原样（`list` 不要求 `Size`，测试中的模拟 S3 也不返回它） | 开发者决定 |
+| 2026-11-06 | P3：主进程共享状态集中在 `app/main/context.ts` 的 `Context` 对象；`Handlers` 类型由 `IpcMethod` 映射而来，漏写或多写 handler 都是类型错误。另加开发依赖 `playwright-core`（精确版本）和 `scripts/lib/test-app.mjs`、`scripts/smoke.mjs`，用于测试模式启动应用（P5/P7 走查、P9 截图、P10 冒烟共用） | 开发者决定 |
 | 2026-11-06 | P1 测试数量：+1 工作区文件夹名；−1 `relation()` 的字节前缀比较（format 1 专属）；+2 legacy 版本（删除预览可见且可永久删除、导入/比较/下载副本/预览拒绝；与新上传并存为冲突分支且可移入回收站）。`attachments` 用例改为 `captureBundle`+`remapHistory`，删去只适用于 format 1 回执的“下一轮还原原始路径”部分；`sync` 中“未完成记录不可快照”改为通过扫描器和 `captureBundle` 验证。其余 format 1 用例改用 format 2 数据，断言保持 | 开发者决定 |
 
 ## 历史轮次摘要
