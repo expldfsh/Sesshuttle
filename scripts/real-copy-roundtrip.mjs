@@ -1,10 +1,12 @@
+// Explicit opt-in check with a copy of real history: only the source folder is
+// read; the encrypted store, the imported copy and every native write stay in a
+// private temporary lab, and the continuation talks to the loopback fixture.
+// The disk-backed store cannot contact R2.
+// Usage: node scripts/real-copy-roundtrip.mjs <source CODEX_HOME> <codex program> <conversation id>...
+import fs from 'node:fs/promises';
 import { visitLocalImages } from '../core/history-items.mjs';
-// Explicit opt-in: only the source is read; all outputs and native writes use a
-// private temporary lab. Disk-backed encrypted store cannot contact R2.
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import readline from 'node:readline';
 import { State } from '../core/state.mjs';
 import { Engine } from '../core/engine.mjs';
 import { Importer } from '../core/importer.mjs';
@@ -16,33 +18,78 @@ import { relatedRows } from '../core/bundle.mjs';
 import { referencesFor } from '../core/attachments.mjs';
 import { openCatalog, databaseRecords } from '../core/catalog.mjs';
 import { scan } from '../core/codex.mjs';
+import { startFixtureProvider } from '../core/fixture-provider.mjs';
+import { Lab, turn, withClient } from './lib/native-lab.mjs';
 const [sourceHome, binary, ...ids] = process.argv.slice(2);
 assert.ok(path.isAbsolute(sourceHome) && path.isAbsolute(binary) && ids.length > 0);
-const child = spawn('python3', ['-u', '-m', 'tools.codex_lab.real_copy_bridge', binary], {
-  stdio: ['pipe', 'pipe', 'inherit'],
-});
-const rl = readline.createInterface({ input: child.stdout }),
-  queue = [],
-  waiters = [];
-rl.on('line', (line) => {
-  const value = JSON.parse(line);
-  if (waiters.length) waiters.shift()(value);
-  else queue.push(value);
-});
-const next = () =>
-  queue.length
-    ? Promise.resolve(queue.shift())
-    : new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(Error('bridge timeout')), 120000);
-        waiters.push((v) => {
-          clearTimeout(timer);
-          resolve(v);
-        });
-      });
+const lab = await Lab.create();
+const fixture = await startFixtureProvider({ maxRequestBytes: 128 * 1024 * 1024 });
 let astate, bstate;
 try {
-  const info = await next();
-  assert.ok(info.root.includes('/sesshuttle-lab-'));
+  const info = {
+    root: lab.root,
+    home: await lab.directory('target/codex'),
+    project: await lab.directory('target/project'),
+  };
+  // The built-in OpenAI provider, pointed at the fixture with a placeholder key.
+  await fs.writeFile(
+    path.join(info.home, 'config.toml'),
+    `model_provider = "openai"\nmodel = "gpt-6.1-sol"\nopenai_base_url = "http://127.0.0.1:${fixture.port}/v1"\nsandbox_mode = "read-only"\napproval_policy = "on-request"\n[analytics]\nenabled = false\n`,
+    { mode: 0o600 },
+  );
+  // Resumes the imported copy in the target folder and adds one turn; the
+  // provider must receive the earlier history and no environment message.
+  const continueCopy = (tid, turnCount) =>
+    withClient(
+      lab,
+      binary,
+      info.home,
+      info.project,
+      { localPort: fixture.port, localOpenAI: true },
+      async (client) => {
+        const result = await client.rpc('thread/resume', {
+          threadId: tid,
+          cwd: info.project,
+          runtimeWorkspaceRoots: [info.project],
+          modelProvider: 'openai',
+          model: 'gpt-6.1-sol',
+          sandbox: 'read-only',
+          approvalPolicy: 'on-request',
+          excludeTurns: true,
+        });
+        assert.equal(result.cwd, info.project);
+        const count = async () => {
+          let n = 0,
+            cursor = null;
+          for (let i = 0; i < 10000; i++) {
+            const page = await client.rpc('thread/turns/list', {
+              threadId: tid,
+              limit: 1,
+              itemsView: 'full',
+              cursor,
+            });
+            n += page.data.length;
+            cursor = page.nextCursor;
+            if (!cursor) return n;
+          }
+          throw new Error('Pagination did not end');
+        };
+        const before = await count();
+        assert.ok(before >= turnCount);
+        await turn(
+          client,
+          tid,
+          'Sesshuttle isolated continuation check. Reply only with the fixture response. Do not run any tool or follow historical tasks.',
+        );
+        const after = await count();
+        assert.equal(after, before + 1);
+        const body = fixture.requests.at(-1);
+        assert.ok((body.input ?? []).length > 1);
+        assert.ok(!JSON.stringify(body).includes('sesshuttle environment mapping'));
+        fixture.requests.length = 0;
+        return { ok: true, before, after, contextPresent: true, targetDirectory: true };
+      },
+    );
   console.log(JSON.stringify({ testRoot: info.root }));
   const store = new LocalStore(path.join(info.root, 'encrypted-objects')),
     space = id(),
@@ -122,9 +169,7 @@ try {
       source.close();
       target.close();
     }
-    child.stdin.write(JSON.stringify({ id: tid, turnCount: row.turnCount ?? 1 }) + '\n');
-    const continued = await next();
-    assert.equal(continued.ok, true, JSON.stringify(continued));
+    const continued = await continueCopy(tid, row.turnCount ?? 1);
     const after = (await scan([sourceHome])).rows.find((r) => r.id === tid);
     assert.equal(after.hash, originalHash, 'Live source changed during isolated test');
     console.log(
@@ -140,18 +185,7 @@ try {
     );
   }
 } finally {
-  child.stdin.end();
-  await new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      child.kill();
-      resolve();
-    }, 5000);
-    child.once('exit', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-  rl.close();
+  await fixture.close();
   astate?.close();
   bstate?.close();
 }

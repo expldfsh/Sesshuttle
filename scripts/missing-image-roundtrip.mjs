@@ -1,10 +1,13 @@
+// Round trip of a conversation whose local image is missing on the source
+// computer. After the user confirms the omission, B receives the history with
+// the image replaced by a placeholder text, continues, and A continues again.
+// Real Codex programs, synthetic data, a temporary lab and an in-memory store.
+// Usage: node scripts/missing-image-roundtrip.mjs <source codex> <target codex> [--compressed]
 import { omittedImageText } from '../core/attachment-policy.mjs';
 import fs from 'node:fs/promises';
 import { zstdCompressSync } from 'node:zlib';
 import { walk } from '../core/util.mjs';
 import { scan } from '../core/codex.mjs';
-import { spawn } from 'node:child_process';
-import readline from 'node:readline';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
@@ -14,35 +17,105 @@ import { Vault } from '../core/vault.mjs';
 import { MemoryStore } from '../tests/helpers/memory-store.mjs';
 import { newKey } from '../core/crypto.mjs';
 import { id } from '../core/util.mjs';
+import { startFixtureProvider, writeFixtureConfig } from '../core/fixture-provider.mjs';
+import {
+  IMAGE,
+  Lab,
+  comparableHistory,
+  marker,
+  proveDirectory,
+  startThread,
+  turn,
+  turnWith,
+  turns,
+  withClient,
+} from './lib/native-lab.mjs';
 const [source, target, mode] = process.argv.slice(2);
 assert.ok(source && target);
-const child = spawn(
-  'python3',
-  ['-u', '-m', 'tools.codex_lab.missing_image_bridge', source, target],
-  { stdio: ['pipe', 'pipe', 'inherit'] },
-);
-const lines = readline.createInterface({ input: child.stdout });
-const queued = [],
-  waiters = [];
-lines.on('line', (l) => {
-  const x = JSON.parse(l);
-  if (waiters.length) waiters.shift()(x);
-  else queued.push(x);
-});
-const next = () =>
-  queued.length
-    ? Promise.resolve(queued.shift())
-    : new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(Error('Bridge timeout')), 120000);
-        waiters.push((value) => {
-          clearTimeout(timer);
-          resolve(value);
-        });
-      });
+const lab = await Lab.create();
+const fixture = await startFixtureProvider();
+const options = { localPort: fixture.port };
 const states = [];
 try {
-  const info = await next();
-  assert.ok(info.root?.includes('/sesshuttle-lab-'));
+  const homeA = await lab.directory('a/codex'),
+    homeB = await lab.directory('b/codex');
+  const pa = await lab.directory('a/project 中文'),
+    pb = await lab.directory('b/project with spaces');
+  await lab.write('a/project 中文/proof.txt', 'A-LOCAL-PROOF');
+  await lab.write('b/project with spaces/proof.txt', 'B-LOCAL-PROOF');
+  for (const home of [homeA, homeB]) await writeFixtureConfig(home, fixture.port);
+  const early = marker('MISSING-IMAGE-EARLY');
+  await lab.directory('a/codex/uploads');
+  const image = await lab.write(
+    'a/codex/uploads/test.png',
+    Buffer.from(IMAGE.split(',')[1], 'base64'),
+  );
+  let tid, expected;
+  await withClient(lab, source, homeA, pa, options, async (client) => {
+    tid = await startThread(client, pa);
+    await turn(client, tid, early);
+    await turnWith(client, tid, [
+      { type: 'text', text: 'Keep this image message text exactly. 中文保留。' },
+      { type: 'localImage', path: image },
+    ]);
+    await proveDirectory(client, tid, pa, 'A-LOCAL-PROOF');
+    expected = await turns(client, tid);
+  });
+  // The image disappears from the source computer before the transfer.
+  await fs.rename(image, image.replace(/\.png$/, '.preserved'));
+  const info = { root: lab.root, a: homeA, b: homeB, pa, pb, tid };
+  // Only the explicit local-image input may change on B; every other field and
+  // item, including all user text and tool results, stays the same.
+  const continueOn = (side, placeholder) => {
+    const [home, project, binary] = side === 'B' ? [homeB, pb, target] : [homeA, pa, source];
+    return withClient(lab, binary, home, project, options, async (client) => {
+      await client.rpc('thread/resume', {
+        threadId: tid,
+        cwd: project,
+        sandbox: 'read-only',
+        approvalPolicy: 'on-request',
+        excludeTurns: true,
+      });
+      const before = comparableHistory(expected),
+        after = comparableHistory(await turns(client, tid));
+      let replaced = 0;
+      const replaceImages = (value) => {
+        if (Array.isArray(value)) value.forEach(replaceImages);
+        else if (value && typeof value === 'object') {
+          if (['localImage', 'local_image'].includes(value.type) && value.path === image) {
+            for (const key of Object.keys(value)) delete value[key];
+            Object.assign(value, { type: 'text', text: placeholder, text_elements: [] });
+            replaced++;
+          } else Object.values(value).forEach(replaceImages);
+        }
+      };
+      if (side === 'B') replaceImages(before);
+      assert.deepStrictEqual(
+        after,
+        before,
+        'Native history differs beyond the confirmed image replacement',
+      );
+      if (side === 'B') assert.ok(replaced > 0);
+      await proveDirectory(client, tid, project, side + '-LOCAL-PROOF');
+      await turn(
+        client,
+        tid,
+        'Continue without needing the omitted image; do not repeat the early marker.',
+      );
+      const body = JSON.stringify(fixture.requests.at(-1));
+      assert.ok(body.includes(early) && !body.includes('sesshuttle environment mapping'));
+      expected = await turns(client, tid);
+      return {
+        ok: true,
+        side,
+        turns: expected.length,
+        cwd: true,
+        earlyContext: true,
+        textAndToolHistoryPreserved: true,
+        imageReplaced: replaced,
+      };
+    });
+  };
   if (mode === '--compressed') {
     for (const file of await walk(path.join(info.a, 'sessions'))) {
       if (!file.endsWith('.jsonl')) continue;
@@ -110,9 +183,7 @@ try {
   await sync(a, 'upload');
   const imported = await sync(b, 'download', ['cli']);
   assert.equal(imported.items[0].targets.cli.omittedAttachments.length, 1);
-  child.stdin.write(JSON.stringify({ side: 'B', placeholder }) + '\n');
-  const continuedB = await next();
-  assert.ok(continuedB.ok, continuedB.error);
+  const continuedB = await continueOn('B', placeholder);
   assert.equal(
     (await scan([info.a])).rows.find((r) => r.id === info.tid).hash,
     original,
@@ -123,9 +194,7 @@ try {
   assert.equal(a.rows[0].status, 'remote_changes');
   const returned = await sync(a, 'download', ['desktop']);
   assert.equal(returned.items[0].targets.desktop.omittedAttachments.length, 1);
-  child.stdin.write(JSON.stringify({ side: 'A', placeholder }) + '\n');
-  const continuedA = await next();
-  assert.ok(continuedA.ok, continuedA.error);
+  const continuedA = await continueOn('A', placeholder);
   console.log(
     JSON.stringify(
       {
@@ -142,17 +211,6 @@ try {
     ),
   );
 } finally {
-  child.stdin.end();
-  await new Promise((r) => {
-    const timer = setTimeout(() => {
-      child.kill();
-      r();
-    }, 5000);
-    child.once('exit', () => {
-      clearTimeout(timer);
-      r();
-    });
-  });
-  lines.close();
+  await fixture.close();
   for (const state of states) state.close();
 }

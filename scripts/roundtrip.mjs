@@ -1,11 +1,18 @@
+// Production engine round trip with real Codex programs on synthetic data:
+// Codex A creates a conversation, the engine uploads it encrypted to an
+// in-memory store, imports it for Codex B, B continues, and the result goes
+// back to A, which continues again. Everything lives in a temporary lab.
+// Usage: node scripts/roundtrip.mjs <source codex> <target codex>
+//   SESSHUTTLE_COMPRESSED=1     source rollouts compressed as .zst
+//   SESSHUTTLE_DATABASE_ONLY=1  source has only database records (import must refuse)
+//   SESSHUTTLE_DUPLICATE_TEST=1 B also holds an unrelated duplicate identity
+//   SESSHUTTLE_PROJECT_TEST=1   B binds a native project before import
 import fs from 'node:fs/promises';
 import { zstdCompressSync } from 'node:zlib';
 import { walk } from '../core/util.mjs';
 import { materialize } from '../core/bundle.mjs';
 import { records } from '../core/stream.mjs';
 import { openCatalog, databaseRecords, encodeRecord } from '../core/catalog.mjs';
-import { spawn } from 'node:child_process';
-import readline from 'node:readline';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
@@ -15,25 +22,96 @@ import { Vault } from '../core/vault.mjs';
 import { MemoryStore } from '../tests/helpers/memory-store.mjs';
 import { newKey } from '../core/crypto.mjs';
 import { id } from '../core/util.mjs';
+import { startFixtureProvider, writeFixtureConfig } from '../core/fixture-provider.mjs';
+import {
+  Lab,
+  historyEqual,
+  marker,
+  proveDirectory,
+  startThread,
+  turn,
+  turns,
+  withClient,
+} from './lib/native-lab.mjs';
 const [source, target] = process.argv.slice(2);
 assert.ok(source && target);
-const child = spawn('python3', ['-u', '-m', 'tools.codex_lab.product_bridge', source, target], {
-  stdio: ['pipe', 'pipe', 'inherit'],
-});
-const lines = readline.createInterface({ input: child.stdout });
-const queued = [],
-  waiters = [];
-lines.on('line', (l) => {
-  const x = JSON.parse(l);
-  if (waiters.length) waiters.shift()(x);
-  else queued.push(x);
-});
-const next = () =>
-  queued.length ? Promise.resolve(queued.shift()) : new Promise((r) => waiters.push(r));
+const lab = await Lab.create();
+const fixture = await startFixtureProvider();
+const options = { localPort: fixture.port };
 const states = [];
 try {
-  const info = await next();
-  assert.ok(info.root?.includes('/sesshuttle-lab-'));
+  const homeA = await lab.directory('a/codex'),
+    homeB = await lab.directory('b/codex');
+  const pa = await lab.directory('a/project 中文'),
+    pb = await lab.directory('b/project with spaces');
+  await lab.write('a/project 中文/proof.txt', 'A-LOCAL-PROOF');
+  await lab.write('b/project with spaces/proof.txt', 'B-LOCAL-PROOF');
+  for (const home of [homeA, homeB]) await writeFixtureConfig(home, fixture.port);
+  const early = marker('PRODUCT-EARLY');
+  let tid, expected;
+  await withClient(lab, source, homeA, pa, options, async (client) => {
+    tid = await startThread(client, pa);
+    await turn(client, tid, early);
+    await turn(client, tid, 'Embedded image round', { image: true });
+    await proveDirectory(client, tid, pa, 'A-LOCAL-PROOF');
+    expected = await turns(client, tid);
+  });
+  let destinationProject = null;
+  if (process.env.SESSHUTTLE_PROJECT_TEST === '1')
+    await withClient(lab, target, homeB, pb, options, async (client) => {
+      const result = await client.rpc('project/create', {
+        name: 'linux',
+        roots: [{ path: pb }],
+        idempotencyKey: id(),
+      });
+      destinationProject = result.project.id;
+      const listed = await client.rpc('thread/list', {
+        projectId: destinationProject,
+        modelProviders: [],
+      });
+      assert.equal(listed.data.length, 0);
+    });
+  const info = { root: lab.root, a: homeA, b: homeB, pa, pb, tid, destinationProject };
+  // Resume on one side: same history, same working folder, the early marker
+  // still reaches the provider and no environment message is added.
+  const continueOn = (side) => {
+    const [home, project, binary] = side === 'B' ? [homeB, pb, target] : [homeA, pa, source];
+    return withClient(lab, binary, home, project, options, async (client) => {
+      if (destinationProject && side === 'B') {
+        const read = await client.rpc('thread/read', { threadId: tid });
+        assert.equal(read.thread.projectId, destinationProject);
+        const listed = await client.rpc('thread/list', {
+          projectId: destinationProject,
+          modelProviders: [],
+        });
+        assert.ok(listed.data.some((t) => t.id === tid));
+      }
+      assert.equal((await client.rpc('thread/read', { threadId: tid })).thread.cwd, project);
+      await client.rpc('thread/resume', {
+        threadId: tid,
+        sandbox: 'read-only',
+        approvalPolicy: 'on-request',
+        excludeTurns: true,
+      });
+      assert.ok(
+        historyEqual(await turns(client, tid), expected),
+        'Native history changed during product transfer',
+      );
+      await proveDirectory(client, tid, project, side + '-LOCAL-PROOF');
+      await turn(client, tid, 'Continue on ' + side + ' without repeating the early marker');
+      const body = JSON.stringify(fixture.requests.at(-1));
+      assert.ok(body.includes(early) && !body.includes('sesshuttle environment mapping'));
+      expected = await turns(client, tid);
+      return {
+        ok: true,
+        side,
+        turns: expected.length,
+        cwd: true,
+        earlyContext: true,
+        automaticEnvironmentMessage: false,
+      };
+    });
+  };
   if (process.env.SESSHUTTLE_COMPRESSED === '1') {
     for (const file of await walk(path.join(info.a, 'sessions'))) {
       const raw = await fs.readFile(file);
@@ -142,16 +220,12 @@ try {
     );
   } else {
     await sync(b, 'download', ['cli']);
-    child.stdin.write(JSON.stringify({ side: 'B' }) + '\n');
-    const continuedB = await next();
-    assert.ok(continuedB.ok, continuedB.error);
+    const continuedB = await continueOn('B');
     await sync(b, 'upload');
     await a.refresh();
     assert.equal(a.rows[0].status, 'remote_changes');
     await sync(a, 'download', ['desktop']);
-    child.stdin.write(JSON.stringify({ side: 'A' }) + '\n');
-    const continuedA = await next();
-    assert.ok(continuedA.ok, continuedA.error);
+    const continuedA = await continueOn('A');
     console.log(
       JSON.stringify(
         {
@@ -166,17 +240,6 @@ try {
     );
   }
 } finally {
-  child.stdin.end();
-  await new Promise((r) => {
-    const timer = setTimeout(() => {
-      child.kill();
-      r();
-    }, 5000);
-    child.once('exit', () => {
-      clearTimeout(timer);
-      r();
-    });
-  });
-  lines.close();
+  await fixture.close();
   for (const state of states) state.close();
 }
