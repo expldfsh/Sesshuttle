@@ -309,24 +309,24 @@ tests/core/      node:test 单元测试
 
 ## P5 渲染层重构与前端性能
 
-- [ ] **拆分 `app/renderer/main.tsx`**（现在是约 36KB、约 40 个 state 的单一组件）：
+- [x] **拆分 `app/renderer/main.tsx`**（现在是约 36KB、约 40 个 state 的单一组件）：
   - `app/renderer/App.tsx`：外壳、导航、全局任务；
   - `pages/ConversationsPage.tsx`、`ProjectsPage.tsx`、`SettingsPage.tsx`、`BackupsPage.tsx`、`ActivityPage.tsx`；
   - `hooks/useApi.ts`（`call`、`work`、busy/phase 锁）、`hooks/useNotice.ts`、`hooks/useConfirm.ts`；
   - `main.tsx` 只负责挂载。
-- [ ] **共享组件**（`app/renderer/components/`）：
+- [x] **共享组件**（`app/renderer/components/`）：
   - `Modal`：基于原生 `<dialog>`，支持 Esc（处理中时禁止关闭）、焦点圈定、打开时聚焦标题、恢复原焦点；替换全部 7 处手写 `.modal-backdrop`，`RemovalFlow` 也改用它；
   - `StatusBadge`、`ErrorNotice`（见 P7.9）、`Field`、`Stepper`、`Toast`、`EmptyState`、`Icon`（内置 SVG，见 P7.10）。
-- [ ] **列表性能**：
+- [x] **列表性能**：
   - 对话表格做虚拟滚动（不引入第三方库，用固定行高的窗口化渲染）；超过 100 行时启用，保持键盘导航和全选语义；
   - 筛选和统计用 `useMemo`，搜索输入用 `useDeferredValue`；
   - 已选项改用 `Set`；行组件用 `React.memo`；
   - `Intl.DateTimeFormat` 按语言缓存。
-- [ ] **进度事件隔离**：传输进度（每 150ms 一次）只更新任务面板组件的状态，不触发对话页和表格重渲染（独立 store 或 context，配合 `useSyncExternalStore`）。
-- [ ] 删除 CSS 中的死选择器：`.sync-controls`、`.target-options`、`.progress-bar`、`.path-field`、`.detected-path`、`.path-block`、`.working span`、`.topbar .actions`，以及 P5/P7 后不再使用的选择器。
-- [ ] 合并 CSS 中的重复规则：`.persistent-task` 两次定义且定位冲突、`.modal-actions` 两次 sticky、`.actions` 三次 flex-wrap、`.search-row` 两处。
-- [ ] `.removal-dialog::backdrop` 的硬编码 rgba 改用 `--backdrop`。
-- [ ] `style.css` 按区块重新组织（基础 / 布局 / 组件 / 页面 / 响应式），或拆成多个 CSS 文件由入口导入。
+- [x] **进度事件隔离**：传输进度（每 150ms 一次）只更新任务面板组件的状态，不触发对话页和表格重渲染（独立 store 或 context，配合 `useSyncExternalStore`）。
+- [x] 删除 CSS 中的死选择器：`.sync-controls`、`.target-options`、`.progress-bar`、`.path-field`、`.detected-path`、`.path-block`、`.working span`、`.topbar .actions`，以及 P5/P7 后不再使用的选择器。
+- [x] 合并 CSS 中的重复规则：`.persistent-task` 两次定义且定位冲突、`.modal-actions` 两次 sticky、`.actions` 三次 flex-wrap、`.search-row` 两处。
+- [x] `.removal-dialog::backdrop` 的硬编码 rgba 改用 `--backdrop`。
+- [x] `style.css` 按区块重新组织（基础 / 布局 / 组件 / 页面 / 响应式），或拆成多个 CSS 文件由入口导入。
 
 **自验收**：
 
@@ -571,7 +571,7 @@ tests/core/      node:test 单元测试
 | P2 格式化与静态检查 | 已完成 | da5b92f–92ebddf | 格式化提交 04801ae 已写入 `.git-blame-ignore-revs`；lint 0 错误 0 警告 |
 | P3 core 与主进程重构 | 已完成 | afae909–c19e531 | 测试 65→67（+2 history-items）；`main.ts` 134 行；test-mode 冒烟脚本 `scripts/smoke.mjs` 通过 |
 | P4 后端性能 | 已完成 | bd6806d–cc1b2e3 | 测试 67→76；性能见下表（P4 结束时测量，最终数字在 P10 更新） |
-| P5 渲染层重构与前端性能 | 未开始 | | |
+| P5 渲染层重构与前端性能 | 已完成 | 9148fc4–028d026 | 5,000 行与进度隔离结果见“前端性能（P5）”；全部弹窗 Esc/焦点检查通过 |
 | P6 文案资源重组 | 未开始 | | |
 | P7 UI/UX 改版 | 未开始 | | |
 | P8 Python 工具移植 | 未开始 | | |
@@ -588,6 +588,16 @@ tests/core/      node:test 单元测试
 | 上传 50 MiB，模拟延迟 | 1,366 ms（28 次请求） | 780 ms（28 次请求，P4） |
 | `app.asar` 大小 | 54.7 MB | 19.0 MB（P4，`electron-builder --dir`） |
 | dmg / tar.gz 大小 | 144.9 MB / 143.7 MB | |
+
+### 前端性能（P5，测试模式，`scripts/ui-performance.mjs`）
+
+| 项目 | 结果 |
+| --- | --- |
+| 5,003 行（5,000 条合成 + 3 条演示）刷新到首屏 | 2,833 ms（含首次扫描 5,003 个 rollout） |
+| DOM 中实际渲染的行 | 14 行（超过 100 行启用窗口化，上下各多渲染 8 行） |
+| 逐半屏滚动到底（1,799 帧） | 帧间隔中位数 8.3 ms，P95 9.9 ms；最后一行可达 |
+| 搜索框逐字输入 5 个字符并完成筛选 | 186 ms（含 30 ms/字的输入间隔） |
+| 主进程上传 20 条对话期间的进度事件 | 对话表格重渲染 0 次、行重渲染 0 次；只有任务面板更新（以渲染计数器 `sesshuttleRenderStats` 记录） |
 
 ## 决策与偏差记录
 
@@ -620,6 +630,11 @@ tests/core/      node:test 单元测试
 | 2026-11-06 | P4 第三次扫描：`recordBundle` 的扫描发生在原生验证之后（验证会改写数据库，必须在此之后记录回执），因此改为把这次扫描返回给调用方；当唯一的来源目录正是刚验证过的目录时，引擎不再为同步状态重新扫描。写入前的 `checkUnchanged` 重新扫描保留 | 开发者决定 |
 | 2026-11-06 | P4 sourcemap：`dist/*.map` 不打进安装包（`build.files` 排除），P10 随安装包另存一份到 `release/`，用于诊断 | 开发者决定 |
 | 2026-11-06 | P4 同步记录分页：`activityPage` 把传输与删除任务合并为一条时间线，用 `{at,id}` 游标；`init` 另返回全部任务中“需处理”的数量和所有中断的删除任务（不受分页影响）；`clearActivity({all:true})` 清除全部已完成记录（含未加载的页） | 开发者决定 |
+| 2026-11-06 | P5：`useConfirm` 返回待确认的问题，由 App 用 `Modal` 渲染（保持 `.ts` 文件名）；问题支持标题、确认按钮文案和 danger 样式，供 P7 的结构化确认使用。现有的业务组件（TransferFlow、SyncPlan、RemovalFlow 等）暂留在 `app/renderer/` 根目录，P7 合并/改写时再移动 | 开发者决定 |
+| 2026-11-06 | P5：`Modal` 基于原生 `<dialog>.showModal()`，背景自动 inert，因此焦点不会离开弹窗；新增 `step` 属性，步骤切换时把焦点移回标题并滚到顶部（RemovalFlow 与 P7 的步骤弹窗共用）。`Select` 的下拉菜单改为挂到所在的 `<dialog>` 内，否则会被 inert 背景挡住 | 开发者决定 |
+| 2026-11-06 | P5：虚拟滚动的行高在 CSS 中固定为 64px，运行时再测量一次实际行高用于计算；“全选”只作用于当前筛选结果（与 0.6.0 相同）。`copyText` IPC 在 P5 提前加入，因为 `ErrorNotice` 的“复制”需要它 | 开发者决定 |
+| 2026-11-06 | P5：`scripts/ui-fixture.mjs` 新增 `--count=N`（性能测试）和 `--binary=`；默认不再把 `/Applications/ChatGPT.app` 中真实的 Codex 程序写入测试配置，而是在测试根目录生成一个只报告版本 0.166.0 的替身脚本，避免走查时执行本机真实程序 | 开发者决定 |
+| 2026-11-06 | P5 样式：`style.css` 拆为 `styles/base|layout|components|pages|responsive.css`。重组前后在对话、设置、项目、备份、同步记录、导入弹窗（1320 与 780 宽）中逐元素比对计算样式完全一致；唯一差异是删除弹窗段落间距回到它自己的 12px（P5 初期新增的通用弹窗规则曾把它改成 16px） | 开发者决定 |
 | 2026-11-06 | P1 测试数量：+1 工作区文件夹名；−1 `relation()` 的字节前缀比较（format 1 专属）；+2 legacy 版本（删除预览可见且可永久删除、导入/比较/下载副本/预览拒绝；与新上传并存为冲突分支且可移入回收站）。`attachments` 用例改为 `captureBundle`+`remapHistory`，删去只适用于 format 1 回执的“下一轮还原原始路径”部分；`sync` 中“未完成记录不可快照”改为通过扫描器和 `captureBundle` 验证。其余 format 1 用例改用 format 2 数据，断言保持 | 开发者决定 |
 
 ## 历史轮次摘要
