@@ -102,6 +102,12 @@ export async function walk(root) {
   if (await exists(root)) await visit(root);
   return files;
 }
+// Marks an error raised after an operation began to change data, so that the
+// interface does not report that nothing ran.
+export function afterStart(e) {
+  if (e && typeof e === 'object') e.started = true;
+  return e;
+}
 export function publicError(e) {
   const localCodes = {
     EACCES: 'local_permission_denied',
@@ -116,5 +122,6 @@ export function publicError(e) {
     code:
       localCodes[e?.code] ?? (e?.code && /^[a-z_]+$/.test(e.code) ? e.code : 'operation_failed'),
     detail: e instanceof Fault ? e.detail : localCodes[e?.code] ? String(e.path ?? '') : '',
+    ...(e?.started === true ? { started: true } : {}),
   };
 }

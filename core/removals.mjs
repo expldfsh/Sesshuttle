@@ -3,7 +3,7 @@ import { checkScope } from './scan-scope.mjs';
 import { scan } from './codex.mjs';
 import { Trash } from './trash.mjs';
 import { cloudRemovalPlan, changeCloud, cloudBins } from './cloud-trash.mjs';
-import { id, hash, canonical, requireThat, publicError } from './util.mjs';
+import { id, hash, canonical, requireThat, publicError, afterStart } from './util.mjs';
 
 const uuid = (s) => typeof s === 'string' && /^[0-9a-f-]{36}$/i.test(s);
 const unique = (a) => [...new Set(a)];
@@ -322,6 +322,16 @@ export class Removals {
       ],
     };
     job.upgradeAccepted = !!(job.upgradeAccepted || upgrade);
+    // Every check above only reads. Errors from the run are kept in the job; one that
+    // still escapes says that the removal started.
+    try {
+      return await this.runPlan(token, plan, job);
+    } catch (e) {
+      throw afterStart(e);
+    }
+  }
+  async runPlan(token, plan, job) {
+    const { q } = plan;
     this.state.set('removal-plan/' + token, plan);
     this.plans.delete(token);
     this.engine.running = true;

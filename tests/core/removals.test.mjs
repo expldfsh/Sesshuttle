@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
-import { id, exists, hash, Fault } from '../../core/util.mjs';
+import { id, exists, hash, Fault, publicError } from '../../core/util.mjs';
 import { State } from '../../core/state.mjs';
 import { Engine } from '../../core/engine.mjs';
 import { Importer } from '../../core/importer.mjs';
@@ -294,12 +294,15 @@ test('stale new local images or a changed space stop before either side writes',
     await fs.appendFile(x.asset, 'changed');
     const job = await x.removals.execute(p.token, { permanent: true, upgrade: true });
     assert.equal(job.error.code, 'stale_plan');
+    // No side started: the interface reports that nothing was deleted.
+    assert.ok(job.sides.every((s) => !s.started));
     assert.ok(await x.second.head(x.a));
     assert.ok(await exists(x.asset));
     x.engine.vault = new Vault(store, id(), newKey());
-    await assert.rejects(x.removals.execute(p.token, { permanent: true, upgrade: true }), {
-      code: 'space_changed',
-    });
+    const rejected = await x.removals
+      .execute(p.token, { permanent: true, upgrade: true })
+      .catch((e) => e);
+    assert.deepEqual(publicError(rejected), { code: 'space_changed', detail: '' });
   } finally {
     x.state.close();
   }

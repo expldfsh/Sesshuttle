@@ -8,7 +8,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { scan } from './codex.mjs';
 import { Importer } from './importer.mjs';
-import { id, hash, requireThat, publicError, canonical, indexBy } from './util.mjs';
+import { id, hash, requireThat, publicError, canonical, indexBy, afterStart } from './util.mjs';
 const UPLOAD_ACTIONS = ['upload', 'upload_import', 'preserve_conflict'];
 const ATTENTION = [
   'excluded',
@@ -509,10 +509,10 @@ export class Engine {
       acceptedByItem,
       onlyEligible,
     });
+    // Everything above only reads: a rejection leaves the plan, this computer and the
+    // cloud unchanged. From here on a job exists, and an error says that it started.
     this.plans.delete(token);
-    this.running = true;
     this.cancelled = false;
-    this.vault.beginTransfer(plan.uploadBytes);
     const job = {
       id: id(),
       total: plan.items.length,
@@ -520,25 +520,31 @@ export class Engine {
       status: 'running',
       items: [],
     };
-    this.state.set('job/' + job.id, job);
     try {
-      for (const item of plan.items) {
-        if (this.cancelled) {
-          job.status = 'paused';
-          break;
+      this.vault.beginTransfer(plan.uploadBytes);
+      this.running = true;
+      try {
+        this.state.set('job/' + job.id, job);
+        for (const item of plan.items) {
+          if (this.cancelled) {
+            job.status = 'paused';
+            break;
+          }
+          const accepted =
+            acceptedByItem === undefined
+              ? acceptedMissingAttachments
+              : (acceptedByItem[item.id]?.primary ?? []);
+          await this.runItem(plan, job, item, accepted);
         }
-        const accepted =
-          acceptedByItem === undefined
-            ? acceptedMissingAttachments
-            : (acceptedByItem[item.id]?.primary ?? []);
-        await this.runItem(plan, job, item, accepted);
+        if (job.status === 'running')
+          job.status = job.items.some((x) => ATTENTION.includes(x.status))
+            ? 'attention'
+            : 'completed';
+      } finally {
+        await this.finishJob(plan, job);
       }
-      if (job.status === 'running')
-        job.status = job.items.some((x) => ATTENTION.includes(x.status))
-          ? 'attention'
-          : 'completed';
-    } finally {
-      await this.finishJob(plan, job);
+    } catch (e) {
+      throw afterStart(e);
     }
     return job;
   }

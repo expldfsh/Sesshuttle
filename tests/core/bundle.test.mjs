@@ -10,7 +10,7 @@ import { Engine } from '../../core/engine.mjs';
 import { Vault } from '../../core/vault.mjs';
 import { MemoryStore } from '../helpers/memory-store.mjs';
 import { newKey } from '../../core/crypto.mjs';
-import { id } from '../../core/util.mjs';
+import { id, publicError, Fault } from '../../core/util.mjs';
 import { materialize } from '../../core/bundle.mjs';
 import { digestFile } from '../../core/stream.mjs';
 async function fixture() {
@@ -111,6 +111,34 @@ test('source changed after preview cannot upload staged stale history', async ()
     const j = await x.engine.execute(p.token);
     assert.equal(j.items[0].error.code, 'stale_plan');
     assert.equal(x.store.objects.size, before);
+  } finally {
+    x.state.close();
+    await fs.rm(x.root, { recursive: true, force: true });
+  }
+});
+test('a rejected execute writes nothing; an error after the job started says so', async () => {
+  const x = await fixture();
+  try {
+    const p = await x.engine.preview({ ids: [x.tid], direction: 'upload', targets: [] });
+    // Settings changed after the preview: the plan is out of date.
+    x.state.set('config', { ...x.state.get('config'), bindings: { changed: x.root } });
+    const objects = x.store.objects.size;
+    const rejected = await x.engine.execute(p.token).catch((e) => e);
+    assert.equal(publicError(rejected).code, 'stale_plan');
+    assert.equal(publicError(rejected).started, undefined);
+    assert.deepEqual(x.state.keys('job/'), []);
+    assert.equal(x.store.objects.size, objects);
+    assert.equal(x.engine.running, false);
+    // Once the job exists, an error that escapes is marked as started.
+    x.state.set('config', { ...x.state.get('config'), bindings: {} });
+    const q = await x.engine.preview({ ids: [x.tid], direction: 'upload', targets: [] });
+    x.engine.finishJob = async () => {
+      x.engine.running = false;
+      throw new Fault('disk_space');
+    };
+    const late = await x.engine.execute(q.token).catch((e) => e);
+    assert.deepEqual(publicError(late), { code: 'disk_space', detail: '', started: true });
+    assert.equal(x.state.keys('job/').length, 1);
   } finally {
     x.state.close();
     await fs.rm(x.root, { recursive: true, force: true });
