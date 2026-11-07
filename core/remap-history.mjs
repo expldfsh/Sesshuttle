@@ -1,3 +1,4 @@
+import { visitLocalImages } from './history-items.mjs';
 import { assertAttachmentAcceptance, omittedImageText } from './attachment-policy.mjs';
 import path from 'node:path';
 import { records, recordLines, writeStream } from './stream.mjs';
@@ -34,28 +35,20 @@ export async function remapHistory(files, home, { acceptedMissingAttachments = [
       }
     if (rollout) requireThat(headers.has(f.id), 'invalid_history');
   }
-  function change(v, tid) {
-    let changed = false;
-    if (!v || typeof v !== 'object') return false;
-    if (['localImage', 'local_image'].includes(v.type) && omissions.get(tid)?.has(v.path)) {
-      const a = omissions.get(tid).get(v.path);
-      for (const k of Object.keys(v)) delete v[k];
-      Object.assign(v, { type: 'text', text: omittedImageText(a), text_elements: [] });
+  // An accepted omission becomes a text notice; every other image must map to a copied asset.
+  function change(value, tid) {
+    return visitLocalImages(value, (image) => {
+      if (omissions.get(tid)?.has(image.path)) {
+        const a = omissions.get(tid).get(image.path);
+        for (const k of Object.keys(image)) delete image[k];
+        Object.assign(image, { type: 'text', text: omittedImageText(a), text_elements: [] });
+        return true;
+      }
+      requireThat(replacements.has(image.path), 'incomplete_history');
+      if (image.path === replacements.get(image.path)) return false;
+      image.path = replacements.get(image.path);
       return true;
-    }
-    if (['localImage', 'local_image'].includes(v.type))
-      requireThat(replacements.has(v.path), 'incomplete_history');
-    if (
-      ['localImage', 'local_image'].includes(v.type) &&
-      replacements.has(v.path) &&
-      v.path !== replacements.get(v.path)
-    ) {
-      v.path = replacements.get(v.path);
-      changed = true;
-    }
-    for (const x of Object.values(v))
-      if (typeof x === 'object') changed = change(x, tid) || changed;
-    return changed;
+    });
   }
   const ordered = [],
     done = new Set();

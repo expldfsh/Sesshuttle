@@ -1,3 +1,4 @@
+import { visitLocalImages } from '../core/history-items.mjs';
 // Explicit opt-in: only the source is read; all outputs and native writes use a
 // private temporary lab. Disk-backed encrypted store cannot contact R2.
 import path from 'node:path';
@@ -110,15 +111,10 @@ try {
       for (const r of expected) {
         const item = JSON.parse(r.row.item_json);
         const mappings = p.items[0].files.find((f) => f.id === tid).attachments;
-        function change(v) {
-          if (!v || typeof v !== 'object') return;
-          if (['localImage', 'local_image'].includes(v.type)) {
-            const a = mappings.find((a) => a.path === v.path);
-            if (a) v.path = path.join(info.home, 'sesshuttle_assets', a.hash);
-          }
-          for (const x of Object.values(v)) if (typeof x === 'object') change(x);
-        }
-        change(item);
+        visitLocalImages(item, (image) => {
+          const a = mappings.find((a) => a.path === image.path);
+          if (a) image.path = path.join(info.home, 'sesshuttle_assets', a.hash);
+        });
         assert.deepEqual(JSON.parse(actual.get(r.row.item_id)?.item_json ?? 'null'), item);
         itemCount++;
       }

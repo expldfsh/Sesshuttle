@@ -1,3 +1,4 @@
+import { messageFromEvent, messageFromItem } from './history-items.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { hash, walk, requireThat, exists, inside } from './util.mjs';
@@ -102,24 +103,10 @@ export async function scanHistory(homes, { sourceOf }) {
                   if (['task_complete', 'turn_complete', 'turn_aborted'].includes(p?.type))
                     busy = false;
                 }
-                if (
-                  record.type === 'event_msg' &&
-                  ['user_message', 'agent_message'].includes(p?.type)
-                )
-                  messages.push({
-                    role: p.type === 'user_message' ? 'user' : 'assistant',
-                    text: String(p.message ?? '').slice(0, 12000),
-                  });
-                else if (record.type === 'event_msg' && p?.item) {
-                  const item = p.item,
-                    t = item.type?.toLowerCase();
-                  if (['usermessage', 'agentmessage'].includes(t))
-                    messages.push({
-                      role: t === 'usermessage' ? 'user' : 'assistant',
-                      text: String(
-                        item.text ?? item.content?.map((x) => x.text ?? '').join('\n') ?? '',
-                      ).slice(0, 12000),
-                    });
+                if (record.type === 'event_msg') {
+                  // Rollout previews list conversation turns only, not command output.
+                  const message = messageFromEvent(p) ?? (p?.item ? messageFromItem(p.item) : null);
+                  if (message && message.role !== 'tool') messages.push(message);
                 }
                 if (messages.length > 30) messages.shift();
               }

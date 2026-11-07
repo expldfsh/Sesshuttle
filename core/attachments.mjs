@@ -1,3 +1,4 @@
+import { isLocalImage, walkObjects } from './history-items.mjs';
 import { readOmissionText } from './attachment-policy.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -6,28 +7,20 @@ import { records } from './stream.mjs';
 import { databaseRecords, openCatalog } from './catalog.mjs';
 import { imageType } from './codex.mjs';
 import { hash, inside, requireThat } from './util.mjs';
-function resourceReferences(
-  value,
-  resources = new Set(),
-  issues = new Set(),
-  omissions = new Map(),
-) {
-  if (!value || typeof value !== 'object') return { resources, issues, omissions };
-  const omission = ['text', 'input_text'].includes(value.type)
-    ? readOmissionText(value.text)
-    : null;
-  if (omission) omissions.set(JSON.stringify(omission), omission);
-  if (['localImage', 'local_image'].includes(value.type) && typeof value.path === 'string')
-    resources.add(value.path);
-  if (['input_image', 'image'].includes(value.type)) {
-    const u = value.image_url ?? value.url;
-    if (typeof u === 'string' && !u.startsWith('data:image/')) issues.add('external_image');
-  }
-  if (value.file_id || ['input_audio', 'input_file'].includes(value.type))
-    issues.add('remote_resource');
-  for (const v of Object.values(value))
-    if (typeof v === 'object') resourceReferences(v, resources, issues, omissions);
-  return { resources, issues, omissions };
+function resourceReferences(value, resources, issues, omissions) {
+  walkObjects(value, (node) => {
+    const omission = ['text', 'input_text'].includes(node.type)
+      ? readOmissionText(node.text)
+      : null;
+    if (omission) omissions.set(JSON.stringify(omission), omission);
+    if (isLocalImage(node) && typeof node.path === 'string') resources.add(node.path);
+    if (['input_image', 'image'].includes(node.type)) {
+      const u = node.image_url ?? node.url;
+      if (typeof u === 'string' && !u.startsWith('data:image/')) issues.add('external_image');
+    }
+    if (node.file_id || ['input_audio', 'input_file'].includes(node.type))
+      issues.add('remote_resource');
+  });
 }
 export async function referencesFor(row, catalog = null, { ownership = false } = {}) {
   const resources = new Set(),

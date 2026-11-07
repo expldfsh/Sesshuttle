@@ -1,3 +1,4 @@
+import { messageFromItem } from './history-items.mjs';
 // Native databases are opened read-only. No migration or native process runs here.
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs/promises';
@@ -152,19 +153,9 @@ export function databaseSummary(catalog, tid) {
     if (r.table === 'thread_items') {
       count++;
       try {
-        const item = JSON.parse(r.row.item_json);
-        const type = item.type?.toLowerCase();
-        if (['usermessage', 'agentmessage', 'commandexecution'].includes(type)) {
-          const text =
-            item.text ??
-            item.aggregatedOutput ??
-            item.aggregated_output ??
-            item.content?.map((x) => x.text ?? '').join('\n') ??
-            '';
-          messages.push({
-            role: type === 'usermessage' ? 'user' : type === 'agentmessage' ? 'assistant' : 'tool',
-            text: String(text).slice(0, 12000),
-          });
+        const message = messageFromItem(JSON.parse(r.row.item_json));
+        if (message) {
+          messages.push(message);
           if (messages.length > 30) messages.shift();
         }
       } catch {}
