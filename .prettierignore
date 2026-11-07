@@ -1,0 +1,7 @@
+dist/
+release/
+node_modules/
+package-lock.json
+THIRD_PARTY_NOTICES.txt
+# Rewritten in P6; formatted with the new message table.
+app/renderer/locale.ts
