@@ -17,7 +17,7 @@ tar -xzf sesshuttle-0.7.0-linux-x64.tar.gz
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
 
-The **Getting started** list at the top of Conversations shows four steps: detect Codex apps, connect cloud storage, refresh the list and finish a first upload or import. Each step has its own button and the list hides itself when all are done. You can also choose **Hide**.
+The **Getting started** list at the top of Conversations shows four steps: detect Codex apps, connect cloud storage, refresh the list and finish a first upload or import. Use the buttons beside the first three steps; for the final step, select a chat and upload or import it. The list hides itself when all steps are done. You can also choose **Hide**.
 
 ## Connect both computers
 
