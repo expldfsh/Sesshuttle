@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {hash,id} from '../../core/util.mjs';
 import {newKey,seal} from '../../core/crypto.mjs';
 import {Vault} from '../../core/vault.mjs';
-import {MemoryStore} from '../../core/storage.mjs';
+import {MemoryStore} from '../helpers/memory-store.mjs';
 import {changeCloud,cloudBins,cloudRemovalPlan} from '../../core/cloud-trash.mjs';
 
 function payload(tid,text){

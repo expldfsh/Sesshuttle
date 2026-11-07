@@ -12,7 +12,7 @@ import {Importer} from '../../core/importer.mjs';
 import {Trash} from '../../core/trash.mjs';
 import {State} from '../../core/state.mjs';
 import {Vault} from '../../core/vault.mjs';
-import {MemoryStore} from '../../core/storage.mjs';
+import {MemoryStore} from '../helpers/memory-store.mjs';
 import {newKey} from '../../core/crypto.mjs';
 
 test('a divergent pair does not prevent independent transfer, removal and restore',async t=>{

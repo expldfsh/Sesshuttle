@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import http from 'node:http';import {R2Store} from '../../core/storage.mjs';import {hash,id} from '../../core/util.mjs';import {Vault} from '../../core/vault.mjs';import {newKey} from '../../core/crypto.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import http from 'node:http';import {R2Store} from '../helpers/memory-store.mjs';import {hash,id} from '../../core/util.mjs';import {Vault} from '../../core/vault.mjs';import {newKey} from '../../core/crypto.mjs';
 test('real S3 client uses conditional HTTP writes, lists, encrypts, and detects access errors',async()=>{
  const objects=new Map(),requests=[];let denied=false;
  const server=http.createServer(async(req,res)=>{requests.push(req.headers);if(denied){res.writeHead(403,{'content-type':'application/xml'});return res.end('<Error><Code>AccessDenied</Code></Error>');}const url=new URL(req.url,'http://localhost');const key=decodeURIComponent(url.pathname).split('/').slice(2).join('/');

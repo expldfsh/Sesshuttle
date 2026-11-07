@@ -11,7 +11,7 @@ import {Engine} from '../../core/engine.mjs';
 import {Importer} from '../../core/importer.mjs';
 import {Trash} from '../../core/trash.mjs';
 import {Removals} from '../../core/removals.mjs';
-import {R2Store} from '../../core/storage.mjs';
+import {R2Store} from '../helpers/memory-store.mjs';
 import {Vault} from '../../core/vault.mjs';
 import {newKey} from '../../core/crypto.mjs';
 import {cloudBins} from '../../core/cloud-trash.mjs';

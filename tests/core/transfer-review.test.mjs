@@ -6,7 +6,7 @@ import os from 'node:os';
 import {Engine} from '../../core/engine.mjs';
 import {State} from '../../core/state.mjs';
 import {Vault} from '../../core/vault.mjs';
-import {MemoryStore} from '../../core/storage.mjs';
+import {MemoryStore} from '../helpers/memory-store.mjs';
 import {newKey} from '../../core/crypto.mjs';
 import {hash,id} from '../../core/util.mjs';
 

@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
-import {relatedRows} from '../../core/bundle.mjs';import {projectFor} from '../../core/catalog.mjs';import {State} from '../../core/state.mjs';import {Engine} from '../../core/engine.mjs';import {Vault} from '../../core/vault.mjs';import {MemoryStore} from '../../core/storage.mjs';import {newKey} from '../../core/crypto.mjs';import {id} from '../../core/util.mjs';
+import {relatedRows} from '../../core/bundle.mjs';import {projectFor} from '../../core/catalog.mjs';import {State} from '../../core/state.mjs';import {Engine} from '../../core/engine.mjs';import {Vault} from '../../core/vault.mjs';import {MemoryStore} from '../helpers/memory-store.mjs';import {newKey} from '../../core/crypto.mjs';import {id} from '../../core/util.mjs';
 test('scope includes required ancestors without silently adding siblings or descendants',()=>{
  const a={id:'a'},b={id:'b',parent:'a'},c={id:'c',parent:'a'},d={id:'d',parent:'b'},rows=[a,b,c,d];
  assert.deepEqual(relatedRows(a,rows).map(r=>r.id),['a']);assert.deepEqual(relatedRows(b,rows).map(r=>r.id),['a','b']);

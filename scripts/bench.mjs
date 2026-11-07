@@ -15,7 +15,7 @@ import { Vault } from '../core/vault.mjs';
 import { seal } from '../core/crypto.mjs';
 import { hash } from '../core/util.mjs';
 import { cloudRemovalPlan } from '../core/cloud-trash.mjs';
-import { MemoryStore } from '../core/storage.mjs';
+import { MemoryStore } from '../tests/helpers/memory-store.mjs';
 
 const args = new Map(
   process.argv.slice(2).map((a) => {

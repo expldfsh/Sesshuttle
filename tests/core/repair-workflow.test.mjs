@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Vault} from '../../core/vault.mjs';
-import {MemoryStore} from '../../core/storage.mjs';
+import {MemoryStore} from '../helpers/memory-store.mjs';
 import {newKey} from '../../core/crypto.mjs';
 import {hash,id} from '../../core/util.mjs';
 import {packStream,materialize} from '../../core/bundle.mjs';
