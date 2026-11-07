@@ -9,6 +9,7 @@ import { validateBundle, bundleIdentity, bundleBytes } from './bundle.mjs';
 import { seal, unseal, parseKey } from './crypto.mjs';
 import { hash, requireThat, Fault, id } from './util.mjs';
 const HEAD_READS = 8;
+const CHUNK_TRANSFERS = 4;
 export class Vault {
   constructor(store, space, key, { installation = id(), deviceName = '' } = {}) {
     this.installation = installation;
@@ -97,28 +98,54 @@ export class Vault {
           }
     return { bytes, objects: unique.size };
   }
-  async uploadChunks(payload) {
-    const inventory = await this.inventory();
+  // A transfer job lists the space once and keeps that listing current as it
+  // uploads. It lists again when another device finished a cloud removal in
+  // between, since that removal may have deleted chunks the old listing shows.
+  beginTransfer(uploadBytes) {
+    this.writeBudget = { remaining: uploadBytes };
+    this.transfer = { inventory: null, removals: null };
+  }
+  endTransfer() {
+    this.writeBudget = null;
+    this.onBytes = null;
+    this.transfer = null;
+  }
+  async spaceInventory(marker) {
+    if (!this.transfer) return this.inventory();
+    const removals = JSON.stringify(marker?.completed ?? []);
+    if (!this.transfer.inventory || this.transfer.removals !== removals) {
+      this.transfer.inventory = await this.inventory();
+      this.transfer.removals = removals;
+    }
+    return this.transfer.inventory;
+  }
+  // Chunks go up four at a time; the write budget and byte count are updated
+  // synchronously around each request, so both stay exact.
+  async uploadChunks(payload, marker) {
+    const inventory = await this.spaceInventory(marker);
+    const missing = new Map();
     for (const f of payload.files)
       for (const a of f.artifacts)
         for (const c of a.chunks) {
           const key = this.prefix + 'blobs/' + c.hash;
-          if (inventory.objects.has(key)) continue;
-          const file = this.staged?.get(c.hash);
-          requireThat(file, 'stale_plan');
-          const body = await fs.readFile(file);
-          const plain = Buffer.from(
-            unseal(body, this.key, this.space, 'blobs/' + c.hash).data,
-            'base64',
-          );
-          requireThat(hash(plain) === c.hash && plain.length === c.bytes, 'corrupt_data');
-          try {
-            await this.put(key, body, null);
-          } catch (e) {
-            if (e.code !== 'concurrent_update') throw e;
-          }
-          inventory.objects.set(key, body.length);
+          if (!inventory.objects.has(key) && !missing.has(key)) missing.set(key, c);
         }
+    await mapLimit(missing, CHUNK_TRANSFERS, async ([key, c]) => {
+      const file = this.staged?.get(c.hash);
+      requireThat(file, 'stale_plan');
+      const body = await fs.readFile(file);
+      const plain = Buffer.from(
+        unseal(body, this.key, this.space, 'blobs/' + c.hash).data,
+        'base64',
+      );
+      requireThat(hash(plain) === c.hash && plain.length === c.bytes, 'corrupt_data');
+      try {
+        await this.put(key, body, null);
+      } catch (e) {
+        if (e.code !== 'concurrent_update') throw e;
+      }
+      inventory.objects.set(key, body.length);
+    });
   }
   async create() {
     await this.put(
@@ -201,16 +228,16 @@ export class Vault {
     });
   }
   async publish(payload, device, expected) {
-    return withSpaceWriter(this, async () => {
+    return withSpaceWriter(this, async (guard) => {
       if (expected !== undefined)
         requireThat(
           ((await this.head(payload.logicalId))?.etag ?? null) === expected,
           'stale_plan',
         );
-      return this.publishLocked(payload, device);
+      return this.publishLocked(payload, device, guard.state());
     });
   }
-  async publishLocked(payload, device) {
+  async publishLocked(payload, device, marker) {
     validateBundle(payload);
     for (let attempt = 0; attempt < 4; attempt++) {
       const head = await this.rawHead(payload.logicalId);
@@ -229,7 +256,7 @@ export class Vault {
         if (r === 'local_changes') parents.push(tip);
         else remaining.push(tip);
       }
-      await this.uploadChunks(payload);
+      await this.uploadChunks(payload, marker);
       const versionPayload = { ...payload, parents, device, uploadedAt: new Date().toISOString() };
       const version = hash(JSON.stringify(versionPayload));
       const object = 'versions/' + version;

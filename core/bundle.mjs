@@ -241,15 +241,33 @@ export async function captureBundle(row, rows, vault, stage, options = {}) {
     for (const c of catalogs.values()) c.close();
   }
 }
+// Up to four chunks are fetched ahead while earlier ones are written, in order.
+const PREFETCH = 4;
 async function* artifactData(a, vault) {
   const digest = createHash('sha256');
-  let bytes = 0;
-  for (const c of a.chunks) {
-    const b = await vault.readChunk(c.hash);
-    requireThat(b.length === c.bytes, 'corrupt_data');
-    digest.update(b);
-    bytes += b.length;
-    yield b;
+  const pending = [];
+  let bytes = 0,
+    next = 0;
+  const fetchNext = () => {
+    const chunk = a.chunks[next++];
+    const read = vault.readChunk(chunk.hash).then((data) => ({ chunk, data }));
+    // Handled when awaited below; this keeps an early failure from going unobserved.
+    read.catch(() => {});
+    pending.push(read);
+  };
+  while (pending.length < PREFETCH && next < a.chunks.length) fetchNext();
+  try {
+    while (pending.length) {
+      const { chunk, data } = await pending.shift();
+      if (next < a.chunks.length) fetchNext();
+      requireThat(data.length === chunk.bytes, 'corrupt_data');
+      digest.update(data);
+      bytes += data.length;
+      yield data;
+    }
+  } finally {
+    // A consumer that stops early still lets chunks already requested settle.
+    await Promise.allSettled(pending);
   }
   requireThat(bytes === a.bytes && digest.digest('hex') === a.hash, 'corrupt_data');
 }

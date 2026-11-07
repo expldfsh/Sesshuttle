@@ -511,7 +511,7 @@ export class Engine {
     this.plans.delete(token);
     this.running = true;
     this.cancelled = false;
-    this.vault.writeBudget = { remaining: plan.uploadBytes };
+    this.vault.beginTransfer(plan.uploadBytes);
     const job = {
       id: id(),
       total: plan.items.length,
@@ -590,8 +590,7 @@ export class Engine {
     }
   }
   async finishJob(plan, job) {
-    this.vault.writeBudget = null;
-    this.vault.onBytes = null;
+    this.vault.endTransfer();
     delete job.progress;
     await fs.rm(plan.stage, { recursive: true, force: true }).catch(() => {});
     this.running = false;
