@@ -1,3 +1,4 @@
+import { mapLimit } from './concurrency.mjs';
 import { ensureFreeSpace } from './guards.mjs';
 import { readSpace, withSpaceWriter } from './space-writer.mjs';
 import { attachmentReview, inheritedOmissions } from './attachment-policy.mjs';
@@ -7,6 +8,7 @@ import { atomic, exists } from './util.mjs';
 import { validateBundle, bundleIdentity, bundleBytes } from './bundle.mjs';
 import { seal, unseal, parseKey } from './crypto.mjs';
 import { hash, requireThat, Fault, id } from './util.mjs';
+const HEAD_READS = 8;
 export class Vault {
   constructor(store, space, key, { installation = id(), deviceName = '' } = {}) {
     this.installation = installation;
@@ -137,14 +139,11 @@ export class Vault {
   async allHeads({ allowPending = true } = {}) {
     const marker = await this.open();
     requireThat(allowPending || !marker.pending, 'cloud_cleanup_pending');
-    const keys = await this.store.list(this.prefix + 'heads/'),
-      result = [];
-    for (const key of keys) {
-      const logical = key.slice((this.prefix + 'heads/').length);
-      const head = await this.rawHead(logical);
-      if (head) result.push(head);
-    }
-    return result;
+    const prefix = this.prefix + 'heads/';
+    const keys = await this.store.list(prefix);
+    // Heads are independent objects; read eight at a time and keep the listing order.
+    const heads = await mapLimit(keys, HEAD_READS, (key) => this.rawHead(key.slice(prefix.length)));
+    return heads.filter(Boolean);
   }
   async heads() {
     const all = await this.allHeads({ allowPending: false });
