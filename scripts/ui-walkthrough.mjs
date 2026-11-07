@@ -10,7 +10,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { openSession } from './lib/ui-session.mjs';
-import { recordIpc } from './lib/test-app.mjs';
+import { invoke, recordIpc } from './lib/test-app.mjs';
 import { rawKeys } from './lib/raw-keys.mjs';
 
 const option = (name, fallback) =>
@@ -166,6 +166,19 @@ async function connected(language, size, tag) {
       await page.waitForSelector('dialog[open].sync-plan');
     });
     await h.shot('upload-2');
+    // Settings change after the preview: the upload cannot start and stays in the
+    // task panel with its recovery, which previews again.
+    await h.action(async () => {
+      const config = (await invoke(page, 'init')).data.config;
+      await invoke(page, 'saveConfig', { ...config, skipNativeConfirm: !config.skipNativeConfirm });
+      await primary(page).click();
+      await page.waitForSelector('#task-panel .task-failure');
+    });
+    await h.shot('task-failure');
+    await h.action(async () => {
+      await page.locator('#task-panel .task-failure button.primary').click();
+      await page.waitForSelector('dialog[open].sync-plan', { timeout: 30000 });
+    });
     await h.action(async () => {
       await primary(page).click();
       await page.waitForFunction(() => !document.querySelector('dialog[open]'));
