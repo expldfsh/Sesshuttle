@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Modal } from './components/Modal';
+import { useI18n } from './i18n/I18n';
 
 const dateLabel = (v: string | undefined, locale: string) =>
   v ? new Date(v).toLocaleString(locale) : '—';
@@ -10,9 +11,10 @@ const modeKey = (s: string) =>
   ({ trash: 'toBin', purge: 'permanentDelete', restore: 'restoreCopy' })[s] ?? s;
 
 function ConfirmationLabel({ t, mode, local, cloud }: any) {
+  const { tn } = useI18n();
   const destinations = [
-    local > 0 ? t('thisDevice') + ' ' + local + ' ' + t('chatCountUnit') : '',
-    cloud > 0 ? t('cloud') + ' ' + cloud + ' ' + t('backupVersions') : '',
+    local > 0 ? t('thisDevice') + ' ' + tn('countConversations', local) : '',
+    cloud > 0 ? t('cloud') + ' ' + tn('countBackupVersions', cloud) : '',
   ].filter(Boolean);
   return (
     <>
@@ -52,6 +54,7 @@ export function RemovalFlow({
   onExecute,
   onRepair,
 }: any) {
+  const { tn } = useI18n();
   const [q, setQ] = useState<any>(
     () =>
       initial.plan?.q ?? {
@@ -438,9 +441,11 @@ export function RemovalFlow({
                       </label>
                       <details>
                         <summary>
-                          {v.files.length} {t('conversations')} ·{' '}
-                          {v.files.reduce((n: number, f: any) => n + f.assets.length, 0)}{' '}
-                          {t('attachments')}
+                          {tn('countConversations', v.files.length)} ·{' '}
+                          {tn(
+                            'countAttachments',
+                            v.files.reduce((n: number, f: any) => n + f.assets.length, 0),
+                          )}
                         </summary>
                         {v.files.map((f: any) => (
                           <div className="removal-resource" key={f.id}>
@@ -563,6 +568,7 @@ export function RemovalFlow({
 }
 
 export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: any) {
+  const { tn } = useI18n();
   if (!job) return null;
   const running = busy && ['checking', 'running'].includes(job.status),
     interrupted =
@@ -616,12 +622,9 @@ export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: a
               )[s.status],
             )}
           </b>{' '}
-          · {s.count} {t(s.side === 'local' ? 'chatCountUnit' : 'backupVersions')}
+          · {tn(s.side === 'local' ? 'countConversations' : 'countBackupVersions', s.count)}
           {s.progress && s.status === 'running' && (
-            <small>
-              {' '}
-              · {s.progress[0]}/{s.progress[1]} {t('cloudObjects')}
-            </small>
+            <small> · {tn('objectProgress', s.progress[1], { done: s.progress[0] })}</small>
           )}
           {s.home && <small> {s.home}</small>}
           {s.error && (
@@ -650,6 +653,7 @@ export function RemovalResult({ job, t, onRetry, onBackups, onDismiss, busy }: a
 }
 
 export function RemovalBins({ data, connected, t, date, busy, open, resume, settings }: any) {
+  const { tn } = useI18n();
   if (!data) return <p role="status">{t('loadingBins')}</p>;
   return (
     <>
@@ -692,7 +696,7 @@ export function RemovalBins({ data, connected, t, date, busy, open, resume, sett
                     <b>{label}</b>
                     <small>
                       {date(b.at ?? b.createdAt)} ·{' '}
-                      {local ? b.home : b.count + ' ' + t('backupVersions')}
+                      {local ? b.home : tn('countBackupVersions', b.count)}
                     </small>
                     {local && <small>{t('trashStatus_' + b.status)}</small>}
                   </div>

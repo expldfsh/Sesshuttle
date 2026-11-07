@@ -7,8 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { I18nProvider, makeI18n, useI18n, type Locale } from './i18n/I18n';
-import { zh, en } from './locale';
+import { I18nProvider, makeI18n, translate, useI18n, type Locale } from './i18n/I18n';
 import { call, useWork, type ApiError } from './hooks/useApi';
 import { useNotice, type Notice } from './hooks/useNotice';
 import { useConfirm, type Question } from './hooks/useConfirm';
@@ -343,7 +342,7 @@ function TopBar() {
               await call('saveConfig', { ...init.config, language });
               app.setInit({ ...init, config: { ...init.config, language } });
               app.setCfg({ ...cfg, language });
-              app.notify({ text: (language === 'en' ? en : zh).languageSaved });
+              app.notify({ text: translate(language as Locale, 'languageSaved') });
             }, 'applying')
           }
         />
@@ -459,7 +458,7 @@ function GlobalNotices() {
 // Dialogs that any page or task can open.
 function GlobalDialogs() {
   const app = useApp();
-  const { t, date, size } = useI18n();
+  const { t, tn, date, size } = useI18n();
   const { busy, work } = app;
   return (
     <>
@@ -622,7 +621,7 @@ function GlobalDialogs() {
             <div className="scope-item" key={v.id}>
               <b>{v.title}</b>
               <p>
-                {v.device} · {date(v.at)} · {size(v.bytes)} · {v.files} {t('historyFiles')}
+                {v.device} · {date(v.at)} · {size(v.bytes)} · {tn('countHistoryFiles', v.files)}
               </p>
               <small>{v.lastMessage}</small>
               <button

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from './components/Modal';
+import { useI18n } from './i18n/I18n';
 
 export function SyncPlan({
   plan,
@@ -15,6 +16,7 @@ export function SyncPlan({
   onRebuild,
   onExecute,
 }: any) {
+  const { tn } = useI18n();
   const [omitted, setOmitted] = useState<Record<string, Record<string, string[]>>>({});
   const [approved, setApproved] = useState<string[]>(plan.selection?.approvedAttachments ?? []);
   const [large, setLarge] = useState(false);
@@ -60,7 +62,7 @@ export function SyncPlan({
       ).replace('{n}', String(runnable.length))
     : hasImport
       ? (hasUpload ? t('confirmBoth') : t('confirmImport')) + ' ' + destination
-      : t('confirmUploadCount') + ' ' + runnable.length + ' ' + t('conversations');
+      : tn('confirmUploadN', runnable.length);
   return (
     <Modal
       title={t('reviewAction')}
@@ -70,7 +72,7 @@ export function SyncPlan({
       onClose={onClose}
     >
       <p className="preview-state">
-        {t('previewOnly')} · {plan.ids.length} {t('directSelections')} · {count} {t('actualScope')}
+        {t('previewOnly')} · {tn('previewScope', count, { direct: plan.ids.length })}
       </p>
       {plan.copyChoice && (
         <p className="notice">
@@ -187,9 +189,7 @@ export function SyncPlan({
                   )}
                   {!!file.attachments?.length && (
                     <details open={file.attachments.some((a: any) => a.status !== 'included')}>
-                      <summary>
-                        {file.attachments.length} {t('attachments')}
-                      </summary>
+                      <summary>{tn('countAttachments', file.attachments.length)}</summary>
                       {file.attachments.map((a: any) => (
                         <div className="attachment-row" key={a.key}>
                           <code>{a.path}</code>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Select } from './Select';
+import { useI18n } from './i18n/I18n';
 
 export function ManualBackups({
   data,
@@ -15,6 +16,7 @@ export function ManualBackups({
   changed,
   notify,
 }: any) {
+  const { tn } = useI18n();
   const homes = Array.from(
     new Set<string>(
       [...cfg.sourceHomes, ...Object.values(cfg.targets).map((v: any) => v.home)].filter(Boolean),
@@ -96,7 +98,7 @@ export function ManualBackups({
               <small>{b.home}</small>
               {b.restorePending && <p className="warning-box">{t('restore_pending')}</p>}
               <small>
-                {b.count} {t('files')} · {t('diskUsed')} {size(b.diskBytes)}
+                {tn('countFiles', b.count)} · {t('diskUsed')} {size(b.diskBytes)}
               </small>
             </div>
             <button disabled={busy} onClick={() => work(() => restore(b), 'restoreActive')}>
