@@ -8,7 +8,9 @@ if (!path.basename(root).startsWith('sesshuttle-ui-')) throw Error('Test root re
 const marker = JSON.parse(await fs.readFile(path.join(root, '.sesshuttle-test.json'), 'utf8'));
 if (marker.format !== 1) throw Error('Test marker required');
 const objects = new Map();
+// After the first line (the connection), each request is reported on its own line.
 const server = http.createServer(async (req, res) => {
+  console.log(JSON.stringify({ method: req.method, url: req.url }));
   try {
     const url = new URL(req.url, 'http://localhost'),
       key = decodeURIComponent(url.pathname).split('/').slice(2).join('/');

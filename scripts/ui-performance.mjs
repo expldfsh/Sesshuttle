@@ -21,7 +21,7 @@ try {
   result.refreshMs = Date.now() - start;
   result.rowsInDom = await page.locator('tr.conversation-row').count();
   result.total = Number(
-    (await page.locator('.list-footer span').last().textContent()).split('/')[1],
+    (await page.locator('.list-footer span').first().textContent()).match(/\d+/)[0],
   );
   assert.ok(result.total >= count, 'all rows are listed');
   assert.ok(result.rowsInDom < 60, 'only a window of rows is rendered');
@@ -53,7 +53,7 @@ try {
   assert.equal(result.scroll.lastRowIndex, result.total + 1, 'the last row is reachable');
 
   // Typing waits on no full-list re-render; filtering follows.
-  const search = page.locator('.search-row input');
+  const search = page.locator('#conversation-search');
   start = Date.now();
   await search.pressSequentially('#4999', { delay: 30 });
   await page.waitForFunction(() => document.querySelectorAll('tr.conversation-row').length <= 2);
@@ -61,19 +61,19 @@ try {
   await search.fill('');
   await page.waitForFunction(() => document.querySelectorAll('tr.conversation-row').length > 10);
 
-  // Upload 20 conversations through the main process; only the task panel may update.
+  // Upload 20 conversations through the main process; only the task indicator may update.
   const rows = (await invoke(page, 'refresh')).data.rows.slice(0, 20).map((r) => r.id);
   const before = await page.evaluate(() => ({ ...window.sesshuttleRenderStats }));
   const plan = await invoke(page, 'preview', { ids: rows, direction: 'upload', targets: [] });
   assert.equal(plan.ok, true, JSON.stringify(plan.error));
   const job = await invoke(page, 'execute', { token: plan.data.token });
   assert.equal(job.data.status, 'completed', JSON.stringify(job.data));
-  await page.waitForSelector('.persistent-task');
+  await page.waitForSelector('.task-indicator');
   const after = await page.evaluate(() => ({ ...window.sesshuttleRenderStats }));
   result.progress = {
     tableRenders: after.table - before.table,
     rowRenders: after.rows - before.rows,
-    taskPanel: await page.locator('.persistent-task').count(),
+    taskIndicator: await page.locator('.task-indicator').count(),
   };
   assert.equal(result.progress.tableRenders, 0, 'progress events do not re-render the table');
   console.log(JSON.stringify(result, null, 2));

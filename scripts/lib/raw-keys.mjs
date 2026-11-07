@@ -1,12 +1,13 @@
 /* global document */
 // Visible text that looks like a message key or code instead of a translation:
-// camelCase or snake_case words. Paths, ids and environment names are ignored.
+// camelCase or snake_case words. Paths, ids, environment names, preformatted
+// technical text (diagnostics, error details) are ignored.
 export async function rawKeys(page) {
   return page.evaluate(() => {
     const walker = document.createTreeWalker(document.body, 4);
     const parts = [];
     while (walker.nextNode())
-      if (walker.currentNode.parentElement?.closest('[hidden],script,style') == null)
+      if (walker.currentNode.parentElement?.closest('[hidden],script,style,pre,.technical') == null)
         parts.push(walker.currentNode.textContent);
     for (const e of document.querySelectorAll('[aria-label],[placeholder],[title]'))
       parts.push(...['aria-label', 'placeholder', 'title'].map((a) => e.getAttribute(a) ?? ''));
