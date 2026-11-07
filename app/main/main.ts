@@ -9,7 +9,6 @@ import {detectEnvironment,liveLinuxTargets} from '../../core/discovery.mjs';
 import {localProjects} from '../../core/local-projects.mjs';
 import {runtimeInfo} from '../../core/runtime.mjs';
 import {verifyRuntime} from '../../core/runtime-check.mjs';
-import {assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
 import {downloadCopy} from '../../core/download-copy.mjs';
 import {keepLocalCopy,inspectTarget} from '../../core/local-copies.mjs';
@@ -172,7 +171,6 @@ async function request(method:string,args:any){switch(method){
   const head=engine.remote.find((h:any)=>h.logicalId===args.id);requireThat(engine.vault,'storage_not_connected');requireThat(head,'cloud_version_missing');
   return Promise.all(head.tips.map(async(v:string)=>{const p=await engine.vault.version(v);return {id:v,title:p.title,device:p.device?.name,at:p.uploadedAt,bytes:bundleBytes(p),files:p.files.length,lastMessage:p.messages?.at(-1)?.text?.slice(0,180)};}));
  }
- case 'checkClosed':if(!testRoot)await assertCodexClosed();return true;
  case 'validateFolders':for(const projectId of args.projectIds??[]){
    const folder=engine.config().bindings?.[projectId];requireThat(folder && (await fs.stat(folder).catch(()=>null))?.isDirectory(),'working_folder_missing',folder??'');
   }return true;
