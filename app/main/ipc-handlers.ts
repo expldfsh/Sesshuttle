@@ -442,7 +442,7 @@ export function createHandlers(ctx: Context): Handlers {
       exportReminder:
         !!state.get('connection') &&
         state.get('spaceCreated') === state.get('connection')?.space &&
-        state.get('connectionExported') !== state.get('connection')?.space,
+        state.get('recoveryExportedAt')?.space !== state.get('connection')?.space,
     }),
     saveConfig: (args) => saveConfig(ctx, args),
     detectPaths: () =>
@@ -589,7 +589,10 @@ export function createHandlers(ctx: Context): Handlers {
       });
       if (r.canceled || !r.filePath) return null;
       await atomic(r.filePath, text);
-      state.set('connectionExported', state.get('connection').space);
+      state.set('recoveryExportedAt', {
+        space: state.get('connection').space,
+        at: new Date().toISOString(),
+      });
       return { saved: true };
     },
     preview: (args) => {

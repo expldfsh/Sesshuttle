@@ -617,6 +617,8 @@ export class Engine {
         title: item.title,
         stage,
         bytes: 0,
+        // The item's size from the preview; transferred bytes approach it.
+        bytesTotal: item.bytes ?? 0,
       };
       this.onProgress({ ...job });
     };
