@@ -1,4 +1,4 @@
-# Sesshuttle 0.7.0
+# Sesshuttle 0.7.1
 
 If your Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
 
@@ -6,13 +6,13 @@ Terms used here and in the app: an **app** is the GPT desktop app, the CLI or th
 
 ## Install or upgrade
 
-- On Apple Silicon, open `sesshuttle-0.7.0-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
+- On Apple Silicon, open `sesshuttle-0.7.1-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session. Keep the extracted folder intact.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.7.0-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.7.0-linux-amd64.deb`.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.7.1-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.7.1-linux-amd64.deb`.
 
 ```sh
-tar -xzf sesshuttle-0.7.0-linux-x64.tar.gz
-./sesshuttle-0.7.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.7.1-linux-x64.tar.gz
+./sesshuttle-0.7.1-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
@@ -70,14 +70,16 @@ If the chosen app's Codex runtime has not been checked on this computer, **Next*
 
 ## When something needs attention
 
-Problems appear where they happened: in the dialog, the details panel or the task panel, with the button that fixes them. Only page-wide problems, such as a failed cloud check, appear as a banner above the list. **Show technical details** reveals the error code and has a **Copy** button.
+Problems appear where they happened: in the dialog, the details panel or the task panel, with the button that fixes them. Only page-wide problems, such as a failed cloud check, appear as a banner above the list. If the dialog has closed or you have left the page, the problem appears at the top of the page instead. **Show technical details** reveals the error code and has a **Copy** button.
+
+If an upload, import or removal cannot start, the task indicator in the top bar turns red and says so, for example **Upload not started**. The task panel keeps the record: why it stopped, that nothing was uploaded, imported or deleted, and a button to continue, such as **Refresh and preview again** or **Review the removal list again**. The record stays until you close it, use its button or start a new task of the same kind; refreshing or changing pages does not clear it. If a native app does not open, the error appears under that app's row or in the task panel and says that the app did not open and nothing changed.
 
 | What you see | What to do |
 | --- | --- |
 | Connected, credentials kept only in memory | You can view and import now. Choose **Settings → Remember connection…** to retry system authorization. |
 | An app is detected but its data folder or runtime is missing | Edit the paths for that app in the import dialog or on **Apps & projects**, then check again. Opening the destination app's Codex page helps detection. |
 | The cloud chat does not appear | Make sure both computers joined the same space, check the task result on the uploading computer, refresh and **Clear filters**. A failed cloud check keeps the previous list. |
-| Codex is using the history, or the review is out of date | Save your work and quit Codex, or refresh, then review again. Nothing is imported before you confirm. |
+| Codex is using the history, or the review is out of date | Save your work and quit Codex, or refresh, then review again. Nothing is imported before you confirm. If the review went out of date before you confirmed, the task does not start; choose **Refresh and preview again** in the task panel to get a new review list. |
 | One app failed | Open the task and choose **Fix and retry** for that app. Uploaded and verified targets are listed separately. If recovery is needed, open **Backups & recovery**. |
 | Both computers continued the chat | Choose **Compare versions**, then pick the version and target. Local versions that need protection are kept before importing. |
 
@@ -89,7 +91,7 @@ On Arch, choose **Remember connection…** in Settings, or **Unlock and connect�
 2. **Review affected copies** lists device folders, shared apps, dependencies, attachments and retained copies. Cloud versions show the source computer, time, size, included histories and attachments. Untick any versions to keep, wait for the review to update, then check which versions will be available afterward.
 3. Close Codex writers before changing local history. Before the first cloud removal in an existing space, finish older transfers and upgrade every computer that uses the space to 0.3.0 or later.
 4. Permanent deletion requires an extra acknowledgement, and its red final button names the locations and counts. Results are reported per location. If one location fails, review and retry only the unfinished work.
-5. **Backups & recovery** shows the local trash as soon as you open it. The cloud recycle bin is read when you choose **Refresh cloud recycle bin**, and shows when it was last checked. Restore an entry or permanently remove the recycled copy from there.
+5. **Backups & recovery** shows the local trash as soon as you open it, and updates it as soon as you restore or permanently delete an entry. The cloud recycle bin is read when you choose **Refresh cloud recycle bin**, and shows when it was last checked. Restore an entry or permanently remove the recycled copy from there. After an action that changes the cloud, the list is marked as possibly out of date and its buttons wait until you refresh it.
 
 Recycling keeps the storage in use. Permanent cleanup releases only unshared objects in the selected space. On another computer, imported chats keep working and a refresh does not upload them again. An interrupted cloud cleanup can be finished from the cloud recycle bin.
 
@@ -105,7 +107,7 @@ Previews, downloads, imports and restores do not create local backups. In **Back
 
 ## Linux acceptance checklist
 
-Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.7.0 and keep their sync space, application data and connection file.
+Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.7.1 and keep their sync space, application data and connection file.
 
 1. **Detect the desktop app.** On Linux, open the Codex page of the GPT desktop app. In Sesshuttle, open **Apps & projects → Detect local Codex apps**, check the runtime, data folder and evidence under **GPT desktop**, and apply them. `/usr/lib/chatgpt/ChatGPT` is one known location of the desktop program itself, which is not the runtime.
 2. **Choose the chat.** In Conversations, open your uploaded title and choose **Import to this computer…**. If it is missing, choose **Settings → View cloud chats** and refresh. Select **GPT desktop**.
@@ -117,4 +119,4 @@ Use this when a chat uploaded from the Mac is visible on Linux. Both computers r
 
 To check the connection hand-over, export the connection file on the connected Mac, import it on an unconnected Linux installation, enter the Secret Access Key and connect. To check removal, use a dedicated test chat: recycle one cloud version on the Mac, confirm the imported Linux chat still opens, and restore the version from the Linux cloud recycle bin. Open a permanent deletion review and cancel it to check its two-sided list and final button.
 
-[Verification report](../../validation/0.7.0.md)
+[Verification report](../../validation/0.7.1.md)
