@@ -9,15 +9,18 @@ import { DatabaseSync } from 'node:sqlite';
 import { validateBundle, bundleIdentity, bundleBytes, materialize } from './bundle.mjs';
 import { dbPaths, tableColumns, TABLES } from './catalog.mjs';
 import { records, copyVerified } from './stream.mjs';
-import { id, hash, requireThat, inside, exists } from './util.mjs';
+import { id, hash, requireThat, inside, exists, indexBy } from './util.mjs';
 import { receiptMatchesRuntime } from './runtime.mjs';
 import { scan } from './codex.mjs';
 import { NativeClient, checkSourceProviders } from './native.mjs';
 const key = (home, tid) => 'bundle-receipt/' + hash(home) + '/' + tid;
+// Records what this runtime verified, from a scan taken after native verification.
+// Returns that scan so a caller can use it instead of scanning the folder again.
 export async function recordBundle(importer, payload, home, project, binary, runtime, runtimeKey) {
-  const rows = (await scan([home])).rows;
+  const after = await scan([home]),
+    rows = indexBy(after.rows, 'id');
   for (const f of payload.files) {
-    const r = rows.find((x) => x.id === f.id);
+    const r = rows.get(f.id);
     if (r)
       importer.state.set(key(home, f.id), {
         identity: bundleIdentity(payload),
@@ -29,6 +32,7 @@ export async function recordBundle(importer, payload, home, project, binary, run
         checkedAt: new Date().toISOString(),
       });
   }
+  return after;
 }
 async function initialize(binary, home, project, root, fixture) {
   const client = new NativeClient(binary, home, project, { fixture });
@@ -326,9 +330,24 @@ export async function importBundle(
       logicalId: payload.logicalId,
       nativeProjectId: target.nativeProjectId,
     });
-    await recordBundle(importer, payload, home, project, target.binary, runtime, identity.key);
+    const after = await recordBundle(
+      importer,
+      payload,
+      home,
+      project,
+      target.binary,
+      runtime,
+      identity.key,
+    );
     importer.state.set('import/' + taskId, { status: 'verified', backup: null, home });
-    return { status: 'verified', nativeProjectName, backup: null, runtime, omittedAttachments };
+    return {
+      status: 'verified',
+      nativeProjectName,
+      backup: null,
+      runtime,
+      omittedAttachments,
+      scan: after,
+    };
   } catch (e) {
     if (taskId) {
       importer.state.set('import/' + taskId, {

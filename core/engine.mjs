@@ -744,9 +744,11 @@ export class Engine {
       advance(chunk.length);
       return chunk;
     };
-    const context = { payload, plan, item, result, project, importVersion, accepted, step };
+    // The latest scan of each data folder taken after its native verification.
+    const scans = new Map();
+    const context = { payload, plan, item, result, project, importVersion, accepted, step, scans };
     for (const group of groups) await this.importGroup(group, { ...context, readChunk });
-    await this.recordImport(item, result, payload, importVersion, cache);
+    await this.recordImport(item, result, payload, importVersion, cache, scans);
   }
   // Apps that share one Codex data folder are written once and verified per runtime.
   async targetGroups(cfg, item, result, { projectId, project, step, received }) {
@@ -808,6 +810,7 @@ export class Engine {
           ]),
         ),
       });
+      if (imported.scan) context.scans.set(first.target.home, imported.scan);
       for (const member of group)
         if (await this.verifyMember(member, first, imported, group, context)) break;
     } catch (e) {
@@ -822,7 +825,7 @@ export class Engine {
   // Shared storage is written once; a different runtime on it is still checked natively.
   // Returns true when a failed native check leaves the folder needing recovery.
   async verifyMember({ entry, target, identity }, first, imported, group, context) {
-    const { payload, result, project, importVersion, step } = context;
+    const { payload, result, project, importVersion, step, scans } = context;
     let nativeStarted = false,
       nativeTask = null;
     try {
@@ -836,6 +839,7 @@ export class Engine {
           home: target.home,
         });
         nativeStarted = true;
+        scans.delete(target.home);
         await this.importer.native({
           expectedKey: identity.key,
           binary: target.binary,
@@ -845,7 +849,7 @@ export class Engine {
           logicalId: payload.logicalId,
           nativeProjectId: target.nativeProjectId,
         });
-        await this.importer.record(
+        const after = await this.importer.record(
           payload,
           target.home,
           project,
@@ -853,6 +857,7 @@ export class Engine {
           identity.version,
           identity.key,
         );
+        if (after) scans.set(target.home, after);
         this.state.set('import/' + nativeTask, {
           status: 'verified',
           backup: imported.backup,
@@ -897,9 +902,17 @@ export class Engine {
       return true;
     }
   }
+  // When the only source folder is one this import just scanned after verifying it,
+  // that scan is current: nothing has written to the folder since.
+  async reusableScan(scans) {
+    const homes = this.config().sourceHomes;
+    if (homes.length !== 1 || !scans.size) return null;
+    const home = await canonical(homes[0]).catch(() => null);
+    return scans.get(home) ?? null;
+  }
   // Saves what each app now holds; a fully verified import drops its download cache.
-  async recordImport(item, result, payload, importVersion, cache) {
-    this.local = await scan(this.config().sourceHomes);
+  async recordImport(item, result, payload, importVersion, cache, scans) {
+    this.local = (await this.reusableScan(scans)) ?? (await scan(this.config().sourceHomes));
     const importedLocal = this.local.rows.find((x) => x.id === item.id);
     if (
       importedLocal &&
