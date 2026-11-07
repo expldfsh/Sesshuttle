@@ -567,7 +567,13 @@ export function TransferDialog({
       {report && (
         <DetectionPanel
           inFlow
-          pathsReady={!!targets.length && !missingEntry}
+          // Saved paths count as ready until Next checks them; a failed check does not.
+          pathsReady={
+            !!targets.length &&
+            targets.every(
+              (e) => draft.targets[e]?.binary && draft.targets[e]?.home && !infoFor(e)?.error,
+            )
+          }
           report={report}
           cfg={draft}
           t={t}

@@ -97,7 +97,12 @@ export function DetectionPanel({
     }
   }
   return (
-    <Modal title={t('detectEnvironment')} busy={applying} onClose={onClose}>
+    <Modal
+      title={t('detectEnvironment')}
+      className="detection-panel"
+      busy={applying}
+      onClose={onClose}
+    >
       <p>{t('detectApplyHint')}</p>
       <button
         disabled={applying}
