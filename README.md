@@ -8,7 +8,7 @@ Continue the same Codex conversation on another computer. Choose a chat on your 
 
 ## Install
 
-Choose the 0.7.0 package for your computer. Public downloads will be available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) after publication.
+Download the 0.7.0 package for your computer from [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
 
 | Platform | Package |
 | --- | --- |
@@ -18,7 +18,7 @@ Choose the 0.7.0 package for your computer. Public downloads will be available o
 
 ## Move your first chat from Mac to Linux
 
-The **Getting started** list at the top of Conversations tracks these steps until they are done.
+On each computer, the **Getting started** list at the top of Conversations shows what is left before its first transfer: detect Codex apps, connect cloud storage, refresh the list, and finish a first upload or import. It disappears once every step is done.
 
 1. **Connect both computers.** On the Mac, open Settings and choose **This is my first computer: create a sync space** with your private R2 bucket, then export the connection file. On Linux, choose **I already have a sync space: import its connection file** and enter your R2 Secret Access Key. [Set up R2 and connect both computers](docs/guides/en/quick-start.md#connect-both-computers)
 2. **Upload on the Mac.** Click **Refresh**, tick your chat, then **Upload to cloud…**. Check the options, then the review list, and click **Confirm upload of …**. [See the marked review](docs/guides/en/quick-start.md#upload-from-the-first-computer)

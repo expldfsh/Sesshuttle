@@ -8,7 +8,7 @@
 
 ## 安装
 
-按系统选择 0.7.0 安装包。公开发布后可从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载。
+从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载适合你系统的 0.7.0 安装包。
 
 | 平台 | 安装包 |
 | --- | --- |
@@ -18,7 +18,7 @@
 
 ## 第一次把对话从 Mac 带到 Linux
 
-「对话」页顶部的「开始使用」清单会跟踪下面几步，全部完成后自动收起。
+每台电脑「对话」页顶部的「开始使用」清单会列出第一次传输前还差的准备：检测本机 Codex 应用、连接云端存储、刷新对话列表、完成第一次上传或导入。全部完成后，清单不再显示。
 
 1. **连接两台电脑。** 在 Mac 打开「设置」，选「这是第一台电脑：创建同步空间」，填入自己的私有 R2 Bucket，然后导出连接文件。在 Linux 选「已有同步空间：导入连接文件」，输入 R2 Secret Access Key，加入同一空间。[从创建 Bucket 到连接两台电脑](docs/guides/zh-CN/quick-start.md#配置-r2-和连接文件)
 2. **在 Mac 上传。** 点「刷新」，勾选对话，点「上传到云端…」。先看选项，再看检查清单，点写有对话数量的「确认上传」按钮。[查看标注过的检查清单](docs/guides/zh-CN/quick-start.md#在-mac-上传)
