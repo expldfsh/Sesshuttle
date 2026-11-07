@@ -4,7 +4,7 @@ import {digestRollout,records} from './stream.mjs';
 import {openCatalog,databaseSummary,indexNames,nativeMeta,displayName,projectFor} from './catalog.mjs';
 const digestCache=new Map();
 async function fileDigest(file){const s=await fs.stat(file);const key=file+'\0'+s.size+'\0'+s.mtimeMs+'\0'+s.ctimeMs;if(digestCache.has(key))return digestCache.get(key);const d=await digestRollout(file);if(digestCache.size>5000)digestCache.clear();digestCache.set(key,d);return d;}
-export async function scanHistory(homes,{sourceOf,parseRollout,knownVersions}){
+export async function scanHistory(homes,{sourceOf}){
  const rows=[],errors=[],seen=new Map();let previewBudget=32*1024*1024;
  for(const configured of homes){let catalog;try{const home=await fs.realpath(configured);catalog=await openCatalog(home);let names=new Map();try{names=await indexNames(home);}catch(e){errors.push({home,code:e.code??'invalid_history'});}
  const indexed=new Map(catalog.threads.map(t=>[t.id,t])),files=new Set();for(const dir of ['sessions','archived_sessions'])try{for(const f of await walk(path.join(home,dir)))if(/\.jsonl(?:\.zst)?$/.test(f))files.add(f);}catch(e){errors.push({home,code:e.code??'scan_failed'});}

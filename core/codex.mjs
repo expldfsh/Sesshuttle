@@ -49,7 +49,7 @@ export function parseRollout(raw) {
  
  return {meta,records,messages,issues:[...new Set(issues)],resources:[...new Set(resources)],busy:active.size>0};
 }
-export async function scan(homes) {return scanHistory(homes,{sourceOf,parseRollout,knownVersions:KNOWN_VERSIONS});}
+export async function scan(homes) {return scanHistory(homes,{sourceOf});}
 export async function capture(row,rows,{normalize=(_r,raw)=>({raw,assets:[]})}={}) {
  const included=new Map(),assets=new Map();let capturedBytes=0;
  const visit=async r=>{if(included.has(r.id))return;requireThat(!r.busy,'busy');
