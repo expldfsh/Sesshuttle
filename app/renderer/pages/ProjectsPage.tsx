@@ -34,11 +34,14 @@ export function ProjectsPage() {
     [data.rows],
   );
   // Saved settings and saved runtime checks only; nothing runs or reads a data folder.
+  // Read again when the saved paths change and after a user action elsewhere, such
+  // as a quick check in the import dialog opened from the task panel.
   const savedTargets = JSON.stringify(app.init?.config?.targets);
   useEffect(() => {
     call('appStatus').then(setApps, () => {});
-  }, [savedTargets]);
-  // Whether each project folder exists, by stat only.
+  }, [savedTargets, app.localRevision]);
+  // Whether each project folder exists, by stat only; again after a user action that
+  // may have created one.
   const paths = JSON.stringify(Object.values(cfg.bindings ?? {}).filter(Boolean));
   useEffect(() => {
     const list = JSON.parse(paths);
@@ -48,7 +51,7 @@ export function ProjectsPage() {
       250,
     );
     return () => clearTimeout(timer);
-  }, [paths]);
+  }, [paths, app.localRevision]);
   return (
     <div className="projects">
       <div className="page-head">
@@ -92,7 +95,7 @@ export function ProjectsPage() {
                   binary={cfg.targets[entry]?.binary}
                   call={call}
                   t={t}
-                  onDone={() => call('appStatus').then(setApps, () => {})}
+                  onSettled={() => call('appStatus').then(setApps, () => {})}
                 />
               </div>
             );

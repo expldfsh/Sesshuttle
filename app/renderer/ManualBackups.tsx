@@ -5,7 +5,19 @@ import { EmptyState } from './components/EmptyState';
 import { Icon } from './components/Icon';
 
 // Whole Codex data folder backups, created only when the user asks.
-export function ManualBackups({ data, cfg, busy, ask, work, call, reload, changed, notify }: any) {
+// `changed` reads saved local state again after an action, whatever its outcome;
+// `historyChanged` marks the conversation list out of date after a restore.
+export function ManualBackups({
+  data,
+  cfg,
+  busy,
+  ask,
+  work,
+  call,
+  changed,
+  historyChanged,
+  notify,
+}: any) {
   const { t, tn, date, size } = useI18n();
   const homes = Array.from(
     new Set<string>(
@@ -22,9 +34,12 @@ export function ManualBackups({ data, cfg, busy, ask, work, call, reload, change
       confirm: t('createBackup'),
     });
     if (!ok) return;
-    await call('createBackup', { home });
-    await reload();
-    notify(t('backupCreated'));
+    try {
+      await call('createBackup', { home });
+      notify(t('backupCreated'));
+    } finally {
+      await changed();
+    }
   }
   async function restore(b: any) {
     const review = await call('reviewRestore', { id: b.id });
@@ -59,10 +74,13 @@ export function ManualBackups({ data, cfg, busy, ask, work, call, reload, change
       confirm: t('restoreThisBackup'),
     });
     if (!ok) return;
-    await call('restore', { id: b.id, token: review.token });
-    changed();
-    await reload();
-    notify(t('restoreDone'));
+    try {
+      await call('restore', { id: b.id, token: review.token });
+      notify(t('restoreDone'));
+    } finally {
+      historyChanged();
+      await changed();
+    }
   }
   async function discard(b: any) {
     const ok = await ask({
@@ -84,9 +102,12 @@ export function ManualBackups({ data, cfg, busy, ask, work, call, reload, change
       confirm: t('deleteThisBackup'),
     });
     if (!ok) return;
-    await call('deleteBackup', { id: b.id });
-    await reload();
-    notify(t('backupDeleted'));
+    try {
+      await call('deleteBackup', { id: b.id });
+      notify(t('backupDeleted'));
+    } finally {
+      await changed();
+    }
   }
   return (
     <section className="card">

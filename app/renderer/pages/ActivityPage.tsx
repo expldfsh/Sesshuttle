@@ -78,15 +78,19 @@ export function ActivityPage() {
       danger: true,
     });
     if (!ok) return;
-    const removed = await call('clearActivity', all ? { all: true } : { keys: picked });
-    const gone = (key: string) => (all ? clearable.has(key) : picked.includes(key));
-    if (live.job && gone('job/' + live.job.id)) progress.setJob(null);
-    if (live.removalJob && gone('removal/' + live.removalJob.id)) progress.setRemovalJob(null);
-    setChosen([]);
-    setOlder([]);
-    setCursor(undefined);
-    await app.reloadInit();
-    app.notify({ text: tn('clearedRecords', removed) });
+    try {
+      const removed = await call('clearActivity', all ? { all: true } : { keys: picked });
+      const gone = (key: string) => (all ? clearable.has(key) : picked.includes(key));
+      if (live.job && gone('job/' + live.job.id)) progress.setJob(null);
+      if (live.removalJob && gone('removal/' + live.removalJob.id)) progress.setRemovalJob(null);
+      setChosen([]);
+      app.notify({ text: tn('clearedRecords', removed) });
+    } finally {
+      // Older pages are read again from the start, like the first page.
+      setOlder([]);
+      setCursor(undefined);
+      await app.localChanged();
+    }
   }
   const attention = entries.filter(needsAttention).length;
   return (

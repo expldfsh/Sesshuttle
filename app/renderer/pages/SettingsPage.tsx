@@ -55,7 +55,13 @@ export function SettingsPage() {
   };
   async function restoreSaved() {
     app.setPhase('waitingAuthorization');
-    await call('restoreConnection');
+    // The saved connection state is read again even when authorization fails.
+    try {
+      await call('restoreConnection');
+    } catch (e) {
+      await app.reloadInit().catch(() => {});
+      throw e;
+    }
     const next = await app.reloadInit();
     if (!next.connected) {
       app.notify({
@@ -120,8 +126,11 @@ export function SettingsPage() {
                   await app.reloadInit();
                   if (connection.remember) {
                     app.setPhase('waitingAuthorization');
-                    await call('retryCredentialSave');
-                    await app.reloadInit();
+                    try {
+                      await call('retryCredentialSave');
+                    } finally {
+                      await app.reloadInit();
+                    }
                   }
                   resetList();
                   app.notify({ text: t('spaceJoined') + ' ' + t('manualRefreshHint') });

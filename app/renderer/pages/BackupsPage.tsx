@@ -19,7 +19,9 @@ export function BackupsPage() {
   const [local, setLocal] = useState<any>(null);
   const [cloud, setCloud] = useState<any>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  // Saved local state is shown on arrival; nothing is scanned and the cloud is not read.
+  // Saved local state is shown on arrival and read again after each user action that
+  // may have changed it (a restore, a deletion, a backup); nothing is scanned and the
+  // cloud is not read.
   const loadLocal = () =>
     Promise.all([call('backups'), call('localBins')]).then(([backups, bins]) => {
       setBackupData(backups);
@@ -30,10 +32,14 @@ export function BackupsPage() {
       app.notify({ error: true, code: e.code, text: t(e.code ?? 'operation_failed') }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [app.localRevision]);
+  // The cloud recycle bin is read only when the user refreshes it. After an action
+  // that changed the cloud, the shown list is out of date and its actions wait.
   async function refreshCloud() {
-    setCloud({ ...(await call('backupBins')), checkedAt: new Date().toISOString() });
+    const revision = app.cloudRevision;
+    setCloud({ ...(await call('backupBins')), checkedAt: new Date().toISOString(), revision });
   }
+  const cloudStale = !!cloud && cloud.revision !== app.cloudRevision;
   const select = (index: number) => {
     const next = TABS[(index + TABS.length) % TABS.length];
     setTab(next);
@@ -81,8 +87,8 @@ export function BackupsPage() {
             ask={app.ask}
             work={work}
             call={call}
-            reload={loadLocal}
-            changed={() => app.setNeedsRefresh(true)}
+            changed={app.localChanged}
+            historyChanged={() => app.setNeedsRefresh(true)}
             notify={(text: string) => app.notify({ text })}
           />
         )}
@@ -109,6 +115,7 @@ export function BackupsPage() {
               <p className="muted">{t('cloudBinHint')}</p>
               <span className="refresh-group">
                 <button
+                  className={cloudStale ? 'primary' : ''}
                   disabled={busy || !app.init.connected}
                   onClick={() => work(refreshCloud, 'refreshing', 'backups')}
                 >
@@ -132,6 +139,11 @@ export function BackupsPage() {
                 }
               />
             )}
+            {cloudStale && (
+              <p className="warning-box stale-note" role="status">
+                <Icon name="alert" /> {t('binOutOfDate')}
+              </p>
+            )}
             {cloud?.cloudError && (
               <p role="alert" className="warning-box">
                 {t(cloud.cloudError.code)}
@@ -141,7 +153,7 @@ export function BackupsPage() {
               <div className="warning-box">
                 <p>{t('cloud_cleanup_pending')}</p>
                 <button
-                  disabled={busy}
+                  disabled={busy || cloudStale}
                   onClick={() =>
                     work(
                       async () => {
@@ -151,13 +163,15 @@ export function BackupsPage() {
                           confirm: t('finishConfirmedCloud'),
                         });
                         if (!ok) return;
-                        await call('finishCloudRemoval', {
-                          id: cloud.cloud.pending.id,
-                          storageKey: cloud.storageKey,
-                        });
-                        await refreshCloud();
-                        await app.reloadInit();
-                        app.notify({ text: t('cloudFinishDone') });
+                        try {
+                          await call('finishCloudRemoval', {
+                            id: cloud.cloud.pending.id,
+                            storageKey: cloud.storageKey,
+                          });
+                          app.notify({ text: t('cloudFinishDone') });
+                        } finally {
+                          await app.localChanged(true);
+                        }
                       },
                       'removingNow',
                       'backups',
@@ -178,7 +192,7 @@ export function BackupsPage() {
                 connected={app.init.connected}
                 t={t}
                 date={date}
-                busy={busy}
+                busy={busy || cloudStale}
                 open={app.setRemoval}
               />
             )}

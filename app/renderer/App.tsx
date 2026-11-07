@@ -86,7 +86,11 @@ function useAppState() {
     [jobs, setJobs] = useState<any[]>([]),
     [removalJobs, setRemovalJobs] = useState<any[]>([]),
     [deviceName, setDeviceName] = useState(''),
-    [connection, setConnection] = useState<any>({ ...emptyConnection });
+    [connection, setConnection] = useState<any>({ ...emptyConnection }),
+    // Increase after a user action that may have changed saved local state, or the
+    // cloud recycle bin. Pages that read saved state when they open read it again.
+    [localRevision, setLocalRevision] = useState(0),
+    [cloudRevision, setCloudRevision] = useState(0);
   const offeredRecovery = useRef(false);
   // The interface language changes when the setting is saved, not while editing it.
   const locale: Locale = init?.config?.language ?? cfg?.language ?? 'zh-CN';
@@ -160,11 +164,21 @@ function useAppState() {
     setSection(anchor);
   }, []);
 
+  // Unsaved edits on the settings pages survive reading saved state again.
+  const edits = useRef({ cfg, init, deviceName });
+  edits.current = { cfg, init, deviceName };
   async function reloadInit() {
     const x = await call('init');
+    const before = edits.current;
+    const dirty =
+      !!before.init &&
+      (JSON.stringify(before.cfg) !== JSON.stringify(before.init.config) ||
+        before.deviceName !== before.init.device?.name);
     setInit(x);
-    setCfg(x.config);
-    setDeviceName(x.device.name);
+    if (!dirty) {
+      setCfg(x.config);
+      setDeviceName(x.device.name);
+    }
     setJobs(x.jobs ?? []);
     setRemovalJobs(x.removalJobs ?? []);
     if (!offeredRecovery.current) {
@@ -175,6 +189,14 @@ function useAppState() {
     if (x.connection)
       setConnection((c: any) => (c.recoveryToken ? c : { ...c, ...x.connection, mode: 'join' }));
     return x;
+  }
+  // After a user action finished, failed or stopped part way: pages read their saved
+  // local state again and the app state behind the sidebar counts is reloaded. Lists
+  // read from the cloud are only marked out of date (`cloud`), never read again here.
+  async function localChanged(cloud = false) {
+    setLocalRevision((n) => n + 1);
+    if (cloud) setCloudRevision((n) => n + 1);
+    await reloadInit().catch((e) => onError(e, 'page'));
   }
   async function refresh() {
     const result = await call('refresh');
@@ -445,15 +467,19 @@ function useAppState() {
       confirm: t('keepThisCopy'),
     });
     if (!ok) return;
-    const moved = await call('keepLocalCopy', {
-      logical: record.id,
-      token: record.copyToken,
-      file,
-      entry: record.entry,
-    });
-    setNeedsRefresh(true);
-    setTargetIssue(null);
-    notify({ text: t('copyKept'), detail: moved.location });
+    try {
+      const moved = await call('keepLocalCopy', {
+        logical: record.id,
+        token: record.copyToken,
+        file,
+        entry: record.entry,
+      });
+      setTargetIssue(null);
+      notify({ text: t('copyKept'), detail: moved.location });
+    } finally {
+      setNeedsRefresh(true);
+      await localChanged();
+    }
   }
   // Counts on the sidebar, from data already on screen or saved locally.
   const attention = useMemo(
@@ -515,6 +541,9 @@ function useAppState() {
     setPhase,
     work,
     reloadInit,
+    localChanged,
+    localRevision,
+    cloudRevision,
     refresh,
     persist,
     startFlow,
@@ -779,6 +808,7 @@ function GlobalDialogs() {
           cfg={app.cfg}
           setConfig={app.persist}
           refreshRows={app.setData}
+          onLocalChange={() => void app.localChanged()}
           onClose={() => app.setFlow(null)}
           onStart={(
             p: any,
@@ -828,8 +858,8 @@ function GlobalDialogs() {
                 } finally {
                   // Saved state is read again whatever happened; the list is
                   // marked out of date only when the transfer ran.
-                  await app.reloadInit().catch(() => {});
                   if (started) app.setNeedsRefresh(true);
+                  await app.localChanged();
                 }
               },
               'transferRunning',
@@ -880,7 +910,9 @@ function GlobalDialogs() {
                     app.updateView({ selected: new Set(), focus: null });
                   app.setNeedsRefresh(true);
                 } finally {
-                  await app.reloadInit().catch(() => {});
+                  // A removal that touched the cloud leaves a shown cloud recycle
+                  // bin out of date; it is not read again until the user refreshes.
+                  await app.localChanged(p.q.scope !== 'local');
                 }
               },
               'removingNow',

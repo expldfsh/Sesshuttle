@@ -969,6 +969,10 @@ export const messages = {
   ],
   recomputeRemoval: ['更新清单', 'Update review'],
   refreshBins: ['刷新云端回收站', 'Refresh cloud recycle bin'],
+  binOutOfDate: [
+    '刚才的操作改变了云端，此列表可能已过期。刷新云端回收站后才能继续恢复或删除。',
+    'The last action changed the cloud, so this list may be out of date. Refresh the cloud recycle bin before restoring or deleting.',
+  ],
   remoteRestoreHint: [
     '恢复后同一空间的设备可以下载，需要时各自在本机确认导入。',
     'Devices in this space can download the restored versions. Each device chooses whether to import them.',

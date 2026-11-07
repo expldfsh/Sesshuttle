@@ -32,6 +32,7 @@ export function TransferDialog({
   onClose,
   onStart,
   onCopies,
+  onLocalChange,
 }: any) {
   const { t, tn } = useI18n();
   const direction = request.direction,
@@ -463,6 +464,7 @@ export function TransferDialog({
                         onBusy={(isBusy: boolean) => setChecking(isBusy ? entry : '')}
                         disabled={!!checking}
                         onDone={() => inspect()}
+                        onSettled={onLocalChange}
                       />
                     )}
                     {now?.projectWarning && <p className="warning-box">{t(now.projectWarning)}</p>}

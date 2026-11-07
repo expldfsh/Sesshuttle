@@ -1,6 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-export function RuntimeCheck({ binary, info, call, t, onDone, onBusy, disabled = false }: any) {
+// `onDone` follows a passed check; `onSettled` follows every finished check, since a
+// failed one is saved as well.
+export function RuntimeCheck({
+  binary,
+  info,
+  call,
+  t,
+  onDone,
+  onSettled,
+  onBusy,
+  disabled = false,
+}: any) {
   const [stage, setStage] = useState(''),
     [problem, setProblem] = useState<any>(null),
     [result, setResult] = useState<any>(null);
@@ -42,6 +53,7 @@ export function RuntimeCheck({ binary, info, call, t, onDone, onBusy, disabled =
         current.current = '';
         if (active.current) setStage('');
         onBusy?.(false);
+        onSettled?.();
       }
     }
   }

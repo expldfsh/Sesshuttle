@@ -301,6 +301,22 @@ td small {
   margin-top: 6px;
   overflow-wrap: anywhere;
 }
+/* The cloud recycle bin's hint and refresh button wrap instead of squeezing the button. */
+.backups .card-title {
+  flex-wrap: wrap;
+}
+.backups .card-title > .muted {
+  flex: 1 1 260px;
+  margin: 0;
+}
+.backups .refresh-group button {
+  white-space: nowrap;
+}
+.stale-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
 .job-item {
   padding: 16px 0;
   border-top: 1px solid var(--line);

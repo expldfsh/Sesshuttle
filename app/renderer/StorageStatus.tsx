@@ -11,13 +11,12 @@ export function StorageStatus({ init, t, call, reload, viewCloud, busy, restore 
     setHealth(null);
     try {
       if (method === 'credentialHealth') setHealth(await call(method));
-      else {
-        await call(method);
-        await reload();
-      }
+      else await call(method);
     } catch (e: any) {
       setMessage(t(e.code ?? 'operation_failed'));
     } finally {
+      // Saving the credentials changes the saved connection state, also on failure.
+      if (method !== 'credentialHealth') await reload().catch(() => {});
       setPending('');
     }
   }
