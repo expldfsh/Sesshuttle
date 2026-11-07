@@ -1,3 +1,4 @@
+import { ensureFreeSpace } from './guards.mjs';
 import { checkScope } from './scan-scope.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -391,12 +392,7 @@ export class Trash {
     );
     const root = path.join(this.state.root, 'trash', token);
     await fs.mkdir(root, { recursive: true, mode: 0o700 });
-    const disk = await fs.statfs(root);
-    requireThat(
-      disk.bavail * disk.bsize >
-        plan.bytes + plan.rows.reduce((n, r) => n + r.bytes, 0) + 256 * 1024 * 1024,
-      'disk_space',
-    );
+    await ensureFreeSpace(root, plan.bytes + plan.rows.reduce((n, r) => n + r.bytes, 0));
     const info = {
       id: token,
       home: plan.home,
@@ -541,12 +537,7 @@ export class Trash {
       if (await exists(f.path))
         requireThat((await digestFile(f.path)).hash === f.hash, 'trash_restore_conflict');
     }
-    const disk = await fs.statfs(home);
-    requireThat(
-      disk.bavail * disk.bsize >
-        info.files.reduce((n, f) => n + f.bytes, 0) + info.database.bytes + 256 * 1024 * 1024,
-      'disk_space',
-    );
+    await ensureFreeSpace(home, info.files.reduce((n, f) => n + f.bytes, 0) + info.database.bytes);
     await this.mark(info, 'restoring');
     try {
       await this.importer.processGuard(home);

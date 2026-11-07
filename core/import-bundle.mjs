@@ -1,3 +1,4 @@
+import { ensureFreeSpace, hasPendingImport } from './guards.mjs';
 import { checkScope, checkUnchanged } from './scan-scope.mjs';
 import { checkLocalProject } from './local-projects.mjs';
 import { assertAttachmentAcceptance, inheritedOmissions } from './attachment-policy.mjs';
@@ -206,13 +207,7 @@ export async function importBundle(
     target.nativeProjectId,
     identity.projects,
   );
-  requireThat(
-    !importer.state.keys('import/').some((k) => {
-      const t = importer.state.get(k);
-      return t.home === home && ['prepared', 'validating', 'needs_recovery'].includes(t.status);
-    }),
-    'recovery_required',
-  );
+  requireThat(!hasPendingImport(importer.state, home), 'recovery_required');
   const before = await scan([home]);
   checkScope(
     before,
@@ -257,8 +252,7 @@ export async function importBundle(
   await importer.processGuard(home);
   const temp = path.join(importer.state.root, 'downloads', id());
   await fs.mkdir(temp, { recursive: true, mode: 0o700 });
-  const disk = await fs.statfs(temp);
-  requireThat(disk.bavail * disk.bsize > bundleBytes(payload) + 256 * 1024 * 1024, 'disk_space');
+  await ensureFreeSpace(temp, bundleBytes(payload));
   let taskId;
   try {
     target.onStage?.('stageDownload');

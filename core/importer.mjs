@@ -1,3 +1,4 @@
+import { pendingImports } from './guards.mjs';
 import { createBackup, restoreReview } from './manual-backups.mjs';
 import { importBundle, recordBundle } from './import-bundle.mjs';
 import { copyVerified, digestFile } from './stream.mjs';
@@ -86,11 +87,8 @@ export class Importer {
         }
       if (changed) this.state.set(key, entries);
     }
-    for (const key of this.state.keys('import/')) {
-      const task = this.state.get(key);
-      if (task.home === home && ['prepared', 'validating', 'needs_recovery'].includes(task.status))
-        this.state.set(key, { ...task, status: 'restored' });
-    }
+    for (const [key, task] of pendingImports(this.state))
+      if (task.home === home) this.state.set(key, { ...task, status: 'restored' });
     this.state.set('restore/' + backupId, { status: 'restored' });
     return { status: 'restored_needs_validation' };
   }

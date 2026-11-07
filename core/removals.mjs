@@ -1,5 +1,5 @@
+import { ensureFreeSpace } from './guards.mjs';
 import { checkScope } from './scan-scope.mjs';
-import fs from 'node:fs/promises';
 import { scan } from './codex.mjs';
 import { Trash } from './trash.mjs';
 import { cloudRemovalPlan, changeCloud, cloudBins } from './cloud-trash.mjs';
@@ -257,12 +257,7 @@ export class Removals {
     );
     requireThat(!p.blockers.length, 'trash_dependencies');
     requireThat(localFingerprint(p) === g.fingerprint, 'stale_plan');
-    const disk = await fs.statfs(this.state.root);
-    requireThat(
-      disk.bavail * disk.bsize >
-        g.bytes + g.rows.reduce((n, r) => n + r.bytes, 0) + 256 * 1024 * 1024,
-      'disk_space',
-    );
+    await ensureFreeSpace(this.state.root, g.bytes + g.rows.reduce((n, r) => n + r.bytes, 0));
     worker.plans.clear();
     worker.plans.set(g.token, { ...p, token: g.token });
     return worker;

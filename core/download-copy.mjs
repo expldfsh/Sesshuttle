@@ -1,3 +1,4 @@
+import { ensureFreeSpace } from './guards.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { bundleBytes, materialize } from './bundle.mjs';
@@ -13,8 +14,7 @@ export async function downloadCopy(vault, logical, version, folder) {
   );
   const payload = await vault.version(version);
   requireThat(payload.logicalId === logical, 'corrupt_data');
-  const disk = await fs.statfs(folder);
-  requireThat(disk.bavail * disk.bsize > bundleBytes(payload) + 256 * 1024 * 1024, 'disk_space');
+  await ensureFreeSpace(folder, bundleBytes(payload));
   const dest = await fs.mkdtemp(path.join(folder, 'Sesshuttle-'));
   try {
     await materialize(payload, vault, dest);

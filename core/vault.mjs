@@ -1,3 +1,4 @@
+import { ensureFreeSpace } from './guards.mjs';
 import { readSpace, withSpaceWriter } from './space-writer.mjs';
 import { attachmentReview, inheritedOmissions } from './attachment-policy.mjs';
 import fs from 'node:fs/promises';
@@ -32,8 +33,7 @@ export class Vault {
     this.staged ??= new Map();
     if (this.staged.has(digest) && (await exists(this.staged.get(digest)))) return;
     const sealed = seal({ data: data.toString('base64') }, this.key, this.space, object);
-    const disk = await fs.statfs(stage);
-    requireThat(disk.bavail * disk.bsize > sealed.length + 256 * 1024 * 1024, 'disk_space');
+    await ensureFreeSpace(stage, sealed.length);
     await atomic(file, sealed);
     this.staged.set(digest, file);
   }
@@ -67,8 +67,7 @@ export class Vault {
     requireThat(remote, 'missing_remote_object');
     const bytes = decode(remote.body);
     if (file) {
-      const disk = await fs.statfs(cacheDir);
-      requireThat(disk.bavail * disk.bsize > remote.body.length + 256 * 1024 * 1024, 'disk_space');
+      await ensureFreeSpace(cacheDir, remote.body.length);
       await atomic(file, remote.body);
     }
     return bytes;

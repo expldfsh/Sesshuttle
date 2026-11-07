@@ -1,3 +1,4 @@
+import { hasPendingImport } from './guards.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { scan } from './codex.mjs';
@@ -98,13 +99,7 @@ export async function keepLocalCopy(engine, { logical, token, file, entry }) {
       return { home: chosen.home, copies };
     };
     const home = await engine.importer.guard((await inspect()).home);
-    requireThat(
-      !engine.state.keys('import/').some((k) => {
-        const r = engine.state.get(k);
-        return r.home === home && ['prepared', 'validating', 'needs_recovery'].includes(r.status);
-      }),
-      'recovery_required',
-    );
+    requireThat(!hasPendingImport(engine.state, home), 'recovery_required');
     const operationId = id();
     await engine.importer.processGuard(home);
     const { copies } = await inspect();

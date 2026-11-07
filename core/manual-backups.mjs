@@ -1,3 +1,4 @@
+import { ensureFreeSpace, pendingImports } from './guards.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { atomic, canonical, hash, id, inside, requireThat, walk } from './util.mjs';
@@ -39,8 +40,7 @@ export async function createBackup(importer, home) {
     for (const item of before) {
       const source = await inside(home, path.join(home, item.path));
       const { bytes, hash: digest } = await digestFile(source);
-      const disk = await fs.statfs(root);
-      requireThat(disk.bavail * disk.bsize > bytes + 256 * 1024 * 1024, 'disk_space');
+      await ensureFreeSpace(root, bytes);
       await copyVerified(source, path.join(root, 'data', item.path), digest);
       files.push({ path: item.path, bytes, hash: digest });
     }
@@ -81,10 +81,7 @@ export async function backupSummary(state, info) {
 export async function deleteBackup(state, backupId) {
   const info = state.get('backup/' + backupId);
   requireThat(info && info.id === backupId, 'backup_not_found');
-  const pending = state.keys('import/').some((k) => {
-    const r = state.get(k);
-    return r.backup === backupId && ['prepared', 'validating', 'needs_recovery'].includes(r.status);
-  });
+  const pending = pendingImports(state).some(([, task]) => task.backup === backupId);
   requireThat(!pending && state.get('restore/' + backupId)?.status !== 'prepared', 'backup_in_use');
   const root = await inside(state.root, path.join(state.root, 'backups', backupId));
   await fs.rm(root, { recursive: true, force: true });
