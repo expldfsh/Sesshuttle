@@ -1,7 +1,7 @@
 import { messageFromEvent, messageFromItem } from './history-items.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { hash, walk, requireThat, exists, inside } from './util.mjs';
+import { hash, walk, requireThat, exists, inside, indexBy, groupBy } from './util.mjs';
 import { digestRollout, records } from './stream.mjs';
 import {
   openCatalog,
@@ -100,6 +100,12 @@ export async function scanHistory(homes, { sourceOf }) {
           }
         }
       const found = new Set();
+      // Spawn edges by child, in table order.
+      const edgeParents = groupBy(
+        catalog.edges ?? [],
+        'child_thread_id',
+        (e) => e.parent_thread_id,
+      );
       async function add(thread, file) {
         let meta = thread ? nativeMeta(thread) : null,
           summary = thread ? databaseSummary(catalog, thread.id) : null,
@@ -156,7 +162,7 @@ export async function scanHistory(homes, { sourceOf }) {
           parent =
             meta.parent_thread_id ??
             meta.source?.subagent?.thread_spawn?.parent_thread_id ??
-            catalog.edges?.find((e) => e.child_thread_id === meta.id)?.parent_thread_id ??
+            edgeParents.get(meta.id)?.[0] ??
             null,
           historyBase = meta.history_base?.thread_id ?? meta.forked_from_id ?? null;
         const messages = summary?.messages.length ? summary.messages : (parsed?.messages ?? []);
@@ -186,15 +192,7 @@ export async function scanHistory(homes, { sourceOf }) {
           parent,
           historyBase,
           dependencies: [
-            ...new Set(
-              [
-                parent,
-                historyBase,
-                ...(catalog.edges ?? [])
-                  .filter((e) => e.child_thread_id === meta.id)
-                  .map((e) => e.parent_thread_id),
-              ].filter(Boolean),
-            ),
+            ...new Set([parent, historyBase, ...(edgeParents.get(meta.id) ?? [])].filter(Boolean)),
           ],
           agent:
             thread?.agent_nickname ??
@@ -282,8 +280,9 @@ export async function scanHistory(homes, { sourceOf }) {
       catalog?.close();
     }
   }
+  const byId = indexBy(rows, 'id');
   for (const row of rows) {
-    row.parentTitle = rows.find((x) => x.id === row.parent)?.title ?? null;
+    row.parentTitle = byId.get(row.parent)?.title ?? null;
     if (row.kind === 'background')
       row.title = [row.agent || 'Agent', row.parentTitle || row.parent || row.id].join(' · ');
   }

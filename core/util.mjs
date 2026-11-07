@@ -3,6 +3,22 @@ import { constants } from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 export const LIMIT = 64 * 1024 * 1024;
+// Items by a field; like Array.find, the first item with a value wins.
+// Items grouped by a field, in their original order.
+export function groupBy(items, field, value = (item) => item) {
+  const groups = new Map();
+  for (const item of items) {
+    const list = groups.get(item[field]);
+    if (list) list.push(value(item));
+    else groups.set(item[field], [value(item)]);
+  }
+  return groups;
+}
+export function indexBy(items, field) {
+  const index = new Map();
+  for (const item of items) if (!index.has(item[field])) index.set(item[field], item);
+  return index;
+}
 export const id = () => randomUUID();
 export const hash = (x) => createHash('sha256').update(x).digest('hex');
 export class Fault extends Error {

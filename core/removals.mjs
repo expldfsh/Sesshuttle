@@ -128,10 +128,12 @@ export class Removals {
       local = [],
       homeList = localScope(q.scope) && q.kind === 'live' ? await this.homes() : [];
     const sources = this.engine.rows ?? [],
-      selected = sources.filter((r) => q.ids.includes(r.id));
+      wanted = new Set(q.ids),
+      selected = sources.filter((r) => wanted.has(r.id)),
+      found = new Set(selected.map((r) => r.id));
     if (q.kind === 'live')
       requireThat(
-        q.ids.every((tid) => selected.some((r) => r.id === tid)),
+        q.ids.every((tid) => found.has(tid)),
         'stale_plan',
       );
     const record =

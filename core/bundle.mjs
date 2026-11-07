@@ -7,12 +7,28 @@ import {
 // v2 manifests reference authenticated, bounded chunks. History is never truncated.
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { hash, requireThat } from './util.mjs';
+import { hash, requireThat, groupBy } from './util.mjs';
 import { readBlocks, rolloutBlocks, CHUNK, writeStream } from './stream.mjs';
 import { openCatalog, databaseRecords, encodeRecord } from './catalog.mjs';
+// Rows by id (the last copy of an id wins) and children by parent, in row order.
+// Built once per row list; scan results are not modified after they are returned.
+const rowIndexes = new WeakMap();
+function rowIndex(rows) {
+  let index = rowIndexes.get(rows);
+  if (index?.length !== rows.length) {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const children = groupBy(
+      rows.filter((r) => r.parent),
+      'parent',
+    );
+    index = { length: rows.length, byId, children };
+    rowIndexes.set(rows, index);
+  }
+  return index;
+}
 export function relatedRows(row, rows, { includeDescendants = false } = {}) {
   const picked = new Map(),
-    byId = new Map(rows.map((r) => [r.id, r]));
+    { byId, children } = rowIndex(rows);
   const addAncestors = (r, trail = new Set()) => {
     requireThat(!trail.has(r.id), 'invalid_history');
     if (picked.has(r.id)) return;
@@ -29,11 +45,10 @@ export function relatedRows(row, rows, { includeDescendants = false } = {}) {
       const r = queue.shift();
       if (visited.has(r.id)) continue;
       visited.add(r.id);
-      for (const c of rows)
-        if (c.parent === r.id) {
-          addAncestors(c);
-          queue.push(c);
-        }
+      for (const c of children.get(r.id) ?? []) {
+        addAncestors(c);
+        queue.push(c);
+      }
     }
   }
   return [...picked.values()];
@@ -141,6 +156,7 @@ export async function packStream(source, kind, vault, stage, extra = {}) {
   return { kind, ...extra, bytes: total, hash: digest.digest('hex'), chunks };
 }
 export async function captureBundle(row, rows, vault, stage, options = {}) {
+  const withHistory = new Set(rows.filter((x) => x.file).map((x) => x.id));
   const selected = relatedRows(row, rows, options),
     catalogs = new Map(),
     files = [];
@@ -172,11 +188,7 @@ export async function captureBundle(row, rows, vault, stage, options = {}) {
       const found = await referencesFor(r, catalogs.get(r.home));
       const issues = [...r.issues, ...found.issues],
         attachmentReport = [];
-      if (
-        (r.dependencies ?? [r.parent].filter(Boolean)).some(
-          (dep) => !rows.some((x) => x.id === dep && x.file),
-        )
-      )
+      if ((r.dependencies ?? [r.parent].filter(Boolean)).some((dep) => !withHistory.has(dep)))
         issues.push('missing_dependency');
       for (const resource of found.resources) {
         const replacement = options.replacements?.[hash(r.id + '\0' + resource)];

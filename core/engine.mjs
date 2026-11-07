@@ -8,7 +8,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { scan } from './codex.mjs';
 import { Importer } from './importer.mjs';
-import { id, hash, requireThat, publicError, canonical } from './util.mjs';
+import { id, hash, requireThat, publicError, canonical, indexBy } from './util.mjs';
 const UPLOAD_ACTIONS = ['upload', 'upload_import', 'preserve_conflict'];
 const ATTENTION = [
   'excluded',
@@ -137,15 +137,11 @@ export class Engine {
         this.remote = this.state.get('cache/' + this.scope(), { heads: [] }).heads;
       }
     } else this.remote = [];
-    const rows = [];
-    for (const logical of new Set([
-      ...this.local.rows.map((x) => x.id),
-      ...this.remote.map((x) => x.logicalId),
-    ])) {
-      const local = this.local.rows.find((x) => x.id === logical),
-        head = this.remote.find((x) => x.logicalId === logical);
-      rows.push(this.buildRow(local, head));
-    }
+    const rows = [],
+      locals = indexBy(this.local.rows, 'id'),
+      heads = indexBy(this.remote, 'logicalId');
+    for (const logical of new Set([...locals.keys(), ...heads.keys()]))
+      rows.push(this.buildRow(locals.get(logical), heads.get(logical)));
     this.rows = rows.sort((a, b) =>
       (b.updatedAt ?? b.cloudUpdatedAt ?? '').localeCompare(a.updatedAt ?? a.cloudUpdatedAt ?? ''),
     );
@@ -254,11 +250,13 @@ export class Engine {
     requireThat(!this.running, 'task_running');
     requireThat(this.vault, 'storage_not_connected');
     requireThat(!this.cloudError, 'cloud_check_failed');
+    const rowsById = indexBy(this.rows ?? [], 'id'),
+      headsById = indexBy(this.remote, 'logicalId');
     requireThat(
       Array.isArray(ids) &&
         ids.length > 0 &&
         ids.length <= 2000 &&
-        ids.every((x) => this.rows.some((r) => r.id === x)),
+        ids.every((x) => rowsById.has(x)),
       'invalid_selection',
     );
     requireThat(['upload', 'download', 'both'].includes(direction), 'invalid_selection');
@@ -322,9 +320,9 @@ export class Engine {
       }
     const items = [];
     for (const logical of [...new Set(ids)]) {
-      const row = this.rows.find((x) => x.id === logical),
+      const row = rowsById.get(logical),
         local = uploadSource(this.local.rows, logical, copyChoice),
-        head = this.remote.find((x) => x.logicalId === logical);
+        head = headsById.get(logical);
       let action = 'skip';
       if (row.busy && direction !== 'download') action = 'busy';
       else if (chosenVersion) {
@@ -371,6 +369,12 @@ export class Engine {
         action = 'blocked';
       }
 
+      // Ancestors of the local row, computed once per item and only when needed.
+      let ancestors;
+      const isAncestor = (fileId) =>
+        (ancestors ??= new Set(
+          local ? relatedRows(local, this.local.rows).map((r) => r.id) : [],
+        )).has(fileId);
       const describe = (p, role) =>
         p?.files.map((f) => ({
           id: f.id,
@@ -387,7 +391,7 @@ export class Engine {
                 ? 'selectedChat'
                 : ['download', 'resolve'].includes(action)
                   ? 'backupMember'
-                  : relatedRows(local, this.local.rows).some((r) => r.id === f.id)
+                  : isAncestor(f.id)
                     ? 'requiredParent'
                     : 'selectedDescendant',
           attachments: (f.attachmentReport ?? []).map((a) => ({ ...a, role })),
@@ -446,10 +450,7 @@ export class Engine {
       (n, p) =>
         n +
         4 * Buffer.byteLength(JSON.stringify(p)) +
-        4 *
-          Buffer.byteLength(
-            JSON.stringify(this.remote.find((h) => h.logicalId === p.logicalId) ?? {}),
-          ) +
+        4 * Buffer.byteLength(JSON.stringify(headsById.get(p.logicalId) ?? {})) +
         65536,
       0,
     );
@@ -705,8 +706,9 @@ export class Engine {
       item.expectedHead,
     );
     if (!plan.copyChoice) this.rememberBaseline(local, published.version, plan.selection);
+    const locals = indexBy(this.local.rows, 'id');
     for (const f of payload.files.filter((f) => !plan.copyChoice || f.id !== item.id)) {
-      const r = this.local.rows.find((x) => x.id === f.id);
+      const r = locals.get(f.id);
       if (r) {
         const k = 'bundle-receipt/' + hash(r.home) + '/' + r.id;
         this.state.set(k, { hash: r.hash, identity: bundleIdentity(payload) });
