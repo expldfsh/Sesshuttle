@@ -13,6 +13,7 @@ import {assertCodexClosed} from '../../core/native.mjs';
 import {Trash} from '../../core/trash.mjs';
 import {downloadCopy} from '../../core/download-copy.mjs';
 import {keepLocalCopy,inspectTarget} from '../../core/local-copies.mjs';
+import {workspaceFolderName} from '../../core/workspace.mjs';
 import { app,BrowserWindow,ipcMain,dialog,safeStorage,session,shell,Menu,nativeTheme } from 'electron';
 import fs from 'node:fs/promises';import {realpathSync,readFileSync} from 'node:fs';import path from 'node:path';import os from 'node:os';
 import { pathToFileURL } from 'node:url';import { execFile,spawn } from 'node:child_process';import { promisify } from 'node:util';
@@ -181,8 +182,7 @@ async function request(method:string,args:any){switch(method){
    const base=testRoot??app.getPath('documents');
    if(!await exists(base)){await inside(os.homedir(),base);await fs.mkdir(base,{recursive:true,mode:0o700}).catch(()=>{throw new Fault('workspace_create_failed');});}
    const documents=await canonical(base);
-   const label=String(row.originProject?.name||'Project').replace(/[^\\p{L}\\p{N} _-]/gu,'_').slice(0,70);
-   const dest=await inside(documents,path.join(documents,'Sesshuttle Workspaces',label+'-'+args.projectId.slice(0,8)));
+   const dest=await inside(documents,path.join(documents,'Sesshuttle Workspaces',workspaceFolderName(row.originProject?.name,args.projectId)));
    await fs.mkdir(dest,{recursive:true,mode:0o700}).catch(()=>{throw new Fault('workspace_create_failed');});return canonical(dest);
  }
  case 'restoreConnection':requireThat(!secrets,'invalid_action');return loadSecrets();
