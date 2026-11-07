@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { Fault, requireThat, canonical } from './util.mjs';
 import { requireRuntime, readVersion } from './runtime.mjs';
+import pkg from '../package.json' with { type: 'json' };
 const exec = promisify(execFile);
 export async function assertCodexClosed(home) {
   let output;
@@ -210,7 +211,8 @@ export class NativeClient {
   }
   async init(home) {
     const r = await this.rpc('initialize', {
-      clientInfo: { name: 'sesshuttle', version: '0.1.0' },
+      // The app's own version, so Codex logs show which Sesshuttle release connected.
+      clientInfo: { name: 'sesshuttle', version: pkg.version },
       capabilities: { experimentalApi: true },
     });
     requireThat((await canonical(r.codexHome)) === home, 'unsafe_path');
