@@ -512,14 +512,14 @@ tests/core/      node:test 单元测试
 | `scripts/missing-image-roundtrip.mjs` | `missing_image_bridge.py` | 同上，加 `comparable_history`、`IMAGE` |
 | `scripts/real-copy-roundtrip.mjs` | `real_copy_bridge.py` | Lab、Client、FixtureProvider、`turn` |
 
-- [ ] 把 `runtime-check.mjs` 中的 `provider()` 和 `setupHome()` 抽到 `core/fixture-provider.mjs`；runtime-check 改为引用它，行为不变。
-- [ ] 新建 `scripts/lib/native-lab.mjs`，提供：
+- [x] 把 `runtime-check.mjs` 中的 `provider()` 和 `setupHome()` 抽到 `core/fixture-provider.mjs`；runtime-check 改为引用它，行为不变。
+- [x] 新建 `scripts/lib/native-lab.mjs`，提供：
   - 隔离 Lab：只在 `os.tmpdir()` 下以 `sesshuttle-lab-` 前缀创建；拒绝任何不在 Lab 内的路径；拒绝真实 `~/.codex`；
   - `startThread`、`turn`（发送一轮并等待 `turn/completed`）、`turns`（分页读回）、`proveDirectory`（让 Codex 在只读沙箱里确认工作目录）、`historyEqual`、`comparableHistory`。
-- [ ] 4 个脚本改为在进程内直接调用这些函数，不再启动 Python 子进程。命令行参数和用途保持兼容，在每个脚本开头注释写明用法。
-- [ ] 删除 `tools/`、`tests/test_lab.py`、`tests/test_bundle.py`。
-- [ ] 在 `docs/decisions/0001-isolated-adapter-research.md` 末尾追加「0.7.0 起研究工具已移植为 JS，Python 实现已删除」；新增 `docs/decisions/0004-js-validation-harness.md` 简述理由。
-- [ ] 把 4 个脚本中重复的 bridge 样板代码（spawn、readline 队列、`next()`）全部去掉。
+- [x] 4 个脚本改为在进程内直接调用这些函数，不再启动 Python 子进程。命令行参数和用途保持兼容，在每个脚本开头注释写明用法。
+- [x] 删除 `tools/`、`tests/test_lab.py`、`tests/test_bundle.py`。
+- [x] 在 `docs/decisions/0001-isolated-adapter-research.md` 末尾追加「0.7.0 起研究工具已移植为 JS，Python 实现已删除」；新增 `docs/decisions/0004-js-validation-harness.md` 简述理由。
+- [x] 把 4 个脚本中重复的 bridge 样板代码（spawn、readline 队列、`next()`）全部去掉。
 
 **自验收**：
 
@@ -574,7 +574,7 @@ tests/core/      node:test 单元测试
 | P5 渲染层重构与前端性能 | 已完成 | 9148fc4–028d026 | 5,000 行与进度隔离结果见“前端性能（P5）”；全部弹窗 Esc/焦点检查通过 |
 | P6 文案资源重组 | 已完成 | b496183 | 719 → 650 个键；检查脚本对 6 类问题逐一注入验证会失败，撤回后通过；中英文页面无原始键名 |
 | P7 UI/UX 改版 | 已完成 | 665d218–15ffae1 | `scripts/ui-walkthrough.mjs`：中英文 × 1320×860 / 780×600 共 100 张截图，无水平滚动、顶栏遮挡、原始键名和不可见焦点；64 次打开页面/弹窗/标签页的检查均无扫描或云端请求；导入三步、上传两步、删除两步、错误示例、首次使用清单均走通；5,000 行性能复测通过 |
-| P8 Python 工具移植 | 未开始 | | |
+| P8 Python 工具移植 | 已完成 | 3f05e13–48051c6 | 本机 Codex 0.166.0（Homebrew）两端：`roundtrip.mjs` 及其 4 个变体（压缩、仅数据库、原生项目、重复身份）、`missing-image-roundtrip.mjs`（含 `--compressed`）全部通过，结果与移植前 Python 版一致（5/7 轮）；`real-copy-roundtrip.mjs` 以 Lab 中用 `openai` 提供方生成的合成来源通过；`cross-device.mjs` 在 Mac 上依次模拟 source/receive/return 通过，真实 Mac ↔ Arch 待用户验收；应用内快速验证改用共享应答服务后对 0.167.0-alpha.3.2 通过；仓库无 `.py` 文件 |
 | P9 文档、截图与版本 | 未开始 | | |
 | P10 最终验收与打包 | 未开始 | | |
 
@@ -648,6 +648,9 @@ tests/core/      node:test 单元测试
 | 2026-11-07 | P7 反馈：刷新时云端检查失败只显示页面顶部横幅（不再同时弹出错误提示）；`ErrorNotice` 出现在视野外时自动滚入视野；切换页面时内容回到顶部。关闭按钮统一用新增的 `close` 图标（图标集 18 → 19 个） | 开发者决定 |
 | 2026-11-07 | P7 文案检查：`check-locales` 另检查 `t()`/`tn()` 参数中条件表达式选出的键（借此发现并补上 `nextStep`、`confirmImportTo`、`confirmBothTo`、`stepApps` 等 0.6.0 改版后缺失的键）；新增前缀 `onboard`，`missingRuntime`/`missingFolder`/`replaced` 作为主进程/删除任务产生的状态声明在 `DATA_VALUES` | 开发者决定 |
 | 2026-11-07 | P7 走查：新增 `scripts/ui-walkthrough.mjs`。测试模式下记录渲染层发往主进程的每个请求（包装 `ipcMain` 的处理函数）和本机模拟 S3 收到的每个请求；打开页面、弹窗、详情和标签页时只允许 `init`/`backups`/`localBins`/`appStatus`/`folderStatus`/`activityPage`，且模拟 S3 请求数为 0。`scripts/ui-storage.mjs` 在首行之后逐行输出收到的请求 | 开发者决定 |
+| 2026-11-07 | P8：Lab 的“同一数据目录同时只有一个 App Server”由 Python 的 `flock` 改为 Lab 内独占创建的锁文件（加进程内集合）；`checked()` 另显式拒绝真实 `~/.codex`。Lab 不在结束时删除（与 Python 版相同），便于检查；位于系统临时目录 | 开发者决定 |
+| 2026-11-07 | P8：本机应答服务统一回复 `Sesshuttle local test reply`（Python 版为另一句合成文本，脚本不检查回复内容）；只接受 `POST /v1/responses`。`real-copy-roundtrip.mjs` 只能用于 `openai` 提供方的历史，开发中用 Lab 内生成的合成历史验证，从未读取真实 `~/.codex` | 开发者决定 |
+| 2026-11-07 | P8：ChatGPT 桌面端自带的 `codex-cli/bin/codex` 是启动脚本（应用内快速验证会拒绝为 `runtime_launcher`），可执行程序在 `codex-cli/CodexCLI.app/Contents/MacOS/codex`；验收脚本若用 0.167 预览版，目标端须先通过快速验证（`runtime_check_needed`），因此开发中两端都用 Homebrew 的 0.166.0 | 开发者核实 |
 
 ## 历史轮次摘要
 
