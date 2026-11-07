@@ -18,6 +18,7 @@
     "format": "prettier --write app core scripts tests eslint.config.mjs vite.config.ts",
     "format:check": "prettier --check app core scripts tests eslint.config.mjs vite.config.ts",
     "lint": "eslint .",
+    "check:links": "node scripts/check-links.mjs",
     "icon": "node scripts/icon.mjs",
     "licenses": "node scripts/licenses.mjs",
     "package:mac": "npm run build && electron-builder --mac dmg --arm64 --publish never",
