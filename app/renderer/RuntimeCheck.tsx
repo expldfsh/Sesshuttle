@@ -85,7 +85,7 @@ export function RuntimeCheck({
         {proof.version}
       </p>
     );
-  const checked = proof?.file ?? resolved ?? binary;
+  const checked = proof?.resolved ?? resolved ?? binary;
   const fix = problem ? runtimeFix(problem.code) : null;
   const repair = (
     <>

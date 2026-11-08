@@ -93,6 +93,9 @@ async function executable(binary) {
 }
 // The file that actually runs for a path: its launcher followed to the real program.
 export const runtimeProgram = executable;
+// The program that runs when it is another file than the one the path leads to. A
+// symbolic link alone names the same file and is not a replacement.
+const replacedBy = async (binary, file) => (file === (await fs.realpath(binary)) ? null : file);
 async function identity(binary) {
   try {
     const file = await executable(binary),
@@ -141,6 +144,7 @@ export async function runtimeInfo(binary, state) {
     saved = state?.get(info.key);
   return {
     ...info,
+    resolved: await replacedBy(binary, info.file),
     status: builtin ? 'builtin' : saved?.passed ? 'verified' : 'untested',
     projects: builtin ? info.version.startsWith('0.166.0') : !!saved?.projects,
     requiresSourceProvider: !!saved?.requiresSourceProvider,
@@ -200,7 +204,7 @@ export async function inspectRuntime(binary, state) {
   const stat = await fs.stat(file).catch(() => null);
   if (!stat?.isFile()) return { ...report, error: 'binary_missing' };
   report.exists = true;
-  report.resolved = file === binary ? null : file;
+  report.resolved = await replacedBy(binary, file);
   report.executable = await canRun(file);
   if (!report.executable) return { ...report, error: 'binary_not_executable' };
   report.script = await isScript(file);
@@ -228,7 +232,7 @@ export async function savedRuntimeDetail(binary, state) {
     const launcher = ['unchecked', 'untested'].includes(status) && (await isScript(file));
     return {
       status: launcher ? 'launcher' : status,
-      resolved: file === binary ? null : file,
+      resolved: await replacedBy(binary, file),
       candidate: launcher ? ((await bundleProgram(file))?.file ?? null) : null,
     };
   } catch {

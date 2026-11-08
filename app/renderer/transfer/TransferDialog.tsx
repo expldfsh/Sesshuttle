@@ -464,12 +464,9 @@ export function TransferDialog({
               )}
               {targets.map((entry) => {
                 const now = infoFor(entry);
-                const program = now?.proof?.file;
                 return (
                   <div key={entry}>
-                    {program && program !== draft.targets[entry].binary && (
-                      <ActualRuntime path={program} t={t} />
-                    )}
+                    <ActualRuntime path={now?.proof?.resolved} t={t} />
                     {now?.proof && (
                       <RuntimeCheck
                         key={draft.targets[entry].binary}
