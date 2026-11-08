@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
@@ -15,6 +16,11 @@ const BUNDLE_PROGRAM = 'Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS
 // Verified app bundles. The script at bin/codex only starts the program next to it.
 const VERIFIED_BUNDLES = ['ChatGPT.app', 'Codex.app'];
 
+const canRun = (file) =>
+  fs.access(file, constants.X_OK).then(
+    () => true,
+    () => false,
+  );
 export async function isScript(file) {
   const fd = await fs.open(file, 'r');
   try {
@@ -90,6 +96,7 @@ async function identity(binary) {
     const file = await executable(binary),
       stat = await fs.stat(file, { bigint: true });
     requireThat(stat.isFile(), 'binary_unavailable');
+    requireThat(await canRun(file), 'binary_not_executable');
     const stamp = [file, stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join('|');
     if (versions.has(stamp)) return versions.get(stamp);
     const { stdout } = await exec(file, ['--version'], {
@@ -165,6 +172,47 @@ export async function rememberRuntime(
     checkedAt: new Date().toISOString(),
   });
   return runtimeInfo(binary, state);
+}
+
+// What the interface shows for a path the user just chose or typed. Reads the file
+// header and asks the program for its version, the same as the detection; the only
+// thing kept is the remembered version of this exact file (runtimeInfo).
+export async function inspectRuntime(binary, state) {
+  const report = {
+    path: binary,
+    exists: false,
+    executable: false,
+    script: false,
+    resolved: null,
+    version: null,
+    status: null,
+    error: null,
+    candidate: null,
+  };
+  let file;
+  try {
+    file = await executable(binary);
+  } catch (e) {
+    return { ...report, error: e.code === 'binary_required' ? e.code : 'binary_missing' };
+  }
+  const stat = await fs.stat(file).catch(() => null);
+  if (!stat?.isFile()) return { ...report, error: 'binary_missing' };
+  report.exists = true;
+  report.resolved = file === binary ? null : file;
+  report.executable = await canRun(file);
+  if (!report.executable) return { ...report, error: 'binary_not_executable' };
+  report.script = await isScript(file);
+  try {
+    const info = await runtimeInfo(binary, state);
+    report.version = info.version;
+    report.status = info.status;
+  } catch (e) {
+    report.error = e.code === 'binary_unavailable' && report.script ? 'runtime_launcher' : e.code;
+  }
+  if (report.script && report.status === 'untested') report.error = 'runtime_launcher';
+  if (report.error === 'runtime_launcher')
+    report.candidate = (await bundleProgram(file))?.file ?? null;
+  return report;
 }
 
 // What the interface shows for a configured path without running it: the saved status,

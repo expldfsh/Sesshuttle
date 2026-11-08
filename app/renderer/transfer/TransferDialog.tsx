@@ -6,7 +6,7 @@ import { Stepper } from '../components/Stepper';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Icon } from '../components/Icon';
 import { RuntimeCheck } from '../RuntimeCheck';
-import { ActualRuntime, DetectionPanel, EntryFields } from '../Environment';
+import { ActualRuntime, DetectionPanel, EntryFields, useRuntimePaths } from '../Environment';
 import { Select } from '../Select';
 import { ENTRIES } from '../pages/rows';
 import { errorRule } from '../errors';
@@ -46,6 +46,14 @@ export function TransferDialog({
   const resume = request.resume ?? {};
   const [step, setStep] = useState<Step>(steps[0]);
   const [draft, setDraft] = useState(() => structuredClone(cfg));
+  const paths = useRuntimePaths(
+    (entry) => draft.targets[entry]?.binary ?? '',
+    (entry, binary) =>
+      setDraft((old: any) => ({
+        ...old,
+        targets: { ...old.targets, [entry]: { ...old.targets[entry], binary } },
+      })),
+  );
   const [targets, setTargets] = useState<string[]>(
     resume.targets ?? request.targets ?? ['desktop'],
   );
@@ -496,6 +504,7 @@ export function TransferDialog({
                           entry={entry}
                           target={draft.targets[entry]}
                           saved={saved[entry]}
+                          paths={paths}
                           pick={call}
                           change={(v) =>
                             setDraft({ ...draft, targets: { ...draft.targets, [entry]: v } })

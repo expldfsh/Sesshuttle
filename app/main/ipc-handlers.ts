@@ -16,7 +16,7 @@ import { changeCloud } from '../../core/cloud-trash.mjs';
 import { bundleBytes } from '../../core/bundle.mjs';
 import { detectEnvironment } from '../../core/discovery.mjs';
 import { localProjects } from '../../core/local-projects.mjs';
-import { runtimeInfo, savedRuntimeDetail } from '../../core/runtime.mjs';
+import { inspectRuntime, runtimeInfo, savedRuntimeDetail } from '../../core/runtime.mjs';
 import { verifyRuntime } from '../../core/runtime-check.mjs';
 import { downloadCopy } from '../../core/download-copy.mjs';
 import { keepLocalCopy, inspectTarget } from '../../core/local-copies.mjs';
@@ -712,6 +712,13 @@ export function createHandlers(ctx: Context): Handlers {
       return true;
     },
     appStatus: () => appStatus(ctx),
+    // Runs only after the user chooses or edits a path. Test mode stays inside its root.
+    inspectBinary: (args) => {
+      requireThat(typeof args.path === 'string' && args.path.length <= 4096, 'invalid_selection');
+      if (ctx.testRoot && !args.path.startsWith(ctx.testRoot + path.sep))
+        throw new Fault('unsafe_path');
+      return inspectRuntime(args.path, state);
+    },
     folderStatus: (args) => folderStatus(ctx, args.paths),
     localBins: () => ({
       local: ctx.trash.list().filter((t: any) => t.status !== 'staging'),

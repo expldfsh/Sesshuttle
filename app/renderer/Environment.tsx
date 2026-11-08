@@ -1,5 +1,57 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Modal } from './components/Modal';
+import { call } from './hooks/useApi';
+
+const folderOf = (file: string) =>
+  /^([a-zA-Z]:)?[\\/]/.test(file) ? file.replace(/[\\/][^\\/]*$/, '') || '/' : '';
+
+// The "Codex runtime" field of each app: choosing or typing a path writes the unsaved
+// draft and checks that file. Nothing is saved and no quick check starts from here.
+export function useRuntimePaths(
+  binaryOf: (entry: string) => string,
+  write: (entry: string, binary: string) => void,
+) {
+  const [inspections, setInspections] = useState<Record<string, any>>({});
+  const [pickErrors, setPickErrors] = useState<Record<string, string>>({});
+  const turns = useRef<Record<string, number>>({});
+  const put = (entry: string, value: any) => setInspections((old) => ({ ...old, [entry]: value }));
+  async function inspect(entry: string, path: string) {
+    const turn = (turns.current[entry] = (turns.current[entry] ?? 0) + 1);
+    if (!path) return put(entry, null);
+    put(entry, { path, checking: true });
+    let result: any;
+    try {
+      result = { path, report: await call('inspectBinary', { path }) };
+    } catch (e: any) {
+      result = { path, error: e.code ?? 'operation_failed' };
+    }
+    if (turns.current[entry] === turn) put(entry, result);
+  }
+  function apply(entry: string, binary: string) {
+    write(entry, binary);
+    void inspect(entry, binary);
+  }
+  async function choose(entry: string) {
+    setPickErrors((old) => ({ ...old, [entry]: '' }));
+    try {
+      const defaultPath = folderOf(binaryOf(entry));
+      const file = await call('pickBinary', { entry, ...(defaultPath && { defaultPath }) });
+      if (file) apply(entry, file);
+    } catch (e: any) {
+      setPickErrors((old) => ({ ...old, [entry]: e.code ?? 'operation_failed' }));
+    }
+  }
+  return {
+    inspect,
+    apply,
+    choose,
+    pickError: (entry: string) => pickErrors[entry],
+    // The result for the path now in the field; a result for an older path is ignored.
+    current: (entry: string, path: string) =>
+      inspections[entry]?.path === path ? inspections[entry] : null,
+  };
+}
+export type RuntimePaths = ReturnType<typeof useRuntimePaths>;
 
 // The program that really runs, shown when it is not the file the path names.
 export function ActualRuntime({ path, t }: { path?: string | null; t: (key: string) => string }) {
@@ -11,26 +63,81 @@ export function ActualRuntime({ path, t }: { path?: string | null; t: (key: stri
   );
 }
 
+// What is known about the path now in the field: the latest check, or for an unedited
+// saved path what appStatus reported without running anything.
+function BinaryState({ entry, binary, saved, paths, t }: any) {
+  if (!binary) return null;
+  const inspection = paths.current(entry, binary);
+  if (inspection?.checking)
+    return (
+      <small className="binary-state muted" role="status">
+        {t('binaryChecking')}
+      </small>
+    );
+  const known = !inspection && saved?.binary === binary ? saved : null;
+  const report = inspection?.report;
+  const code =
+    inspection?.error ??
+    report?.error ??
+    (known?.runtime === 'launcher'
+      ? 'runtime_launcher'
+      : known?.runtime === 'missing'
+        ? 'binary_missing'
+        : null);
+  const resolved = report ? report.resolved : known?.resolved;
+  const candidate = report ? report.candidate : known?.candidate;
+  if (!code && !resolved && !report) return null;
+  return (
+    <div className="binary-state">
+      {report && !report.error && (
+        <small className="folder-state ok" role="status">
+          {t('binaryVersion', { version: report.version })} ·{' '}
+          {t(report.status === 'untested' ? 'needsCheck' : 'binaryVerified')}
+        </small>
+      )}
+      <ActualRuntime path={resolved} t={t} />
+      {code && (
+        <div className="binary-problem warning-box" role="alert">
+          <span>{t(code)}</span>
+          <div className="actions">
+            <button type="button" onClick={() => paths.choose(entry)}>
+              {t('chooseRuntime')}
+            </button>
+            {candidate && (
+              <button type="button" onClick={() => paths.apply(entry, candidate)}>
+                {t('useRuntime', { path: candidate })}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Props = {
   target: any;
   entry: string;
-  t: (key: string) => string;
+  t: (key: string, vars?: Record<string, string | number>) => string;
   pick: (method: string) => Promise<string | null>;
   change: (target: any) => void;
+  paths: RuntimePaths;
   // Saved state of this app: what appStatus reported for the saved path.
   saved?: any;
 };
-export function EntryFields({ target, entry, t, pick, change, saved }: Props) {
+export function EntryFields({ target, entry, t, pick, change, paths, saved }: Props) {
   const [error, setError] = useState('');
-  async function choose(key: 'home' | 'binary') {
+  const focused = useRef('');
+  async function chooseFolder() {
     setError('');
     try {
-      const file = await pick(key === 'binary' ? 'pickBinary' : 'pickDirectory');
-      if (file) change({ ...target, [key]: file });
+      const file = await pick('pickDirectory');
+      if (file) change({ ...target, home: file });
     } catch (e: any) {
       setError(t(e.code ?? 'operation_failed'));
     }
   }
+  const pickError = paths.pickError(entry);
   return (
     <div className="entry-fields">
       {(['binary', 'home'] as const).map((key) => (
@@ -42,19 +149,29 @@ export function EntryFields({ target, entry, t, pick, change, saved }: Props) {
               aria-label={t(entry) + ' ' + t(key === 'binary' ? 'kernelProgram' : 'historyFolder')}
               value={target?.[key] ?? ''}
               onChange={(e) => change({ ...target, [key]: e.target.value })}
+              onFocus={(e) => {
+                if (key === 'binary') focused.current = e.target.value;
+              }}
+              onBlur={(e) => {
+                if (key === 'binary' && e.target.value !== focused.current)
+                  void paths.inspect(entry, e.target.value);
+              }}
             />
-            <button type="button" onClick={() => choose(key)}>
+            <button
+              type="button"
+              onClick={() => (key === 'binary' ? paths.choose(entry) : chooseFolder())}
+            >
               {t('browse')}
             </button>
           </span>
-          {key === 'binary' && saved?.binary === target?.binary && (
-            <ActualRuntime path={saved?.resolved} t={t} />
+          {key === 'binary' && (
+            <BinaryState entry={entry} binary={target?.binary} saved={saved} paths={paths} t={t} />
           )}
         </div>
       ))}
-      {error && (
+      {(error || pickError) && (
         <p role="alert" className="warning-box">
-          {error}
+          {error || t(pickError!)}
         </p>
       )}
     </div>

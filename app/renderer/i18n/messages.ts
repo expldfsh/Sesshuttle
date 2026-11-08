@@ -529,6 +529,11 @@ export const messages = {
     'The folder (CODEX_HOME) where this app stores Codex conversations, usually containing sessions or a state database.',
   ],
   actualRuntime: ['实际使用：', 'Actually uses:'],
+  chooseRuntime: ['选择 Codex 程序…', 'Choose Codex runtime…'],
+  useRuntime: ['改用 {path}', 'Use {path}'],
+  binaryChecking: ['正在检查这个程序…', 'Checking this program…'],
+  binaryVersion: ['版本 {version}', 'Version {version}'],
+  binaryVerified: ['已验证', 'Verified'],
   launcher: ['需要选择 Codex 程序', 'Choose a Codex runtime'],
   resolvedFromLauncher: ['由启动脚本解析：', 'Resolved from launcher:'],
   kernelMeaning: [
@@ -1174,6 +1179,14 @@ export const messages = {
     'An interrupted import or restore still needs this backup. Finish recovery before deleting it.',
   ],
   backup_not_found: ['未找到备份。', 'Backup not found.'],
+  binary_missing: [
+    '这个路径没有文件。请选择这台电脑上已安装的 Codex 程序。',
+    'There is no file at this path. Choose the Codex runtime installed on this computer.',
+  ],
+  binary_not_executable: [
+    '这个文件没有执行权限，无法运行。请选择可以运行的 Codex 程序。',
+    'This file does not have execute permission and cannot run. Choose a Codex runtime that can.',
+  ],
   binary_not_codex: [
     '该程序未报告 Codex 版本。请选择 Codex 程序的可执行文件。',
     'This program did not report a Codex version. Select the Codex runtime executable.',

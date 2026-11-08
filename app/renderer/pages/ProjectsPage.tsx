@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { PlaceError, useApp } from '../App';
 import { useI18n } from '../i18n/I18n';
 import { call } from '../hooks/useApi';
-import { EntryFields } from '../Environment';
+import { EntryFields, useRuntimePaths } from '../Environment';
 import { RuntimeCheck } from '../RuntimeCheck';
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState } from '../components/EmptyState';
@@ -20,6 +20,14 @@ export function ProjectsPage() {
   const [apps, setApps] = useState<Record<string, any>>({});
   const [folders, setFolders] = useState<Record<string, string>>({});
   const update = (key: string, value: any) => app.setCfg({ ...cfg, [key]: value });
+  const runtimePaths = useRuntimePaths(
+    (entry) => cfg.targets[entry]?.binary ?? '',
+    (entry, binary) =>
+      app.setCfg((old: any) => ({
+        ...old,
+        targets: { ...old.targets, [entry]: { ...old.targets[entry], binary } },
+      })),
+  );
   const pick = async (cb: (p: string) => void) => {
     const p = await call('pickDirectory');
     if (p) cb(p);
@@ -87,6 +95,7 @@ export function ProjectsPage() {
                   entry={entry}
                   target={cfg.targets[entry]}
                   saved={apps[entry]}
+                  paths={runtimePaths}
                   t={t}
                   pick={(method) => work(() => call(method)) as Promise<string | null>}
                   change={(value) => update('targets', { ...cfg.targets, [entry]: value })}

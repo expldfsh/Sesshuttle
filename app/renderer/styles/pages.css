@@ -890,6 +890,15 @@ tr.spacer td {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
+.binary-state {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.binary-problem {
+  display: grid;
+  gap: 8px;
+}
 .git-line {
   flex-basis: 100%;
   color: var(--muted);

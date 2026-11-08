@@ -37,8 +37,8 @@ const RULES: Record<string, ErrorRule> = {
   ...rules(
     'openApps',
     'error',
-    `entry_home_missing binary_unavailable binary_not_codex binary_required
-     runtime_check_needed working_folder_missing project_required destination_project_missing
+    `entry_home_missing binary_unavailable binary_not_codex binary_required binary_missing
+     binary_not_executable runtime_check_needed working_folder_missing project_required destination_project_missing
      project_assignment_unsupported custom_home_launcher no_protocol_handler terminal_required`,
   ),
   ...rules(

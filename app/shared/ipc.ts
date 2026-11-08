@@ -47,6 +47,7 @@ export const IPC_METHODS = {
   diagnostics: {},
   copyText: {},
   appStatus: {},
+  inspectBinary: {},
   folderStatus: {},
   localBins: {},
   openDocs: {},
