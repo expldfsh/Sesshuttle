@@ -444,6 +444,11 @@ dialog.modal > .modal-actions {
   display: grid;
   gap: 8px;
 }
+.missing-targets {
+  display: grid;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
 .error-subject-row {
   display: flex;
   flex-wrap: wrap;

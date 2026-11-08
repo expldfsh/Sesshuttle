@@ -445,8 +445,9 @@ test('reviewing a cloud removal does not depend on the list and reports what the
     const p = await x.removals.preview({ scope: 'cloud', mode: 'trash', ids: [x.a, x.b] });
     x.state.set('config', { ...x.engine.config(), skipNativeConfirm: true });
     // A cloud list that changed before the removal: the first check stops it.
-    const other = await x.removals.preview({ scope: 'cloud', mode: 'trash', ids: [x.a] });
-    await x.removals.execute(other.token, { upgrade: true });
+    const elsewhere = new Removals(x.engine, x.trash);
+    const other = await elsewhere.preview({ scope: 'cloud', mode: 'trash', ids: [x.a] });
+    await elsewhere.execute(other.token, { upgrade: true });
     const job = await x.removals.execute(p.token, { upgrade: true });
     assert.ok(job.error, JSON.stringify(job));
     assert.ok(job.sides.every((s) => !s.started));

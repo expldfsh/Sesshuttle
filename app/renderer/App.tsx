@@ -128,7 +128,11 @@ function useAppState() {
         if (previous?.token && previous.token !== failure.token) void discardPlan(previous.token);
         progress.fail({
           ...failure,
-          error: { code: e?.code ?? 'operation_failed', detail: e?.detail ?? e?.message ?? '' },
+          error: {
+            code: e?.code ?? 'operation_failed',
+            detail: e?.detail ?? e?.message ?? '',
+            targets: e?.targets,
+          },
           started: e?.started === true,
         });
       }
@@ -202,6 +206,13 @@ function useAppState() {
     const result = await call('refresh');
     setData(result);
     setNeedsRefresh(false);
+    return result;
+  }
+  // This computer's list only, read again for a repair the user clicked. What is known
+  // of the cloud stays as it was and the cloud is not read.
+  async function refreshLocal() {
+    const result = await call('refresh', { localOnly: true });
+    setData(result);
     return result;
   }
   async function persist(next: any) {
@@ -352,10 +363,14 @@ function useAppState() {
     );
   }
   // A new removal list from the same request, replacing the record that stopped.
-  function reviseRemoval(id: string) {
+  // The list of this computer is read first: the conversations may have gone since.
+  function reviseRemoval(id: string, options: { onlyRemaining?: boolean } = {}) {
     void taskWork(
       { kind: 'retryRemoval', request: { id, revise: true } },
-      async () => setRemoval({ plan: await call('reviseRemovalPlan', { id }) }),
+      async () => {
+        await refreshLocal();
+        setRemoval({ plan: await call('reviseRemovalPlan', { id, ...options }) });
+      },
       'readingRemoval',
     );
   }
@@ -402,12 +417,15 @@ function useAppState() {
     startFlow(direction, ids, { ...rest, autoPreview: true });
   }
   function reopenRemoval(request: any) {
-    if (request.revise) reviseRemoval(request.revise);
-    else setRemoval({ ...request.initial, review: request.q });
+    if (request.revise) return reviseRemoval(request.revise);
+    void work(async () => {
+      await refreshLocal();
+      setRemoval({ ...request.initial, review: request.q });
+    }, 'readingRemoval');
   }
   // The recovery buttons of a task that could not run. Each one only opens the
   // place to continue; none repeats a data operation by itself.
-  function failureActions(f: Failure): { label: string; run: () => void }[] {
+  function failureActions(f: Failure): { label: string; run: () => void; count?: number }[] {
     const code = f.error.code;
     const repair = errorRule(code).fix;
     const go = (label: string, run: () => void) => ({
@@ -421,8 +439,23 @@ function useAppState() {
       void work(refresh, 'refreshing');
     });
     const activity = { label: 'activity', run: () => setPage('activity') };
-    const actions: { label: string; run: () => void }[] = [];
+    const actions: { label: string; run: () => void; count?: number }[] = [];
     if (code === 'task_running') return f.started ? [activity] : [];
+    if (repair === 'discardRemoval' && f.kind === 'retryRemoval') {
+      const remaining = f.error.targets?.remaining?.length ?? 0;
+      if (remaining > 0)
+        actions.push({
+          ...go('reviseRemainingTargets', () =>
+            reviseRemoval(f.request.id, { onlyRemaining: true }),
+          ),
+          count: remaining,
+        });
+      actions.push({
+        label: 'discardRemovalJob',
+        run: () => void discardRemovalTask(f.request.id),
+      });
+      return actions;
+    }
     if (f.kind === 'transfer') {
       if (repair === 'refreshRetry')
         actions.push(
@@ -457,6 +490,8 @@ function useAppState() {
     } else {
       if (repair === 'openSettings') actions.push(settings);
       else if (repair === 'openApps') actions.push(apps);
+      else if (repair === 'showScanIssues')
+        actions.push(go(FIX_LABELS.showScanIssues, showScanIssues));
       else if (f.kind === 'retryRemoval' && code === 'stale_plan')
         actions.push(go('activity', () => setPage('activity')));
       else if (repair === 'refreshRetry') actions.push(refreshList);
@@ -569,6 +604,7 @@ function useAppState() {
     work,
     reloadInit,
     localChanged,
+    refreshLocal,
     localRevision,
     cloudRevision,
     refresh,
@@ -905,6 +941,11 @@ function GlobalDialogs() {
           call={call}
           initial={app.removal}
           onClose={() => app.setRemoval(null)}
+          onRefreshLocal={app.refreshLocal}
+          onRevise={(id: string) => {
+            app.setRemoval(null);
+            app.reviseRemoval(id);
+          }}
           onRepair={(p: string) => {
             app.setRemoval(null);
             if (p === 'scan') app.showScanIssues();
@@ -914,7 +955,12 @@ function GlobalDialogs() {
             // What "Review the removal list again" opens if the removal cannot start:
             // the same request, or a revised list for a removal that already has a record.
             const request = {
-              initial: app.removal,
+              initial: {
+                ...app.removal,
+                knownTitles: Object.fromEntries(
+                  (p.selected ?? []).map((r: any) => [r.id, r.title]),
+                ),
+              },
               q: p.q,
               revise: p.previous ? p.token : p.replaces,
             };

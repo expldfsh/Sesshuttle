@@ -10,6 +10,7 @@ export type FixAction =
   | 'compareVersions' // diverged cloud versions
   | 'openApps' // an app's Codex runtime, data folder or project folder
   | 'refreshRetry' // the preview is out of date
+  | 'discardRemoval' // a removal task with nothing left that it could do
   | 'retry'; // review the same operation again
 
 // The repair the quick-check block offers in place. `null`: the notice explains
@@ -45,6 +46,7 @@ const RULES: Record<string, ErrorRule> = {
      removal_cloud_pending`,
   ),
   ...rules('showScanIssues', 'warning', 'scan_incomplete'),
+  ...rules('discardRemoval', 'warning', 'removal_targets_missing removal_plan_missing'),
   ...rules('inspectCopies', 'warning', 'duplicate_identity copies_indexed copies_multiple_homes'),
   ...rules('compareVersions', 'warning', 'conflict'),
   ...rules(
@@ -108,6 +110,7 @@ export const FIX_LABELS: Record<FixAction, string> = {
   compareVersions: 'compareVersions',
   openApps: 'configureAndContinue',
   refreshRetry: 'refreshAndRetry',
+  discardRemoval: 'discardRemovalJob',
   retry: 'reviewAndRetry',
 };
 

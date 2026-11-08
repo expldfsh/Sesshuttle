@@ -4,7 +4,7 @@ import { scan } from './codex.mjs';
 import { Trash } from './trash.mjs';
 import { cloudRemovalPlan, changeCloud, cloudBins } from './cloud-trash.mjs';
 import { removalClearance, removeRemovalRecord } from './activity.mjs';
-import { id, hash, canonical, requireThat, publicError, afterStart } from './util.mjs';
+import { Fault, id, hash, canonical, requireThat, publicError, afterStart } from './util.mjs';
 
 const uuid = (s) => typeof s === 'string' && /^[0-9a-f-]{36}$/i.test(s);
 const unique = (a) => [...new Set(a)];
@@ -61,6 +61,29 @@ function cloudRequest(q, groups = []) {
     binId: q.binId,
     versions: q.versions,
   };
+}
+// Conversations a removal was for that are no longer there. `remaining` lists the ones
+// that still are; titles come from what the review recorded, or an ID prefix.
+function targetsMissing(missing, remaining, titles) {
+  const list = missing.map(({ id: tid, place }) => ({
+    id: tid,
+    place,
+    title: titles.get(tid) || tid.slice(0, 8),
+  }));
+  const fault = new Fault('removal_targets_missing', list.map((m) => m.title).join(' · '));
+  fault.targets = { missing: list, remaining };
+  return fault;
+}
+function planTitles(plan) {
+  const titles = new Map();
+  const add = (rows) => {
+    for (const row of rows ?? [])
+      if (row.title && !titles.has(row.id)) titles.set(row.id, row.title);
+  };
+  add(plan.selected);
+  for (const group of plan.local ?? []) add(group.rows);
+  add(plan.cloud?.items);
+  return titles;
 }
 export class Removals {
   constructor(engine, trash, { onProgress = () => {} } = {}) {
@@ -153,7 +176,7 @@ export class Removals {
     }
     return [...out];
   }
-  async preview(input, onlyHomes = null) {
+  async preview(input, onlyHomes = null, { checkRows = true } = {}) {
     const q = cleanRequest(input),
       vault = this.engine.vault,
       config = this.engine.config(),
@@ -163,10 +186,11 @@ export class Removals {
       wanted = new Set(q.ids),
       selected = sources.filter((r) => wanted.has(r.id)),
       found = new Set(selected.map((r) => r.id));
-    if (q.kind === 'live')
-      requireThat(
-        q.ids.every((tid) => found.has(tid)),
-        'stale_plan',
+    if (q.kind === 'live' && checkRows && !q.ids.every((tid) => found.has(tid)))
+      throw targetsMissing(
+        q.ids.filter((tid) => !found.has(tid)).map((tid) => ({ id: tid, place: 'local' })),
+        q.ids.filter((tid) => found.has(tid)),
+        new Map(Object.entries(input.titles ?? {})),
       );
     const record =
       q.kind === 'bin' && q.scope === 'local' ? this.state.get('trash/' + q.binId) : null;
@@ -290,14 +314,19 @@ export class Removals {
     }
     await importer.guard(g.home);
     const worker = new Trash(this.state, importer);
-    const p = await worker.preview(
-      [g.home],
-      { ids: g.requestedIds, includeDependents: q.includeDependents },
-      {
-        ownershipHomes: plan.homeList,
-        reserveAssets: g.assets.filter((a) => a.disposition === 'shared').map((a) => a.path),
-      },
-    );
+    const p = await worker
+      .preview(
+        [g.home],
+        { ids: g.requestedIds, includeDependents: q.includeDependents },
+        {
+          ownershipHomes: plan.homeList,
+          reserveAssets: g.assets.filter((a) => a.disposition === 'shared').map((a) => a.path),
+        },
+      )
+      .catch((e) => {
+        // A reviewed chat is no longer there: the list is out of date.
+        throw e.code === 'invalid_selection' ? new Fault('stale_plan') : e;
+      });
     requireThat(!p.blockers.length, 'trash_dependencies');
     requireThat(localFingerprint(p) === g.fingerprint, 'stale_plan');
     await ensureFreeSpace(this.state.root, g.bytes + g.rows.reduce((n, r) => n + r.bytes, 0));
@@ -511,10 +540,26 @@ export class Removals {
   retryPlan(token) {
     const plan = this.state.get('removal-plan/' + token),
       job = this.state.get('removal/' + token);
-    requireThat(plan && job, 'stale_plan');
+    requireThat(job, 'stale_plan');
+    requireThat(plan, 'removal_plan_missing');
     return { ...plan, previous: job };
   }
-  async revise(token) {
+  // Which of these local conversations are still there, read from the disk. An
+  // incomplete scan stops here: a chat it could not read is not known to be gone.
+  async presentLocally(q, homes, ids) {
+    if (q.kind === 'bin') return new Set(this.state.get('trash/' + q.binId) ? ids : []);
+    const available = await this.homes(),
+      present = new Set();
+    for (const home of homes.filter((h) => available.includes(h))) {
+      const result = await scan([home]);
+      checkScope(result, ids, { allowDuplicateRemoval: true });
+      for (const row of result.rows) present.add(row.id);
+    }
+    return present;
+  }
+  // A new list from the same request. Conversations that are gone are named instead
+  // of failing as a stale list; `onlyRemaining` makes the list for the rest.
+  async revise(token, { onlyRemaining = false } = {}) {
     const plan = this.retryPlan(token),
       job = plan.previous,
       remaining = job.sides.filter((s) => s.status !== 'done');
@@ -536,18 +581,53 @@ export class Removals {
         );
     const sides = unique(remaining.map((s) => s.side));
     const homes = remaining.filter((s) => s.side === 'local').map((s) => s.home);
-    const ids = unique([
-      ...plan.local.filter((g) => homes.includes(g.home)).flatMap((g) => g.requestedIds ?? g.ids),
-      ...(sides.includes('cloud')
-        ? plan.cloud.items.filter((i) => i.versions.some((v) => v.selected)).map((i) => i.id)
-        : []),
-    ]);
-    const versions = Object.fromEntries(
-      Object.entries(plan.q.versions).filter(([k]) => ids.includes(k)),
+    const localIds = unique(
+      plan.local.filter((g) => homes.includes(g.home)).flatMap((g) => g.requestedIds ?? g.ids),
     );
-    const next = await this.preview(
-      { ...plan.q, ids, versions, scope: sides.length === 2 ? 'both' : sides[0] },
-      homes,
+    const cloudIds = sides.includes('cloud')
+      ? plan.cloud.items.filter((i) => i.versions.some((v) => v.selected)).map((i) => i.id)
+      : [];
+    const titles = planTitles(plan),
+      present = await this.presentLocally(plan.q, homes, localIds);
+    const goneLocal = localIds
+      .filter((tid) => !present.has(tid))
+      .map((tid) => ({ id: tid, place: 'local' }));
+    const ids = unique([...localIds.filter((tid) => present.has(tid)), ...cloudIds]);
+    // Without a cloud side the answer is known here and the cloud is not read at all.
+    if (!ids.length || (goneLocal.length && !cloudIds.length && !onlyRemaining))
+      throw targetsMissing(goneLocal, ids, titles);
+    const versions = Object.fromEntries(
+      Object.entries(plan.q.versions ?? {}).filter(([k]) => ids.includes(k)),
+    );
+    const scope = sides.length === 2 ? 'both' : sides[0];
+    let next;
+    try {
+      next = await this.preview({ ...plan.q, ids, versions, scope }, homes, { checkRows: false });
+    } catch (e) {
+      // Without chosen versions, a cloud recycle-bin entry only fails this way when gone.
+      if (e.code === 'stale_plan' && plan.q.kind === 'bin' && !Object.keys(versions).length)
+        throw targetsMissing(
+          cloudIds.map((tid) => ({ id: tid, place: 'cloud' })),
+          [],
+          titles,
+        );
+      throw e;
+    }
+    if (sides.includes('cloud')) {
+      const listed = new Set(next.cloud.items.map((i) => i.id));
+      const missing = [
+        ...goneLocal,
+        ...cloudIds.filter((tid) => !listed.has(tid)).map((tid) => ({ id: tid, place: 'cloud' })),
+      ];
+      const still = ids.filter((tid) => present.has(tid) || listed.has(tid));
+      if (!still.length || (missing.length && !onlyRemaining)) {
+        this.plans.delete(next.token);
+        throw targetsMissing(missing, still, titles);
+      }
+    }
+    const shown = new Set(next.selected.map((r) => r.id));
+    next.selected.push(
+      ...(plan.selected ?? []).filter((r) => ids.includes(r.id) && !shown.has(r.id)),
     );
     next.replaces = token;
     return next;

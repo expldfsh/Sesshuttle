@@ -121,11 +121,14 @@ export class Engine {
       this.downloads.delete(k);
     }
   }
-  async refresh() {
+  // `cloud: false` reads this computer only and keeps what is already known of the
+  // cloud, for a repair the user clicked that needs a current local list.
+  async refresh({ cloud = true } = {}) {
     requireThat(!this.running, 'task_running');
     this.local = await scan(this.config().sourceHomes);
-    this.cloudError = null;
-    if (this.vault) {
+    if (!this.vault) this.remote = [];
+    else if (cloud) {
+      this.cloudError = null;
       try {
         this.remote = await this.vault.heads();
         this.state.set('cache/' + this.scope(), {
@@ -136,7 +139,8 @@ export class Engine {
         this.cloudError = publicError(e);
         this.remote = this.state.get('cache/' + this.scope(), { heads: [] }).heads;
       }
-    } else this.remote = [];
+    } else if (!this.remote.length)
+      this.remote = this.state.get('cache/' + this.scope(), { heads: [] }).heads;
     const rows = [],
       locals = indexBy(this.local.rows, 'id'),
       heads = indexBy(this.remote, 'logicalId');

@@ -1211,6 +1211,28 @@ export const messages = {
   discardNothingChanged: ['这条任务没有改动任何内容。', 'This task did not change anything.'],
   discardRemovalJob: ['放弃此删除任务', 'Give up this removal task'],
   removalDiscarded: ['已放弃删除任务', 'Removal task given up'],
+  removal_plan_missing: [
+    '这条删除任务的清单已不存在，无法继续。可以{@discardRemovalJob}，放弃后不会删除任何对话。',
+    'The list of this removal task no longer exists, so it cannot continue. You can choose {@discardRemovalJob}. No conversation will be deleted.',
+  ],
+  removal_targets_missing: [
+    '这条删除任务要处理的对话已经找不到了（可能已被删除或移动），本次没有删除任何内容。',
+    'The chats this removal task was for can no longer be found (they may have been deleted or moved). Nothing was deleted.',
+  ],
+  removalTargetsAllGone: [
+    '这条任务已无事可做，可以{@discardRemovalJob}。放弃后不会删除任何对话。',
+    'This task has nothing left to do. You can choose {@discardRemovalJob}. No conversation will be deleted.',
+  ],
+  removalTargetsSomeGone: [
+    '仍在的对话可以重新生成清单，也可以{@discardRemovalJob}。放弃后不会删除任何对话。',
+    'You can make a new list for the chats that remain, or choose {@discardRemovalJob}. Giving it up deletes no conversation.',
+  ],
+  reviseRemainingTargets: [
+    '只为仍在的 {n} 条重新生成清单',
+    'Review a new list for the {n} remaining',
+  ],
+  targetsGoneCloud: ['已不在当前同步空间：', 'No longer in this sync space:'],
+  targetsGoneLocal: ['已不在本机：', 'No longer on this computer:'],
   activity_pending: [
     '该任务仍在运行或等待恢复。请先完成任务。',
     'This task is running or awaiting recovery. Finish it before clearing the record.',

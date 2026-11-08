@@ -519,8 +519,8 @@ export function createHandlers(ctx: Context): Handlers {
     },
     credentialHealth: () => credentialHealth(),
     retryCredentialSave: () => saveCurrentCredentials(ctx),
-    refresh: async () => {
-      const result = await engine().refresh();
+    refresh: async (args) => {
+      const result = await engine().refresh({ cloud: args.localOnly !== true });
       if (ctx.testRoot)
         await atomic(
           path.join(ctx.testRoot, 'launch-check.json'),
@@ -649,7 +649,8 @@ export function createHandlers(ctx: Context): Handlers {
     keepLocalCopy: (args) => keepLocalCopy(engine(), args),
     reviewRemoval: (args) => ctx.removals.preview(args),
     retryRemovalPlan: (args) => ctx.removals.retryPlan(args.id),
-    reviseRemovalPlan: (args) => ctx.removals.revise(args.id),
+    reviseRemovalPlan: (args) =>
+      ctx.removals.revise(args.id, { onlyRemaining: args.onlyRemaining === true }),
     executeRemoval: async (args) => {
       ctx.deletionActive = true;
       try {

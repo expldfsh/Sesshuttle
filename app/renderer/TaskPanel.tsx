@@ -4,7 +4,7 @@ import { useI18n } from './i18n/I18n';
 import { call } from './hooks/useApi';
 import { progress, useProgress, type Failure } from './store/progress';
 import { TaskFeedback } from './TaskFeedback';
-import { RemovalResult } from './RemovalFlow';
+import { MissingTargets, RemovalResult } from './RemovalFlow';
 import { Icon } from './components/Icon';
 import { ErrorNotice } from './components/ErrorNotice';
 import { errorRule } from './errors';
@@ -162,8 +162,9 @@ export function TaskPanel() {
 // way to continue. It stays until closed, recovered or replaced by a new task.
 function TaskFailure({ failure }: { failure: Failure }) {
   const app = useApp();
-  const { t } = useI18n();
+  const { t, tn } = useI18n();
   const actions = app.failureActions(failure);
+  const targets = failure.error.targets;
   return (
     <section className="task-failure" aria-label={t(failureLabel(failure))}>
       <div className="task-heading">
@@ -173,7 +174,7 @@ function TaskFailure({ failure }: { failure: Failure }) {
         error={failure.error}
         subject={failure.subject}
         severity={errorRule(failure.error.code).severity}
-        note={t(failureNote(failure))}
+        note={targets ? <MissingTargets targets={targets} discard /> : t(failureNote(failure))}
         action={
           actions.length > 0 &&
           actions.map((a, i) => (
@@ -183,7 +184,7 @@ function TaskFailure({ failure }: { failure: Failure }) {
               disabled={app.busy}
               onClick={a.run}
             >
-              {t(a.label)}
+              {a.count === undefined ? t(a.label) : tn(a.label, a.count)}
             </button>
           ))
         }

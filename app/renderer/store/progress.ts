@@ -10,7 +10,7 @@ export type FailureKind = 'transfer' | 'removal' | 'native' | 'inspect' | 'retry
 export type Failure = {
   id: number;
   kind: FailureKind;
-  error: { code: string; detail?: string };
+  error: { code: string; detail?: string; targets?: any };
   // Whether anything may have been changed before the error.
   started: boolean;
   // What the recovery opens again: the transfer request, the removal request, the app.

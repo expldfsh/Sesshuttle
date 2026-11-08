@@ -105,6 +105,36 @@ function CopyList({ items, t, locale }: any) {
   );
 }
 
+// The conversations a removal could not find, and what can be done about it. `discard`
+// is set where the task has a record that can be given up.
+export function MissingTargets({ targets, discard = false }: any) {
+  const { t } = useI18n();
+  const names = (place: string) =>
+    targets.missing
+      .filter((m: any) => m.place === place)
+      .map((m: any) => m.title)
+      .join(' · ');
+  return (
+    <span className="missing-targets">
+      {names('local') && (
+        <span>
+          <b>{t('targetsGoneLocal')}</b> {names('local')}
+        </span>
+      )}
+      {names('cloud') && (
+        <span>
+          <b>{t('targetsGoneCloud')}</b> {names('cloud')}
+        </span>
+      )}
+      {discard && (
+        <span>
+          {t(targets.remaining.length ? 'removalTargetsSomeGone' : 'removalTargetsAllGone')}
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function RemovalFlow({
   initial,
   call,
@@ -115,6 +145,8 @@ export function RemovalFlow({
   onClose,
   onExecute,
   onRepair,
+  onRevise,
+  onRefreshLocal,
 }: any) {
   const { tn } = useI18n();
   const [q, setQ] = useState<any>(
@@ -136,7 +168,7 @@ export function RemovalFlow({
     [permanent, setPermanent] = useState(false),
     [upgrade, setUpgrade] = useState(false);
   const lock = useRef(false);
-  const refresh = async (request: any, revise = false) => {
+  const refresh = async (request: any, readLocal = false) => {
     if (lock.current) return;
     lock.current = true;
     setPending(true);
@@ -144,9 +176,8 @@ export function RemovalFlow({
     setPermanent(false);
     setUpgrade(false);
     try {
-      const next = revise
-        ? await call('reviseRemovalPlan', { id: plan.token })
-        : await call('reviewRemoval', request);
+      if (readLocal) await onRefreshLocal();
+      const next = await call('reviewRemoval', { ...request, titles: initial.knownTitles });
       setQ(next.q);
       setPlan(next);
       setVersions({});
@@ -208,7 +239,8 @@ export function RemovalFlow({
       : s === 'cloud'
         ? connected && initial.hasCloud
         : connected && initial.hasLocal && initial.hasCloud;
-  const wrongVersion = previous?.error?.code === 'stale_plan';
+  const wrongVersion = ['stale_plan', 'invalid_selection'].includes(previous?.error?.code);
+  const remainingTargets: string[] = error?.targets?.remaining ?? [];
   const repair: FixAction | undefined = error ? errorRule(error.code).fix : undefined;
   const warning = (
     <div className="other-device-note">
@@ -241,7 +273,7 @@ export function RemovalFlow({
             </button>
           )}
           {previous && wrongVersion && (
-            <button disabled={pending} onClick={() => refresh(q, true)}>
+            <button disabled={pending} onClick={() => onRevise(plan.token)}>
               {t('reviewChangedRemoval')}
             </button>
           )}
@@ -612,18 +644,41 @@ export function RemovalFlow({
         <ErrorNotice
           error={error}
           severity={errorRule(error.code).severity}
+          note={error.targets && <MissingTargets targets={error.targets} />}
           action={
-            repair && (
+            remainingTargets.length > 0 ? (
               <button
                 disabled={pending}
                 onClick={() =>
-                  repair === 'refreshRetry' || repair === 'retry'
-                    ? refresh(q, !!previous && wrongVersion)
-                    : onRepair(REPAIR_PLACE[repair])
+                  refresh({
+                    ...q,
+                    ids: remainingTargets,
+                    versions: Object.fromEntries(
+                      Object.entries(q.versions ?? {}).filter(([k]) =>
+                        remainingTargets.includes(k),
+                      ),
+                    ),
+                  })
                 }
               >
-                {t(fixLabel(error.code)!)}
+                {tn('reviseRemainingTargets', remainingTargets.length)}
               </button>
+            ) : (
+              repair &&
+              repair !== 'discardRemoval' && (
+                <button
+                  disabled={pending}
+                  onClick={() =>
+                    repair === 'refreshRetry' || repair === 'retry'
+                      ? previous && wrongVersion
+                        ? onRevise(plan.token)
+                        : refresh(q, repair === 'refreshRetry')
+                      : onRepair(REPAIR_PLACE[repair])
+                  }
+                >
+                  {t(fixLabel(error.code)!)}
+                </button>
+              )
             )
           }
         />
@@ -651,7 +706,9 @@ export function RemovalResult({
   // out-of-date list is reviewed again from the same request.
   const notStarted = !running && removalNotStarted(job);
   const reviewAgain =
-    notStarted && onReview && ['stale_plan', 'space_changed'].includes(job.error?.code);
+    notStarted &&
+    onReview &&
+    ['stale_plan', 'space_changed', 'invalid_selection'].includes(job.error?.code);
   const label = interrupted
     ? 'removeInterrupted'
     : notStarted

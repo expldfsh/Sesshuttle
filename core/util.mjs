@@ -123,5 +123,6 @@ export function publicError(e) {
       localCodes[e?.code] ?? (e?.code && /^[a-z_]+$/.test(e.code) ? e.code : 'operation_failed'),
     detail: e instanceof Fault ? e.detail : localCodes[e?.code] ? String(e.path ?? '') : '',
     ...(e?.started === true ? { started: true } : {}),
+    ...(e?.targets ? { targets: e.targets } : {}),
   };
 }
