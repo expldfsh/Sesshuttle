@@ -1,6 +1,6 @@
 /* global document */
-// Test-mode regression checks for the 0.7.1 fixes, with synthetic data and the
-// loopback S3 server only. Each check prints PASS or FAIL; the exit code is 1 when
+// Test-mode regression checks for the 0.7.1 and 0.7.2 fixes, with synthetic data and
+// the loopback S3 server only. Each check prints PASS or FAIL; the exit code is 1 when
 // any check fails.
 //   Task failures (requirements §9.3): a transfer or removal that cannot start
 //   keeps a visible record with what happened, that nothing ran, and a recovery
@@ -9,7 +9,10 @@
 //   Saved state after an action (§10.3): the recycle bins and Sync activity show
 //   the result of an action without leaving the page, and a cloud list is only
 //   marked out of date, never read again by itself.
-// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity]
+//   Codex runtime paths (0.7.2 §11): a launcher in a verified layout shows the real
+//   program; any other launcher is reported where the path is and repaired in place,
+//   only changing the unsaved path; the file chooser can enter app bundles.
+// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths]
 //   [--app=<packaged executable>]   by default the development build runs
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -18,11 +21,12 @@ import path from 'node:path';
 import { State } from '../core/state.mjs';
 import { openSession } from './lib/ui-session.mjs';
 import { invoke } from './lib/test-app.mjs';
+import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-in.mjs';
 
 const option = (name, fallback) =>
   process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const language = option('lang', 'zh-CN');
-const only = option('only', 'transfer,removal,native,bins,activity').split(',');
+const only = option('only', 'transfer,removal,native,bins,activity,paths').split(',');
 const executablePath = option('app', undefined);
 
 // Interface text in both languages, so the checks do not depend on the language.
@@ -44,6 +48,11 @@ const TEXT = {
   permanent: /彻底删除…|Delete permanently…/,
   restored: /已恢复|Restored/,
   outOfDate: /可能已过期|may be out of date/,
+  actualRuntime: /实际使用|Actually uses/,
+  needsProgram: /需要选择 Codex 程序|Choose a Codex runtime/,
+  chooseProgram: /选择 Codex 程序…|Choose Codex runtime…/,
+  startCheck: /开始快速验证|Start quick check/,
+  retryCheck: /重新快速验证|Retry quick check/,
 };
 
 const results = [];
@@ -517,8 +526,158 @@ async function activityChecks(session) {
   });
 }
 
+// 0.7.2 §11: launcher scripts, repair buttons and the file chooser. The bundle layout,
+// the launcher and the stand-in program all live in the test root.
+async function pathChecks(session) {
+  const { page, app, root } = session;
+  if (!canCompile()) return skip('codex runtime path checks', 'no C compiler for the stand-in');
+  const { launcher, program } = await fakeBundle(
+    path.join(root, 'Applications'),
+    'ChatGPT.app',
+    '9.9.1',
+  );
+  const script = path.join(root, 'tools', 'codex');
+  const stand = path.join(root, 'tools', 'real', 'codex');
+  await fs.mkdir(path.dirname(script), { recursive: true });
+  await fs.writeFile(script, '#!/bin/sh\necho "codex-cli 9.9.8"\n', { mode: 0o755 });
+  await compileStandIn(stand, '9.9.7');
+  const calls = await recordCalls(app);
+  await app.evaluate(({ dialog: chooser }, file) => {
+    globalThis.pickOptions = [];
+    chooser.showOpenDialog = async (...args) => {
+      globalThis.pickOptions.push(args.at(-1));
+      return { canceled: false, filePaths: [file] };
+    };
+  }, stand);
+  const pickOptions = () => app.evaluate(() => globalThis.pickOptions.splice(0));
+  async function configure(binaries) {
+    const config = (await invoke(page, 'init')).data.config;
+    const targets = structuredClone(config.targets);
+    for (const [entry, binary] of Object.entries(binaries)) targets[entry].binary = binary;
+    const r = await invoke(page, 'saveConfig', { ...config, targets });
+    assert.ok(r.ok, JSON.stringify(r.error));
+    await page.reload();
+    await page.waitForSelector('.shell');
+  }
+  const card = (i) => page.locator('.app-card').nth(i);
+  const methods = async () => (await calls.take()).map((c) => c.method);
+
+  await configure({ desktop: launcher, cli: script, ide: script });
+  await calls.take();
+  await nav(page, 'projects');
+  await card(0).locator('.badge').waitFor();
+  await page.waitForTimeout(300);
+
+  await check('opening the apps page does not inspect or check a program', async () => {
+    const seen = await methods();
+    assert.ok(!seen.includes('inspectBinary'), 'inspectBinary on open');
+    assert.ok(!seen.includes('verifyRuntime'), 'verifyRuntime on open');
+  });
+  await check('a launcher in a verified layout shows the program actually used', async () => {
+    const text = await card(0).innerText();
+    assert.match(text, TEXT.actualRuntime);
+    assert.ok(text.includes(program), 'shows the real program');
+    assert.doesNotMatch(await card(0).locator('.badge').innerText(), TEXT.needsProgram);
+  });
+  let reported = false;
+  await check('a launcher that cannot be resolved is reported at the path', async () => {
+    assert.match(await card(1).locator('.badge').innerText(), TEXT.needsProgram);
+    await card(1).locator('.binary-problem').waitFor({ timeout: 2000 });
+    reported = true;
+  });
+  let failed = false;
+  await check('a failed quick check shows the path and a repair, not a retry', async () => {
+    assert.ok(reported, 'the launcher was not reported');
+    await card(1).locator('.runtime-check button.primary').click();
+    const notice = card(1).locator('.runtime-check .error-notice');
+    await notice.waitFor({ timeout: 10000 });
+    const text = await notice.innerText();
+    assert.ok(text.includes(script), 'shows the checked path');
+    await notice.locator('button', { hasText: TEXT.chooseProgram }).waitFor({ timeout: 1000 });
+    assert.equal(
+      await card(1).locator('.runtime-check button.primary', { hasText: TEXT.retryCheck }).count(),
+      0,
+      'no retry as the main button',
+    );
+    failed = true;
+  });
+  await check('the repair writes the unsaved path and only checks the file', async () => {
+    assert.ok(failed, 'the quick check did not fail as expected');
+    await calls.take();
+    await card(1)
+      .locator('.runtime-check .error-notice button', { hasText: TEXT.chooseProgram })
+      .click();
+    await page.waitForFunction(
+      ([i, value]) =>
+        document.querySelectorAll('.app-card')[i].querySelector('input').value === value,
+      [1, stand],
+      { timeout: 3000 },
+    );
+    await card(1).locator('.runtime-check button.primary', { hasText: TEXT.startCheck }).waitFor({
+      timeout: 3000,
+    });
+    assert.equal(await card(1).locator('.binary-problem').count(), 0, 'the problem is gone');
+    assert.equal(await card(1).locator('.runtime-check .error-notice').count(), 0);
+    await page.locator('.unsaved-bar').waitFor({ timeout: 2000 });
+    await page.waitForTimeout(300);
+    const seen = await methods();
+    assert.ok(seen.includes('inspectBinary'), 'the chosen file is checked');
+    assert.ok(!seen.includes('verifyRuntime'), 'no quick check runs by itself');
+    assert.ok(!seen.includes('saveConfig'), 'nothing is saved by itself');
+    const [options] = await pickOptions();
+    assert.equal(options.defaultPath, path.dirname(script));
+    if (process.platform === 'darwin')
+      assert.ok(options.properties.includes('treatPackageAsDirectory'), 'can enter bundles');
+  });
+  await check('the file chooser starts in the detected app when no path is set', async () => {
+    await configure({ desktop: '', cli: '' });
+    await nav(page, 'projects');
+    await card(0).locator('.entry-field button').first().click();
+    await page.waitForFunction(
+      (value) => document.querySelector('.app-card input').value === value,
+      stand,
+      { timeout: 3000 },
+    );
+    await card(1).locator('.entry-field button').first().click();
+    await page.waitForFunction(
+      (value) => document.querySelectorAll('.app-card')[1].querySelector('input').value === value,
+      stand,
+      { timeout: 3000 },
+    );
+    const [desktop, cli] = await pickOptions();
+    if (process.platform === 'darwin')
+      assert.equal(
+        desktop.defaultPath,
+        path.join(root, 'Applications/ChatGPT.app/Contents/Resources'),
+      );
+    assert.equal(cli.defaultPath, undefined);
+  });
+
+  await configure({ desktop: script, cli: script, ide: script });
+  const row = (await rows(page)).find((r) => r.local);
+  await uploadById(page, row.id);
+  await refreshList(page);
+  await page.locator('tr.conversation-row:has(.badge.tone-success)').first().click();
+  await page.locator('.entry-state button', { hasText: TEXT.importHere }).first().click();
+  await dialog(page).waitFor();
+  await check('the transfer dialog repairs the path in its own editor', async () => {
+    await primary(page).click();
+    const check = dialog(page).locator('.runtime-check button.primary');
+    await check.first().waitFor({ timeout: 10000 });
+    await check.first().click();
+    const notice = dialog(page).locator('.runtime-check .error-notice');
+    await notice.waitFor({ timeout: 10000 });
+    await notice.locator('button', { hasText: TEXT.chooseProgram }).click();
+    const input = dialog(page).locator('.setup-repair .entry-field input').first();
+    await input.waitFor({ timeout: 3000 });
+    assert.equal(await input.inputValue(), stand);
+    assert.equal(await dialog(page).locator('.binary-problem').count(), 0, 'the problem is gone');
+  });
+  await page.keyboard.press('Escape');
+}
+
 const groups = { transfer: transferChecks, removal: removalChecks, native: nativeChecks };
-Object.assign(groups, { bins: binChecks, activity: activityChecks });
+Object.assign(groups, { bins: binChecks, activity: activityChecks, paths: pathChecks });
 // Each group runs in its own test-mode session; a failed step outside a check is
 // reported as a failed setup with a screenshot.
 for (const name of only) {
