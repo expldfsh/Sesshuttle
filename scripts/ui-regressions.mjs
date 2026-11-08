@@ -19,7 +19,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
-import { openSession } from './lib/ui-session.mjs';
+import { openSession, setSize } from './lib/ui-session.mjs';
 import { invoke } from './lib/test-app.mjs';
 import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-in.mjs';
 
@@ -709,6 +709,32 @@ async function sweepChecks(session) {
     await page.waitForFunction(() => !document.querySelector('dialog[open]'));
   });
   await settle(page);
+
+  // A long path in a repair button stays inside a narrow window.
+  const other = await fakeBundle(root, 'Other.app', '', { compile: false });
+  await fs.writeFile(other.program, 'not a script');
+  await fs.writeFile(other.launcher, '#!/bin/sh\necho "codex-cli 9.9.8"\n');
+  targets.desktop.binary = other.launcher;
+  await invoke(page, 'saveConfig', { ...config, targets });
+  await setSize(session.app, page, [780, 600]);
+  await page.reload();
+  await page.waitForSelector('.shell');
+  await nav(page, 'projects');
+  await check('a repair with a long path stays inside a narrow window', async () => {
+    const offer = page.locator('.app-card .binary-problem button').nth(1);
+    await offer.waitFor({ timeout: 3000 });
+    assert.ok((await offer.innerText()).includes(other.program));
+    const card = await page.locator('.app-card').first().boundingBox();
+    const box = await offer.boundingBox();
+    assert.ok(box.x + box.width <= card.x + card.width + 1, 'the button fits the card');
+    const overflow = await page.evaluate(() => {
+      const content = document.querySelector('.content');
+      return content.scrollWidth - content.clientWidth;
+    });
+    assert.ok(overflow <= 1, `content overflows by ${overflow}px`);
+    await page.screenshot({ path: path.join(shots, 'narrow-repair.png') });
+  });
+  await setSize(session.app, page, [1320, 860]);
 
   targets.desktop.binary = '';
   await invoke(page, 'saveConfig', { ...config, targets });
