@@ -179,6 +179,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
   Co-authored-by: expldfsh <expldfsh@gmail.com>
   ```
 
+- 提交说明、PR 描述和代码注释中**不得包含会话链接或会话编号**（例如 `Claude-Session: https://claude.ai/...`）。工具默认添加这类行时要删掉；表示 AI 协助的 `Co-Authored-By` 行可以保留。
 - 纯格式化必须单独提交，并把提交哈希写入 `.git-blame-ignore-revs`。
 - 修复缺陷时，先写出能稳定复现的检查（单元测试或测试模式下的界面脚本），确认它在修复前失败、修复后通过。
 
