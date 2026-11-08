@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { State } from '../../core/state.mjs';
 import {
+  inspectRuntime,
   requireRuntime,
   resolveLauncher,
   runtimeInfo,
@@ -184,4 +185,87 @@ test('a program at the launcher position is used as it is', async (t) => {
   await compileStandIn(launcher, '9.9.4');
   assert.equal(await resolveLauncher(launcher), null);
   assert.equal((await runtimeInfo(launcher, state)).version, '9.9.4');
+});
+
+// §10.2: what the interface learns when a path is chosen or edited.
+test('inspecting a path reports what it is without touching any data', async (t) => {
+  if (!canCompile()) return t.skip('needs a C compiler for the stand-in program');
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-inspect-')));
+  const state = new State(path.join(root, 'app'));
+  t.after(async () => {
+    state.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const write = async (name, body, mode = 0o755) => {
+    const file = path.join(root, name);
+    await fs.writeFile(file, body, { mode });
+    return file;
+  };
+  const clean = { exists: true, executable: true, script: false, resolved: null, error: null };
+
+  const { launcher, program } = await fakeBundle(root, 'ChatGPT.app', '9.9.1');
+  const resolved = await inspectRuntime(launcher, state);
+  assert.deepEqual(
+    { ...resolved, path: undefined },
+    {
+      ...clean,
+      path: undefined,
+      resolved: program,
+      version: '9.9.1',
+      status: 'untested',
+      candidate: null,
+    },
+  );
+
+  const proven = await runtimeInfo(program, state);
+  state.set(proven.key, { passed: true });
+  assert.equal((await inspectRuntime(launcher, state)).status, 'verified');
+  assert.equal((await inspectRuntime(program, state)).resolved, null);
+
+  const script = await write('wrapper', '#!/bin/sh\necho "codex-cli 9.9.8"\n');
+  const launcherReport = await inspectRuntime(script, state);
+  assert.equal(launcherReport.script, true);
+  assert.equal(launcherReport.error, 'runtime_launcher');
+  assert.equal(launcherReport.candidate, null);
+
+  const other = await fakeBundle(root, 'Other.app', '9.9.2');
+  await fs.writeFile(other.launcher, '#!/bin/sh\necho "codex-cli 9.9.2"\n');
+  const offered = await inspectRuntime(other.launcher, state);
+  assert.equal(offered.error, 'runtime_launcher');
+  assert.equal(offered.resolved, null, 'an unverified bundle is never followed by itself');
+  assert.equal(offered.candidate, other.program, 'but can be offered to the user');
+
+  const missing = await inspectRuntime(path.join(root, 'absent'), state);
+  assert.equal(missing.exists, false);
+  assert.equal(missing.error, 'binary_missing');
+
+  const plain = await inspectRuntime(await write('plain', 'data', 0o644), state);
+  assert.equal(plain.exists, true);
+  assert.equal(plain.executable, false);
+  assert.equal(plain.error, 'binary_not_executable');
+
+  const notCodex = await inspectRuntime(await write('other', '#!/bin/sh\necho hello\n'), state);
+  assert.equal(notCodex.error, 'binary_not_codex');
+
+  const failing = await inspectRuntime(await write('broken', '#!/bin/sh\nexit 3\n'), state);
+  assert.equal(failing.error, 'runtime_launcher', 'a script that cannot answer is a launcher');
+
+  // A script of a supported version keeps working, as import already allows it.
+  const supported = await inspectRuntime(
+    await write('supported', '#!/bin/sh\necho "codex-cli 0.166.0"\n'),
+    state,
+  );
+  assert.equal(supported.script, true);
+  assert.equal(supported.status, 'builtin');
+  assert.equal(supported.error, null);
+
+  // The version of an unchanged file is read once.
+  const marker = path.join(root, 'ran');
+  const once = await write('once', `#!/bin/sh\necho x >> '${marker}'\necho "codex-cli 9.9.9"\n`);
+  await inspectRuntime(once, state);
+  await inspectRuntime(once, state);
+  assert.equal((await fs.readFile(marker, 'utf8')).trim().split('\n').length, 1);
+
+  assert.equal((await inspectRuntime('relative/codex', state)).error, 'binary_required');
+  assert.equal(state.keys('runtime-proof/').length, 1, 'only the proof set above exists');
 });
