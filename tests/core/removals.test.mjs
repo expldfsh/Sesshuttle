@@ -264,6 +264,71 @@ test('review includes copies in other cloud bins and protects shared chunks kept
     x.state.close();
   }
 });
+test('giving up a removal follows the clearance rule and refuses unfinished work', async () => {
+  const x = await fixture();
+  try {
+    const p = await x.removals.preview({ scope: 'both', mode: 'purge', ids: [x.a] });
+    await fs.appendFile(x.asset, 'changed');
+    const job = await x.removals.execute(p.token, { permanent: true, upgrade: true });
+    assert.deepEqual(job.clearance, { clearable: true, started: false });
+    const listed = x.removals.jobs().find((j) => j.id === job.id);
+    assert.deepEqual(listed.clearance, { clearable: true, started: false });
+
+    const save = (over) => {
+      const saved = { ...x.state.get('removal/' + job.id), id: id(), ...over };
+      x.state.set('removal/' + saved.id, saved);
+      x.state.set('removal-plan/' + saved.id, { token: saved.id });
+      return saved;
+    };
+    const token = id();
+    x.state.set('trash/' + token, { id: token, status: 'needs_recovery' });
+    const stuck = save({
+      status: 'partial',
+      sides: [{ side: 'local', home: x.home, token, status: 'failed', started: true, count: 1 }],
+    });
+    await assert.rejects(x.removals.discard(stuck.id), { code: 'removal_local_unfinished' });
+    assert.ok(x.state.get('removal/' + stuck.id), 'the record stays');
+    assert.ok(x.state.get('removal-plan/' + stuck.id), 'its plan stays');
+
+    const cloud = save({
+      status: 'partial',
+      sides: [{ side: 'cloud', status: 'failed', started: true, count: 1 }],
+    });
+    let reads = 0;
+    const realOpen = x.vault.open.bind(x.vault);
+    x.vault.open = async () => {
+      reads += 1;
+      return { ...(await realOpen()), pending: { id: cloud.id } };
+    };
+    await assert.rejects(x.removals.discard(cloud.id), { code: 'removal_cloud_pending' });
+    assert.equal(reads, 1, 'the cloud is read when the user asks');
+    assert.equal(x.removals.jobs().length >= 3, true);
+    assert.equal(reads, 1, 'listing records does not read the cloud');
+    x.vault.open = async () => {
+      throw new Fault('storage_unavailable');
+    };
+    await assert.rejects(x.removals.discard(cloud.id), { code: 'removal_cloud_unconfirmed' });
+    x.engine.vault = null;
+    await assert.rejects(x.removals.discard(cloud.id), { code: 'removal_cloud_unconfirmed' });
+    x.engine.vault = x.vault;
+    x.vault.open = realOpen;
+    assert.deepEqual(await x.removals.clearance(cloud.id), { clearable: true, started: true });
+    assert.ok(await x.removals.discard(cloud.id));
+
+    const running = save({ status: 'running' });
+    x.removals.activeId = running.id;
+    await assert.rejects(x.removals.discard(running.id), { code: 'removal_running' });
+    x.removals.activeId = null;
+
+    assert.ok(await x.removals.discard(job.id));
+    assert.equal(x.state.get('removal/' + job.id), null);
+    assert.equal(x.state.get('removal-plan/' + job.id), null);
+    await assert.rejects(x.removals.discard(job.id), { code: 'stale_plan' });
+    await assert.rejects(x.removals.discard('not-an-id'), { code: 'invalid_selection' });
+  } finally {
+    x.state.close();
+  }
+});
 test('a two-side failure preserves the completed side across a restart and never retries it', async () => {
   const x = await fixture();
   try {

@@ -57,7 +57,6 @@ const TEXT = {
   retryCheck: /重新快速验证|Retry quick check/,
   checkStorage: /检查凭据存储|Check credential storage/,
   discardRemoval: /放弃此删除任务|Give up this removal task/,
-  reviewRemovalAgain: /重新查看删除清单|Review the removal list again/,
   notHere: /已不在本机|No longer on this computer/,
   nothingChanged: /没有改动任何内容|did not change anything/,
   keepsChats: /不会删除任何对话|No conversation will be deleted/,
