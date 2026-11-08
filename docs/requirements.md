@@ -366,7 +366,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 ## 12 发版与文档
 
-- [x] 版本号改为 0.7.2，按第 7.3 节收尾：新建 `docs/validation/0.7.2.md`，删除 `0.7.1.md` 并更新链接。（`release/` 的旧文件清理待用户执行，见决策记录）
+- [x] 版本号改为 0.7.2，按第 7.3 节收尾：新建 `docs/validation/0.7.2.md`，删除 `0.7.1.md` 并更新链接。（`release/` 中 0.7.0 的旧安装包待用户清理，见决策记录）
 - [x] 中英文快速入门中有关「检测本机 Codex 环境」和快速验证的段落：说明 GPT 桌面端会自动改用真实程序，以及遇到「需要选择 Codex 程序」时怎么做。`linux-acceptance.md` 补一步：在 Arch 上检查检测结果是否为真实程序。
 - [x] 本文第三部分更新阶段状态和决策记录。验收报告中列出需要用户在真实环境确认的事项：
   - macOS 文件选择窗口能进入 `.app`；
@@ -386,7 +386,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 | 10.3 报错与就地修复 | 已完成 | `0c96a24`、`1ca17c2` | `ui-regressions --only=paths` 修复前 1/7、修复后 7/7 |
 | 10.4–10.5 文案引用机制与重写 | 已完成 | `77ecf37`–`a210ba5` | 实际共 19 条文案（需求表 17 处之外还有 `import_needs_recovery` 用了“ ”，以及 `runtime_launcher`） |
 | 10.6 同类排查 | 已完成 | `40fba90`–`3fc9ee0` | `ui-regressions --only=sweep` 修复前 0/3、修复后 3/3 |
-| 12 发版与文档 | 已完成，清理待用户执行 | `83d010d`、`25523e0` 及本提交 | 安装包已生成；`release/` 旧文件清理未执行 |
+| 12 发版与文档 | 已完成，清理待用户执行 | `83d010d`、`25523e0` 及本提交 | 安装包已按自验收后的两处修复重新生成（构建提交 `e707655`）；0.7.0 旧安装包待用户清理 |
 
 ## 决策与偏差记录（0.7.2）
 
@@ -398,7 +398,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 | 2026-11-08 | 已只读核实本机 ChatGPT.app（26.1103.41825，附带 `codex-cli` 版本 `0.167.0-alpha.3.2`）：`Contents/Resources/codex-cli/bin/codex` 是 328 字节的 POSIX sh 脚本，解析自身符号链接后执行 `exec "$bin_dir/../CodexCLI.app/Contents/MacOS/codex" "$@"`；`CodexCLI.app/Contents/MacOS/codex` 是 Mach-O arm64，`CFBundleIdentifier` 为 `com.openai.codex.cli`。`codex-package.json` 写明 `layoutVersion: 1`、`entrypoint: bin/codex`。本机没有 `/Applications/Codex.app`，「同布局的 Codex.app」按相同规则处理但未实机验证 | 开发时核实 |
 | 2026-11-08 | 解析只认 `ChatGPT.app`、`Codex.app` 两个包名和 `Contents/Resources/codex-cli/bin/codex` 这一确切位置，且启动脚本本身必须以 `#!` 开头。规则按路径形状匹配，不按 `process.platform` 限定：Linux 上不存在这种 `.app/Contents` 结构，单元测试也因此能在两个平台上运行 | 开发时决定 |
 | 2026-11-08 | Linux 的 GPT 桌面端：开发机无法验证，不加解析规则，列为「待用户在 Arch 上确认」。在 Linux 上若 `codex` 候选是脚本且版本不在支持名单内，检测结果显示 `runtime_launcher` 且不可勾选 | 开发时决定 |
-| 2026-11-08 | 「实际使用」按字面规则显示：只要真实文件与配置路径不同就显示，包括符号链接（如 Homebrew 的 `/opt/homebrew/bin/codex`）和 npm 的 `codex.js` | 开发时决定 |
+| 2026-11-08 | ~~「实际使用」按字面规则显示，包括符号链接~~（已被下方「只在换成另一个文件时显示」取代） | 开发时决定 |
 | 2026-11-08 | `appStatus` 不运行程序，因此「未检查过且是脚本」的路径直接显示 `launcher`。这可能把版本在支持名单内的自写包装脚本也标为「需要选择 Codex 程序」，用户点一次「开始快速验证」（复用名单结果）或在输入框触发检查后恢复正常。`scripts/ui-fixture.mjs` 的替身脚本为此预先记录「已见版本」，`--binary` 指定的路径不预记录 | 开发时决定 |
 
 | 2026-11-08 | `inspectBinary` 复用 `runtimeInfo`，会记录「这个文件的已见版本」这一项缓存（与检测、`destinationInfo` 相同），不写验证结果，也不做任何数据操作；这样保存路径后 `appStatus` 能显示正确状态 | 开发时决定 |
@@ -417,7 +417,9 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 | 2026-11-08 | 同类排查结果：**检测面板候选的 `error`** 原本只有文字，新增修复按钮（页面上为「本机应用与项目」，传输弹窗中为「选择 Codex 程序…」并展开路径编辑区）；**传输弹窗第一步的 `now.error`** 已有路径编辑区和「重新检查」，无需新增，但发现 `entry_binary_missing` 没有文案（界面露出原始键名），已补文案，并让 `scripts/lib/error-codes.mjs` 也收集 `error: '…'` / `.error = '…'` 形式的错误码；**连接表单的测试结果** 就在表单字段和「测试」按钮旁，修复入口即字段本身，只补了 `storage_write_permission` 的下一步说明；**凭据存储检查结果** 的提示点名了当前状态下不存在的按钮，已按「已连接 / 已保存待解锁 / 需重新连接」三种状态分别说明 | 开发时决定 |
 | 2026-11-08 | `entry_home_missing`、`noCandidate` 的文案不再手写「点击检测」「应用卡片」，改用 `{@detectEnvironment}` 或不依赖位置的说法 | 开发时决定 |
-| 2026-11-08 | **偏差**：第 7.3 节要求删除 `release/` 中 0.7.0 的安装包和 electron-builder 中间产物，开发环境的权限策略拒绝了删除操作，这些文件保留，由用户自行清理 | 开发时偏差 |
+| 2026-11-08 | **偏差**：第 7.3 节要求只保留当前版本和上一版的安装包。electron-builder 中间产物已删除；0.7.0 的安装包和校验文件此前删除被开发环境的权限策略拒绝，仍保留，由用户自行清理 | 开发时偏差 |
+| 2026-11-08 | **自验收后修复**：检测判断候选是否为脚本时改用 `runtimeProgram`（即 `executable()` 的结果），与 `inspectRuntime`、`savedRuntimeDetail` 一致。此前版本不在名单内的 npm 安装（入口 `bin/codex.js` 是 Node 脚本）被误标为 `runtime_launcher`、不可选 | 用户自验收反馈 |
+| 2026-11-08 | **自验收后修复**：`resolved` 改为与配置路径的 `realpath` 比较，「实际使用」只在启动脚本或 npm 解析换成另一个文件时显示，符号链接不显示。`runtimeInfo` 同样返回 `resolved`，传输弹窗和 `RuntimeCheck` 改用它，`RuntimeCheck` 显示的路径也因此与用户所填一致 | 用户自验收反馈 |
 | 2026-11-08 | **偏差**：第 6 节的真实 Codex 往返脚本本轮未运行，理由是同步格式和导入流程没有改动，且用户要求不运行真实程序做快速验证以外的事；Linux 包在 Mac 交叉构建，没有在 Linux 启动。两项列入待用户验收 | 开发时偏差 |
 | 2026-11-08 | 测试替身：需要「不是脚本的真实程序」时用 `cc` 现场编译一个只打印版本号的小程序（`tests/helpers/stand-in.mjs`）。没有 C 编译器时，单元测试跳过、界面检查报告未运行 | 开发时决定 |
 
