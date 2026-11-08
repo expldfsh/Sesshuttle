@@ -82,6 +82,18 @@ export async function liveLinuxTargets(proc = '/proc', uid = process.getuid?.())
   return found;
 }
 
+// Where to open the file chooser for the desktop app when no path is set: the
+// resources of an installed app bundle, found with a stat at the moment of choosing.
+export async function installedAppResources({ platform = process.platform, testRoot = null } = {}) {
+  if (platform !== 'darwin') return undefined;
+  const base = testRoot ? path.join(testRoot, 'Applications') : '/Applications';
+  for (const name of ['ChatGPT.app', 'Codex.app']) {
+    const resources = path.join(base, name, 'Contents/Resources');
+    if (await directory(resources)) return resources;
+  }
+  return undefined;
+}
+
 export async function detectEnvironment({
   config = {},
   testRoot = null,

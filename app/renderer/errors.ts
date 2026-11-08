@@ -12,10 +12,21 @@ export type FixAction =
   | 'refreshRetry' // the preview is out of date
   | 'retry'; // review the same operation again
 
-export type ErrorRule = { severity: Severity; fix?: FixAction };
+// The repair the quick-check block offers in place. `null`: the notice explains
+// the state and offers no button.
+export type RuntimeFix = 'chooseRuntime' | 'retryRuntime' | 'startRuntime';
+
+export type ErrorRule = { severity: Severity; fix?: FixAction; runtime?: RuntimeFix | null };
 
 const rules = (fix: FixAction | undefined, severity: Severity, codes: string) =>
   Object.fromEntries(codes.split(/\s+/).map((code) => [code, { severity, fix }]));
+
+const runtimeRules = (
+  runtime: RuntimeFix | null,
+  severity: Severity,
+  codes: string,
+  fix?: FixAction,
+) => Object.fromEntries(codes.split(/\s+/).map((code) => [code, { severity, fix, runtime }]));
 
 const RULES: Record<string, ErrorRule> = {
   ...rules(
@@ -37,14 +48,14 @@ const RULES: Record<string, ErrorRule> = {
   ...rules(
     'openApps',
     'error',
-    `entry_home_missing binary_unavailable binary_not_codex binary_required binary_missing
-     binary_not_executable runtime_check_needed working_folder_missing project_required destination_project_missing
-     project_assignment_unsupported custom_home_launcher no_protocol_handler terminal_required`,
+    `entry_home_missing runtime_check_needed working_folder_missing project_required
+     destination_project_missing project_assignment_unsupported custom_home_launcher
+     no_protocol_handler terminal_required`,
   ),
   ...rules(
     'refreshRetry',
     'warning',
-    'stale_plan cloud_check_failed storage_unavailable concurrent_update cloud_writer_busy runtime_changed',
+    'stale_plan cloud_check_failed storage_unavailable concurrent_update cloud_writer_busy',
   ),
   ...rules(
     'retry',
@@ -52,11 +63,39 @@ const RULES: Record<string, ErrorRule> = {
     `busy codex_running native_provider_missing native_timeout native_unavailable
      upload_limit large_upload_confirmation attachment_confirmation_required partial_scope_confirmation`,
   ),
-  ...rules(undefined, 'info', 'runtime_cancelled nothing_to_remove legacy_format_unsupported'),
+  ...rules(undefined, 'info', 'nothing_to_remove legacy_format_unsupported'),
+  // Codex runtime paths and quick checks. A deterministic failure never offers a retry.
+  ...runtimeRules(
+    'chooseRuntime',
+    'error',
+    'binary_unavailable binary_not_codex binary_required binary_missing binary_not_executable',
+    'openApps',
+  ),
+  ...runtimeRules('chooseRuntime', 'warning', 'runtime_launcher', 'openApps'),
+  ...runtimeRules(
+    'chooseRuntime',
+    'warning',
+    'runtime_protocol runtime_schema runtime_history_mismatch runtime_isolation',
+  ),
+  ...runtimeRules(
+    'retryRuntime',
+    'warning',
+    'runtime_timeout runtime_start_failed runtime_reply_unavailable runtime_unfinished runtime_temp_denied',
+  ),
+  ...runtimeRules('retryRuntime', 'warning', 'runtime_changed', 'refreshRetry'),
+  ...runtimeRules('retryRuntime', 'error', 'disk_space', 'retry'),
+  ...runtimeRules('startRuntime', 'info', 'runtime_cancelled'),
+  ...runtimeRules(null, 'info', 'runtime_busy'),
 };
 
 export const errorRule = (code?: string): ErrorRule =>
   (code && RULES[code]) || { severity: 'error', fix: 'retry' };
+
+// The in-place repair of the quick-check block; an unexpected failure may be retried.
+export const runtimeFix = (code?: string): RuntimeFix | null => {
+  const fix = code ? RULES[code]?.runtime : undefined;
+  return fix === undefined ? 'retryRuntime' : fix;
+};
 
 // The button text for each repair.
 export const FIX_LABELS: Record<FixAction, string> = {

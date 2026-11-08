@@ -14,6 +14,7 @@ export function ErrorNotice({
   action,
   severity = 'error',
   onDismiss,
+  copySubject = false,
 }: {
   error: ErrorInfo;
   subject?: string;
@@ -21,6 +22,7 @@ export function ErrorNotice({
   action?: ReactNode;
   severity?: 'error' | 'warning' | 'info';
   onDismiss?: () => void;
+  copySubject?: boolean;
 }) {
   const { t } = useI18n();
   const box = useRef<HTMLDivElement>(null);
@@ -41,7 +43,20 @@ export function ErrorNotice({
       <Icon name={severity === 'info' ? 'info' : 'alert'} />
       <div className="error-body">
         <strong>{t(code)}</strong>
-        {subject && <code className="error-subject">{subject}</code>}
+        {subject && (
+          <span className="error-subject-row">
+            <code className="error-subject">{subject}</code>
+            {copySubject && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => void window.sesshuttle.invoke('copyText', { text: subject })}
+              >
+                <Icon name="copy" /> {t('copy')}
+              </button>
+            )}
+          </span>
+        )}
         {note && <p className="error-note">{note}</p>}
         {action && <div className="actions">{action}</div>}
         <details className="technical">

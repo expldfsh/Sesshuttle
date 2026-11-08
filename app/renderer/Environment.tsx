@@ -13,6 +13,7 @@ export function useRuntimePaths(
 ) {
   const [inspections, setInspections] = useState<Record<string, any>>({});
   const [pickErrors, setPickErrors] = useState<Record<string, string>>({});
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
   const turns = useRef<Record<string, number>>({});
   const put = (entry: string, value: any) => setInspections((old) => ({ ...old, [entry]: value }));
   async function inspect(entry: string, path: string) {
@@ -46,6 +47,10 @@ export function useRuntimePaths(
     apply,
     choose,
     pickError: (entry: string) => pickErrors[entry],
+    // A failed quick check explains the path itself; the field does not repeat its buttons.
+    failed: (entry: string) => !!failed[entry],
+    setFailed: (entry: string, value: boolean) =>
+      setFailed((old) => (!!old[entry] === value ? old : { ...old, [entry]: value })),
     // The result for the path now in the field; a result for an older path is ignored.
     current: (entry: string, path: string) =>
       inspections[entry]?.path === path ? inspections[entry] : null,
@@ -96,7 +101,7 @@ function BinaryState({ entry, binary, saved, paths, t }: any) {
         </small>
       )}
       <ActualRuntime path={resolved} t={t} />
-      {code && (
+      {code && !paths.failed(entry) && (
         <div className="binary-problem warning-box" role="alert">
           <span>{t(code)}</span>
           <div className="actions">

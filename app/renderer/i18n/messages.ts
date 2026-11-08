@@ -604,7 +604,7 @@ export const messages = {
     '用一条临时测试对话验证续聊。无需登录，通过后这台电脑会记住结果。',
     'Check continuation with a temporary sample chat. No sign-in is needed. This computer remembers a pass.',
   ],
-  runtimeCheckTitle: ['本机导入能力', 'Local import capability'],
+  runtimeCheckTitle: ['快速验证 Codex 程序', 'Quick check for this Codex runtime'],
   runtimeContinue: ['正在续写并重新打开同一条对话…', 'Continuing and reopening the same chat…'],
   runtimeImport: ['正在将测试对话导入临时目录…', 'Importing the sample into a temporary folder…'],
   runtimePathsReady: [
@@ -623,7 +623,7 @@ export const messages = {
   savedKernelPath: ['已保存的 Codex 程序', 'Saved Codex runtime'],
   savedPath: ['已填写的路径', 'Saved path'],
   sharingEntries: ['下列入口共用这份历史', 'Apps using this history'],
-  startRuntimeCheck: ['快速验证此 Codex 程序', 'Run quick check'],
+  startRuntimeCheck: ['开始快速验证', 'Start quick check'],
   stopRuntimeCheck: ['取消本次验证', 'Cancel check'],
   suggested: ['建议新增', 'Suggested addition'],
   useReadyEntries: ['仅导入到已配置的应用', 'Import into the configured apps only'],

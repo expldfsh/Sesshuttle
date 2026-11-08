@@ -431,7 +431,11 @@ export function TransferDialog({
                   const now = infoFor(entry);
                   const label = now
                     ? (now.error ??
-                      (now.proof?.status === 'untested' ? 'runtimePendingShort' : 'configured'))
+                      (now.proof?.status === 'untested'
+                        ? now.proof.script
+                          ? 'launcher'
+                          : 'runtimePendingShort'
+                        : 'configured'))
                     : (saved[entry]?.status ?? 'needsCheck');
                   return (
                     <label className="entry-choice" key={entry}>
@@ -471,12 +475,27 @@ export function TransferDialog({
                         key={draft.targets[entry].binary}
                         binary={draft.targets[entry].binary}
                         info={now.proof}
+                        candidate={
+                          paths.current(entry, draft.targets[entry].binary)?.report?.candidate ??
+                          (saved[entry]?.binary === draft.targets[entry].binary
+                            ? saved[entry]?.candidate
+                            : null)
+                        }
                         t={t}
                         call={call}
                         onBusy={(isBusy: boolean) => setChecking(isBusy ? entry : '')}
                         disabled={!!checking}
                         onDone={() => inspect()}
                         onSettled={onLocalChange}
+                        onChoose={() => {
+                          setEditing(entry);
+                          void paths.choose(entry);
+                        }}
+                        onUse={(file: string) => {
+                          setEditing(entry);
+                          paths.apply(entry, file);
+                        }}
+                        onProblem={(failed: boolean) => paths.setFailed(entry, failed)}
                       />
                     )}
                     {now?.projectWarning && <p className="warning-box">{t(now.projectWarning)}</p>}

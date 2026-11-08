@@ -586,6 +586,9 @@ td small {
   padding: 0.75rem 1rem;
   margin: 0.5rem 0;
 }
+.runtime-check .runtime-path {
+  overflow-wrap: anywhere;
+}
 .runtime-check p,
 .runtime-ready {
   margin: 0.4rem 0 0.65rem;

@@ -14,7 +14,7 @@ import { backupSummary, deleteBackup, restoreReview } from '../../core/manual-ba
 import { readRecovery, writeRecovery } from '../../core/recovery-file.mjs';
 import { changeCloud } from '../../core/cloud-trash.mjs';
 import { bundleBytes } from '../../core/bundle.mjs';
-import { detectEnvironment } from '../../core/discovery.mjs';
+import { detectEnvironment, installedAppResources } from '../../core/discovery.mjs';
 import { localProjects } from '../../core/local-projects.mjs';
 import { inspectRuntime, runtimeInfo, savedRuntimeDetail } from '../../core/runtime.mjs';
 import { verifyRuntime } from '../../core/runtime-check.mjs';
@@ -539,8 +539,23 @@ export function createHandlers(ctx: Context): Handlers {
       const r = await pick({ properties: ['openDirectory', 'createDirectory'] });
       return r.canceled ? null : r.filePaths[0];
     },
-    pickBinary: async () => {
-      const r = await pick({ properties: ['openFile'] });
+    pickBinary: async (args) => {
+      const requested = args.defaultPath;
+      requireThat(
+        requested === undefined || (typeof requested === 'string' && path.isAbsolute(requested)),
+        'invalid_path',
+      );
+      const defaultPath =
+        requested ??
+        (args.entry === 'desktop'
+          ? await installedAppResources({ testRoot: ctx.testRoot } as any)
+          : undefined);
+      const r = await pick({
+        // macOS treats an app bundle as a file unless told otherwise.
+        properties:
+          process.platform === 'darwin' ? ['openFile', 'treatPackageAsDirectory'] : ['openFile'],
+        ...(defaultPath && { defaultPath }),
+      });
       return r.canceled ? null : r.filePaths[0];
     },
     pickImage: async () => {

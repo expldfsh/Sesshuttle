@@ -41,6 +41,21 @@ export function ProjectsPage() {
       ),
     [data.rows],
   );
+  const known = (entry: string) => {
+    const binary = cfg.targets[entry]?.binary;
+    return {
+      checked: runtimePaths.current(entry, binary)?.report,
+      saved: apps[entry]?.binary === binary ? apps[entry] : null,
+    };
+  };
+  const fieldResolved = (entry: string) => {
+    const { checked, saved } = known(entry);
+    return checked ? checked.resolved : saved?.resolved;
+  };
+  const fieldCandidate = (entry: string) => {
+    const { checked, saved } = known(entry);
+    return checked ? checked.candidate : saved?.candidate;
+  };
   // Saved settings and saved runtime checks only; nothing runs or reads a data folder.
   // Read again when the saved paths change and after a user action elsewhere, such
   // as a quick check in the import dialog opened from the task panel.
@@ -103,9 +118,14 @@ export function ProjectsPage() {
                 <RuntimeCheck
                   key={cfg.targets[entry]?.binary}
                   binary={cfg.targets[entry]?.binary}
+                  resolved={fieldResolved(entry)}
+                  candidate={fieldCandidate(entry)}
                   call={call}
                   t={t}
                   onSettled={() => call('appStatus').then(setApps, () => {})}
+                  onChoose={() => void runtimePaths.choose(entry)}
+                  onUse={(file: string) => runtimePaths.apply(entry, file)}
+                  onProblem={(failed: boolean) => runtimePaths.setFailed(entry, failed)}
                 />
               </div>
             );
