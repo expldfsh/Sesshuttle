@@ -21,6 +21,26 @@ export function StorageStatus({ init, t, call, reload, viewCloud, busy, restore 
     }
   }
   const waiting = busy || !!pending;
+  // Which button the hints can name in the current state.
+  const place = init.connected ? 'connected' : init.canRestore ? 'locked' : 'form';
+  const hint: Record<string, Record<string, string>> = {
+    store: {
+      connected: 'systemStoreHint',
+      locked: 'systemStoreLockedHint',
+      form: 'systemStoreFormHint',
+    },
+    lockedSystem: { connected: 'systemLocked', locked: 'systemLocked', form: 'systemLockedForm' },
+    reachable: {
+      connected: 'systemReachable',
+      locked: 'systemReachable',
+      form: 'systemReachableForm',
+    },
+    after: {
+      connected: 'afterServiceSetup',
+      locked: 'afterServiceSetupLocked',
+      form: 'afterServiceSetupForm',
+    },
+  };
   return (
     <section
       className={'storage-state ' + (init.connected ? 'joined' : 'offline')}
@@ -88,11 +108,11 @@ export function StorageStatus({ init, t, call, reload, viewCloud, busy, restore 
           <p>
             {t(
               !health.linux
-                ? 'systemStoreHint'
+                ? hint.store[place]
                 : health.service
                   ? health.locked
-                    ? 'systemLocked'
-                    : 'systemReachable'
+                    ? hint.lockedSystem[place]
+                    : hint.reachable[place]
                   : (health.reason ?? 'credential_service_unavailable'),
             )}
           </p>
@@ -102,7 +122,7 @@ export function StorageStatus({ init, t, call, reload, viewCloud, busy, restore 
               <p>{t('serviceSetup')}</p>
               <small>{t('archExample')}</small>
               <code>sudo pacman -S --needed gnome-keyring</code>
-              <p>{t('afterServiceSetup')}</p>
+              <p>{t(hint.after[place])}</p>
             </details>
           )}
         </div>

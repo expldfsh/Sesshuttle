@@ -717,6 +717,7 @@ async function sweepChecks(session) {
   await primary(page).click();
   await check('an app without a Codex runtime is explained in the dialog', async () => {
     await dialog(page).locator('.setup-repair').first().waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector('dialog[open] .flow-activity'));
     assert.doesNotMatch(await dialog(page).innerText(), /entry_binary_missing/);
   });
   await settle(page);

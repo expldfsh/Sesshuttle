@@ -68,7 +68,7 @@ const RULES: Record<string, ErrorRule> = {
   ...runtimeRules(
     'chooseRuntime',
     'error',
-    'binary_unavailable binary_not_codex binary_required binary_missing binary_not_executable',
+    'entry_binary_missing binary_unavailable binary_not_codex binary_required binary_missing binary_not_executable',
     'openApps',
   ),
   ...runtimeRules('chooseRuntime', 'warning', 'runtime_launcher', 'openApps'),

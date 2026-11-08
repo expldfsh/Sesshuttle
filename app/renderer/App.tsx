@@ -925,6 +925,11 @@ function GlobalDialogs() {
           report={app.detection}
           cfg={app.cfg}
           t={t}
+          repairLabel="projects"
+          onRepair={() => {
+            app.setDetection(null);
+            app.setPage('projects');
+          }}
           onRetry={async () => {
             const next = await call('detectPaths');
             app.setDetection(next);

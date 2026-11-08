@@ -192,6 +192,8 @@ export function DetectionPanel({
   onClose,
   inFlow = false,
   pathsReady = false,
+  onRepair,
+  repairLabel = 'chooseRuntime',
 }: any) {
   const entries = ['desktop', 'cli', 'ide'];
   function suggestions(candidates: any[]) {
@@ -292,57 +294,69 @@ export function DetectionPanel({
               (saved === c.binary || (!!saved && saved === c.resolvedFrom)) &&
               cfg.targets[entry]?.home === c.home;
             return (
-              <label className="candidate" key={i}>
-                <input
-                  type="checkbox"
-                  disabled={!c.runtime || !c.homeAvailable || same || applying}
-                  checked={same || chosen[entry] === i}
-                  onChange={(e) =>
-                    setChosen((old) => {
-                      const next = { ...old };
-                      if (e.target.checked) next[entry] = i;
-                      else delete next[entry];
-                      return next;
-                    })
-                  }
-                />
-                <span>
-                  <strong>
-                    {t(
-                      same
-                        ? 'configured'
-                        : cfg.targets[entry]?.binary
-                          ? 'replaceSaved'
-                          : 'suggested',
-                    )}{' '}
-                    · {t(c.evidence)}
-                  </strong>
-                  {c.app && (
-                    <small>
-                      {t('desktopApp')} <code>{c.app}</code>
-                    </small>
-                  )}
-                  <small>
-                    {t('kernelProgram')} <code>{c.binary}</code>{' '}
-                    {c.runtime || t(c.error || 'binary_unavailable')}
-                  </small>
-                  {c.resolvedFrom && (
-                    <small>
-                      {t('resolvedFromLauncher')} <code>{c.resolvedFrom}</code>
-                    </small>
-                  )}
-                  <small>
-                    {t('historyFolder')} <code>{c.home}</code>{' '}
-                    {t(
-                      !c.homeAvailable
-                        ? 'pathMissing'
-                        : c.assumedHome
-                          ? 'checkProposedFolder'
-                          : 'pathFound',
+              <React.Fragment key={i}>
+                <label className="candidate">
+                  <input
+                    type="checkbox"
+                    disabled={!c.runtime || !c.homeAvailable || same || applying}
+                    checked={same || chosen[entry] === i}
+                    onChange={(e) =>
+                      setChosen((old) => {
+                        const next = { ...old };
+                        if (e.target.checked) next[entry] = i;
+                        else delete next[entry];
+                        return next;
+                      })
+                    }
+                  />
+                  <span>
+                    <strong>
+                      {t(
+                        same
+                          ? 'configured'
+                          : cfg.targets[entry]?.binary
+                            ? 'replaceSaved'
+                            : 'suggested',
+                      )}{' '}
+                      · {t(c.evidence)}
+                    </strong>
+                    {c.app && (
+                      <small>
+                        {t('desktopApp')} <code>{c.app}</code>
+                      </small>
                     )}
-                  </small>
-                </span>
-              </label>
+                    <small>
+                      {t('kernelProgram')} <code>{c.binary}</code>{' '}
+                      {c.runtime || t(c.error || 'binary_unavailable')}
+                    </small>
+                    {c.resolvedFrom && (
+                      <small>
+                        {t('resolvedFromLauncher')} <code>{c.resolvedFrom}</code>
+                      </small>
+                    )}
+                    <small>
+                      {t('historyFolder')} <code>{c.home}</code>{' '}
+                      {t(
+                        !c.homeAvailable
+                          ? 'pathMissing'
+                          : c.assumedHome
+                            ? 'checkProposedFolder'
+                            : 'pathFound',
+                      )}
+                    </small>
+                  </span>
+                </label>
+                {c.error && onRepair && (
+                  <button
+                    type="button"
+                    className="text-button candidate-repair"
+                    disabled={applying}
+                    onClick={() => onRepair(entry)}
+                  >
+                    {t(repairLabel)}
+                  </button>
+                )}
+              </React.Fragment>
             );
           })}
         </section>

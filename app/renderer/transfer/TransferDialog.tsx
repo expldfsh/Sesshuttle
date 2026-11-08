@@ -648,6 +648,12 @@ export function TransferDialog({
             return result;
           }}
           onClose={() => setReport(null)}
+          onRepair={(entry: string) => {
+            setReport(null);
+            setTargets((old) => (old.includes(entry) ? old : [...old, entry]));
+            setEditing(entry);
+            void paths.choose(entry);
+          }}
           onApply={async (next: any) => {
             await setConfig(next);
             setDraft(next);

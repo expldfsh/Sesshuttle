@@ -564,8 +564,8 @@ export const messages = {
   ],
   needsCheck: ['需要快速验证', 'Quick check needed'],
   noCandidate: [
-    '未找到可用程序。可在应用卡片中手动选择。',
-    'No runtime found. Choose it manually in the app card.',
+    '未找到可用程序。可以手动选择 Codex 程序。',
+    'No runtime found. You can choose the Codex runtime manually.',
   ],
   noChangesToApply: [
     '没有选中需要修改的配置。现有配置可继续使用。',
@@ -688,6 +688,14 @@ export const messages = {
   ],
   // Storage connection and credentials
   accessKey: ['Access Key ID', 'Access Key ID'],
+  afterServiceSetupLocked: [
+    '设置好后点{@checkStorage}，再点{@authorizeAndConnect}。',
+    'After setup, choose {@checkStorage}, then {@authorizeAndConnect}.',
+  ],
+  afterServiceSetupForm: [
+    '设置好后点{@checkStorage}，再在下方重新连接并勾选{@rememberDevice}。',
+    'After setup, choose {@checkStorage}, then reconnect below with {@rememberDevice} selected.',
+  ],
   afterServiceSetup: [
     '设置好后点{@checkStorage}，再点{@rememberAndAuthorize}。本次已连接的空间可继续使用。',
     'After setup, choose {@checkStorage}, then {@rememberAndAuthorize}. A space already connected in this session stays usable.',
@@ -811,9 +819,25 @@ export const messages = {
     '系统密码库可访问。使用上方按钮重试。',
     'The system password store is reachable. Use the button above to retry.',
   ],
+  systemStoreLockedHint: [
+    '点{@authorizeAndConnect}，按 macOS 系统提示操作。',
+    'Choose {@authorizeAndConnect} and follow the macOS dialog.',
+  ],
+  systemStoreFormHint: [
+    '在下方重新连接并勾选{@rememberDevice}，再按 macOS 系统提示操作。',
+    'Reconnect below with {@rememberDevice} selected, then follow the macOS dialog.',
+  ],
+  systemLockedForm: [
+    '系统密码库已锁定。请先在系统中解锁，再在下方重新连接并勾选{@rememberDevice}。',
+    'The password store is locked. Unlock it in the system, then reconnect below with {@rememberDevice} selected.',
+  ],
+  systemReachableForm: [
+    '系统密码库可访问。请在下方重新连接并勾选{@rememberDevice}。',
+    'The system password store is reachable. Reconnect below with {@rememberDevice} selected.',
+  ],
   systemStoreHint: [
-    '点{@rememberAndAuthorize}或{@authorizeAndConnect}，按 macOS 系统提示操作。',
-    'Choose {@rememberAndAuthorize} or {@authorizeAndConnect} and follow the macOS dialog.',
+    '点{@rememberAndAuthorize}，按 macOS 系统提示操作。',
+    'Choose {@rememberAndAuthorize} and follow the macOS dialog.',
   ],
   test: ['测试连接', 'Test connection'],
   viewCloud: ['查看云端对话', 'View cloud chats'],
@@ -1303,9 +1327,13 @@ export const messages = {
     '同一对话有内容不同的本机副本。在对话详情中比较副本，可选一份上传，或确认后整理本机历史。',
     'Local copies of this conversation differ. Compare them in its details to upload one or review and reconcile local history.',
   ],
+  entry_binary_missing: [
+    '还缺 Codex 程序，无法导入。请点击{@detectEnvironment}，或选择这台电脑上的 Codex 程序。',
+    'The Codex runtime for this app is missing, so the import cannot continue. Choose {@detectEnvironment}, or choose the Codex runtime on this computer.',
+  ],
   entry_home_missing: [
-    '还缺 Codex 数据目录。点击检测，或选择本机的 Codex 数据目录。',
-    'Choose the Codex data folder that stores this app’s history, or detect it here.',
+    '还缺 Codex 数据目录，无法导入。请点击{@detectEnvironment}，或选择这台电脑上的 Codex 数据目录。',
+    'The Codex data folder for this app is missing, so the import cannot continue. Choose {@detectEnvironment}, or choose the Codex data folder on this computer.',
   ],
   export_id_missing: [
     '当前连接没有可导出的 Access Key ID。先解锁已保存的连接，或重新填写凭据，再导出。',
@@ -1544,8 +1572,8 @@ export const messages = {
     'Storage is unavailable. Check network and endpoint.',
   ],
   storage_write_permission: [
-    '存储没有写入或删除测试对象的权限。',
-    'Storage write or test-object deletion permission is missing.',
+    '存储没有写入或删除测试对象的权限。请检查 R2 凭据的权限后重新测试。',
+    'Storage is missing write or test-object deletion permission. Check the R2 credential permissions and test again.',
   ],
   target_file_exists: [
     '目标路径已被另一份历史占用。原文件已保留。请在{@projects}选择正确的 Codex 数据目录后重新预览。',
