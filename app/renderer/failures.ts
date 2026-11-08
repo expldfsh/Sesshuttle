@@ -2,6 +2,7 @@ import type { Failure } from './store/progress';
 
 // The top bar and task panel name a task that could not run by what it was for.
 export function failureLabel(f: Failure) {
+  if (f.error.code === 'removal_targets_missing') return 'removalTargetsShort';
   if (f.kind === 'transfer')
     return f.started
       ? 'transferStopped'

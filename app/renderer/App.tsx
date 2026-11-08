@@ -231,6 +231,14 @@ function useAppState() {
     setNotice(null);
     setFlow(request);
   }
+  // A repair opened from a saved record can come before the list was read in this
+  // session. The dialog needs the list to tell which conversations still exist.
+  function startRepairFlow(direction: string, ids: string[], extra: any) {
+    void work(async () => {
+      if (!data.checkedAt) await refresh();
+      startFlow(direction, ids, extra);
+    }, 'refreshing');
+  }
   function viewCloud() {
     setPage('conversations');
     updateView({ location: 'cloud', status: 'all', projectFilter: 'all', query: '', focus: null });
@@ -283,6 +291,7 @@ function useAppState() {
             setTargetIssue({
               ...(await call('inspectTarget', { logical, entry })),
               retryId: item.id,
+              retryTitle: item.title,
             }),
           'checkingEntries',
         );
@@ -302,7 +311,7 @@ function useAppState() {
       return setPage('settings', 'storage');
     }
     if (action === 'openBackups') return setPage('backups');
-    startFlow(
+    startRepairFlow(
       entry
         ? 'download'
         : (item.requestedDirection ??
@@ -312,7 +321,10 @@ function useAppState() {
                 ? 'both'
                 : 'download')),
       [item.id],
-      entry ? { targets: [entry], offerCopy: code === 'native_provider_missing' } : {},
+      {
+        titles: { [item.id]: item.title },
+        ...(entry ? { targets: [entry], offerCopy: code === 'native_provider_missing' } : {}),
+      },
     );
   }
   async function openNative(id: string, entry: string) {
@@ -610,6 +622,7 @@ function useAppState() {
     refresh,
     persist,
     startFlow,
+    startRepairFlow,
     viewCloud,
     showIssue,
     showScanIssues,
@@ -882,7 +895,14 @@ function GlobalDialogs() {
             resume: any,
           ) => {
             // What "Refresh and preview again" opens if the transfer cannot start.
-            const { autoPreview: _auto, ...request } = { ...app.flow, resume };
+            const { autoPreview: _auto, ...request } = {
+              ...app.flow,
+              resume,
+              titles: {
+                ...app.flow.titles,
+                ...Object.fromEntries(p.items.map((i: any) => [i.id, i.title])),
+              },
+            };
             app.setFlow(null);
             progress.setRemovalJob(null);
             progress.setJob(
@@ -1028,8 +1048,9 @@ function GlobalDialogs() {
               className="primary"
               disabled={busy}
               onClick={() => {
-                app.startFlow('download', [app.targetIssue.retryId], {
+                app.startRepairFlow('download', [app.targetIssue.retryId], {
                   targets: [app.targetIssue.entry],
+                  titles: { [app.targetIssue.retryId]: app.targetIssue.retryTitle },
                 });
                 app.setTargetIssue(null);
               }}
@@ -1044,6 +1065,9 @@ function GlobalDialogs() {
               {t(e.code)} <code>{e.file ?? e.home}</code>
             </p>
           ))}
+          {app.targetIssue.copies.length <= 1 && !app.targetIssue.errors.length && (
+            <p role="status">{t('noDuplicateCopies')}</p>
+          )}
           {app.targetIssue.copies.length > 1 &&
             app.targetIssue.copies.map((c: any) => (
               <div key={c.file} className="scope-file">

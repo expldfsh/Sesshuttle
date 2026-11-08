@@ -1137,6 +1137,13 @@ export const messages = {
     '已清除 {n} 条记录',
     { one: 'Cleared {n} record', other: 'Cleared {n} records' },
   ],
+  clearedSkipped: [
+    '已清除 {n} 条，{skipped} 条需要先处理',
+    {
+      one: 'Cleared {n} record, {skipped} kept until handled',
+      other: 'Cleared {n} records, {skipped} kept until handled',
+    },
+  ],
   clearLogConfirm: [
     '确认清除以下数量的本机操作记录？本机对话、云端副本、备份及同步状态都会保留。',
     'Clear this many activity records on this device? Chats, cloud copies, backups and sync status will remain.',
@@ -1219,6 +1226,7 @@ export const messages = {
     '这条删除任务要处理的对话已经找不到了（可能已被删除或移动），本次没有删除任何内容。',
     'The chats this removal task was for can no longer be found (they may have been deleted or moved). Nothing was deleted.',
   ],
+  removalTargetsShort: ['要删除的对话已不在', 'Chats to remove are gone'],
   removalTargetsAllGone: [
     '这条任务已无事可做，可以{@discardRemovalJob}。放弃后不会删除任何对话。',
     'This task has nothing left to do. You can choose {@discardRemovalJob}. No conversation will be deleted.',
@@ -1233,6 +1241,18 @@ export const messages = {
   ],
   targetsGoneCloud: ['已不在当前同步空间：', 'No longer in this sync space:'],
   targetsGoneLocal: ['已不在本机：', 'No longer on this computer:'],
+  noDuplicateCopies: [
+    '这个 Codex 数据目录里现在没有重复的副本，可以重新查看导入清单。',
+    'This Codex data folder has no duplicate copies now. You can review the import again.',
+  ],
+  transferTargetsAllGone: [
+    '选中的对话已不在列表中，没有可以继续的内容。',
+    'The selected chats are no longer in the list, so there is nothing to continue with.',
+  ],
+  transferTargetsGone: [
+    '这些对话已不在列表中（可能已被删除或移动），本次不会处理：',
+    'These chats are no longer in the list (they may have been deleted or moved) and will be left out:',
+  ],
   activity_pending: [
     '该任务仍在运行或等待恢复。请先完成任务。',
     'This task is running or awaiting recovery. Finish it before clearing the record.',

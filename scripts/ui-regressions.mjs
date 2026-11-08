@@ -876,6 +876,7 @@ async function recordChecks(session) {
       assert.ok(text.includes(a.title) && text.includes(b.title), 'names both chats');
       assert.match(text, TEXT.notHere);
       assert.match(await failure.locator('button.primary').innerText(), TEXT.discardRemoval);
+      await page.screenshot({ path: path.join(shots, 'targets-missing.png') });
     },
   );
   await check('giving up a removal says what it means and removes the record', async () => {

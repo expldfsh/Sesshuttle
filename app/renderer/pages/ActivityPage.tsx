@@ -85,12 +85,17 @@ export function ActivityPage() {
     });
     if (!ok) return;
     try {
-      const removed = await call('clearActivity', all ? { all: true } : { keys: picked });
+      const { cleared, skipped } = await call(
+        'clearActivity',
+        all ? { all: true } : { keys: picked },
+      );
       const gone = (key: string) => (all ? clearable.has(key) : picked.includes(key));
       if (live.job && gone('job/' + live.job.id)) progress.setJob(null);
       if (live.removalJob && gone('removal/' + live.removalJob.id)) progress.setRemovalJob(null);
       setChosen([]);
-      app.notify({ text: tn('clearedRecords', removed) });
+      app.notify({
+        text: skipped ? tn('clearedSkipped', cleared, { skipped }) : tn('clearedRecords', cleared),
+      });
     } finally {
       await app.localChanged();
     }

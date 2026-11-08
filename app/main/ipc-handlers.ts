@@ -682,12 +682,17 @@ export function createHandlers(ctx: Context): Handlers {
           .filter((k: unknown) => typeof k === 'string' && k.startsWith('removal/'))
           .map((k: string) => state.get(k))
           .filter(Boolean);
-        return clearActivity(state, args.keys, await ctx.removals.confirmedContext(chosen));
+        const context = await ctx.removals.confirmedContext(chosen);
+        return { cleared: clearActivity(state, args.keys, context), skipped: 0 };
       }
       const jobs = ctx.removals.jobs();
       const context = await ctx.removals.confirmedContext(jobs);
       const keys = clearableActivity(state, jobs, context);
-      return keys.length ? clearActivity(state, keys, context) : 0;
+      const total = state.keys('job/').filter((k: string) => state.get(k)).length + jobs.length;
+      return {
+        cleared: keys.length ? clearActivity(state, keys, context) : 0,
+        skipped: total - keys.length,
+      };
     },
     activityPage: (args) =>
       activityPage(state, ctx.removals.jobs(), {

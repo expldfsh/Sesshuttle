@@ -80,6 +80,9 @@ export function TransferDialog({
   const attempted = useRef<Step | null>(null);
 
   const chosen = rows.filter((r: any) => request.ids.includes(r.id));
+  // Reopened from a record, some of its conversations may no longer exist.
+  const listed = new Set(rows.map((r: any) => r.id));
+  const goneIds: string[] = request.ids.filter((x: string) => !listed.has(x));
   const needed = chosen.filter((r: any) =>
     direction === 'download' ? r.remote : direction === 'upload' ? r.local : true,
   );
@@ -130,25 +133,27 @@ export function TransferDialog({
   // Why "Next" is unavailable on the current step, shown next to the button.
   const checked = targets.every((e) => infoFor(e));
   const invalid =
-    step === 'apps'
-      ? !targets.length
-        ? 'target_required'
-        : checked && missingEntry
-          ? 'resolveEntry'
-          : checked && untested.length
-            ? 'runtime_check_needed'
-            : ''
-      : step === 'projects'
-        ? staleChoice
-          ? 'destination_project_missing'
-          : projects.some((r) => !draft.bindings[r.projectId])
-            ? 'project_required'
-            : projects.some((r) => homeGroups.some((h) => requiresChoice(r, h)))
-              ? 'chooseDestination'
+    goneIds.length > 0 && !needed.length
+      ? 'transferTargetsAllGone'
+      : step === 'apps'
+        ? !targets.length
+          ? 'target_required'
+          : checked && missingEntry
+            ? 'resolveEntry'
+            : checked && untested.length
+              ? 'runtime_check_needed'
               : ''
-        : step === 'options' && !(limit >= 1)
-          ? 'invalid_settings'
-          : '';
+        : step === 'projects'
+          ? staleChoice
+            ? 'destination_project_missing'
+            : projects.some((r) => !draft.bindings[r.projectId])
+              ? 'project_required'
+              : projects.some((r) => homeGroups.some((h) => requiresChoice(r, h)))
+                ? 'chooseDestination'
+                : ''
+          : step === 'options' && !(limit >= 1)
+            ? 'invalid_settings'
+            : '';
 
   async function run(label: string, fn: () => Promise<any>) {
     if (lock.current || checking) return;
@@ -172,7 +177,7 @@ export function TransferDialog({
   async function rebuild(chosen?: string[], paths = replacements) {
     const approved = chosen ?? carried.current ?? [];
     const result = await call('preview', {
-      ids: request.ids,
+      ids: request.ids.filter((x: string) => listed.has(x)),
       copyChoice: request.copyChoice,
       direction,
       targets,
@@ -276,6 +281,12 @@ export function TransferDialog({
       <strong>{t(pending)}</strong>
     </div>
   );
+  const goneNotice = goneIds.length > 0 && (
+    <p className="warning-box">
+      {t('transferTargetsGone')}{' '}
+      {goneIds.map((x) => request.titles?.[x] ?? x.slice(0, 8)).join(' · ')}
+    </p>
+  );
   const issue = error && (
     <ErrorNotice
       error={error}
@@ -306,6 +317,7 @@ export function TransferDialog({
         busy={!!pending}
         feedback={
           <>
+            {goneNotice}
             {activity}
             {issue}
             {plan.items
@@ -399,6 +411,7 @@ export function TransferDialog({
             {needed.length === 1 ? needed[0].title : tn('countConversations', needed.length)}
             {chosen.length > needed.length && ` · ${needed.length} / ${chosen.length}`}
           </p>
+          {goneNotice}
           {chosen.length > needed.length && (
             <p className="warning-box">
               {t('skippedScope')}{' '}
