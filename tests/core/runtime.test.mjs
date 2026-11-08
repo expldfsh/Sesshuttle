@@ -8,6 +8,7 @@ import {
   inspectRuntime,
   requireRuntime,
   resolveLauncher,
+  savedRuntimeDetail,
   runtimeInfo,
   receiptMatchesRuntime,
 } from '../../core/runtime.mjs';
@@ -268,4 +269,54 @@ test('inspecting a path reports what it is without touching any data', async (t)
 
   assert.equal((await inspectRuntime('relative/codex', state)).error, 'binary_required');
   assert.equal(state.keys('runtime-proof/').length, 1, 'only the proof set above exists');
+});
+
+// A link only names the same file; only a launcher or npm entry point swaps it for another.
+test('only a different file counts as the program actually used', async (t) => {
+  if (!canCompile()) return t.skip('needs a C compiler for the stand-in program');
+  const triplet = {
+    linux: { x64: 'x86_64-unknown-linux-musl', arm64: 'aarch64-unknown-linux-musl' },
+    darwin: { arm64: 'aarch64-apple-darwin', x64: 'x86_64-apple-darwin' },
+  }[process.platform]?.[process.arch];
+  if (!triplet) return t.skip('no npm layout for this platform');
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-actual-')));
+  const state = new State(path.join(root, 'app'));
+  t.after(async () => {
+    state.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const reported = async (binary) => ({
+    inspected: (await inspectRuntime(binary, state)).resolved,
+    saved: (await savedRuntimeDetail(binary, state)).resolved,
+    proof: (await runtimeInfo(binary, state)).resolved,
+  });
+  const all = (value) => ({ inspected: value, saved: value, proof: value });
+  const link = async (name, target) => {
+    const file = path.join(root, name);
+    await fs.symlink(target, file);
+    return file;
+  };
+
+  const program = path.join(root, 'Cellar/codex/codex');
+  await compileStandIn(program, '9.9.1');
+  assert.deepEqual(await reported(program), all(null));
+  assert.deepEqual(await reported(await link('brew-link', program)), all(null), 'a link is not');
+
+  const bundle = await fakeBundle(root, 'ChatGPT.app', '9.9.2');
+  assert.deepEqual(await reported(bundle.launcher), all(bundle.program));
+  assert.deepEqual(
+    await reported(await link('launcher-link', bundle.launcher)),
+    all(bundle.program),
+    'a link to a launcher still ends at another file',
+  );
+
+  const pkg = path.join(root, 'lib/node_modules/@openai/codex');
+  const entry = path.join(pkg, 'bin/codex.js');
+  const vendor = path.join(pkg, 'vendor', triplet, 'codex/codex');
+  await fs.mkdir(path.dirname(entry), { recursive: true });
+  await fs.writeFile(path.join(pkg, 'package.json'), '{"name":"@openai/codex"}');
+  await fs.writeFile(entry, '#!/usr/bin/env node\n', { mode: 0o755 });
+  await compileStandIn(vendor, '9.9.3');
+  assert.deepEqual(await reported(entry), all(vendor));
+  assert.deepEqual(await reported(await link('npm-link', entry)), all(vendor));
 });
