@@ -12,7 +12,9 @@
 //   Codex runtime paths (0.7.2 §11): a launcher in a verified layout shows the real
 //   program; any other launcher is reported where the path is and repaired in place,
 //   only changing the unsaved path; the file chooser can enter app bundles.
-// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep]
+//   Removal records (0.7.3 §11): a removal that cannot be finished can be given up or
+//   cleared, and one with work left says why and where to continue.
+// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep,records]
 //   [--app=<packaged executable>]   by default the development build runs
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -26,7 +28,7 @@ import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-i
 const option = (name, fallback) =>
   process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const language = option('lang', 'zh-CN');
-const only = option('only', 'transfer,removal,native,bins,activity,paths,sweep').split(',');
+const only = option('only', 'transfer,removal,native,bins,activity,paths,sweep,records').split(',');
 const executablePath = option('app', undefined);
 
 // Interface text in both languages, so the checks do not depend on the language.
@@ -54,6 +56,15 @@ const TEXT = {
   startCheck: /开始快速验证|Start quick check/,
   retryCheck: /重新快速验证|Retry quick check/,
   checkStorage: /检查凭据存储|Check credential storage/,
+  discardRemoval: /放弃此删除任务|Give up this removal task/,
+  reviewRemovalAgain: /重新查看删除清单|Review the removal list again/,
+  notHere: /已不在本机|No longer on this computer/,
+  nothingChanged: /没有改动任何内容|did not change anything/,
+  keepsChats: /不会删除任何对话|No conversation will be deleted/,
+  remainingOne: /只为仍在的 1 条重新生成清单|Review a new list for the 1 remaining/,
+  backups: /备份与恢复|Backups & recovery/,
+  localUnfinished: /本机还有未完成的删除或恢复|unfinished on this computer/,
+  clearedSkipped: /已清除 \d+ 条，1 条需要先处理|Cleared \d+ records?, 1 needs attention first/,
 };
 
 const results = [];
@@ -779,9 +790,223 @@ async function sweepChecks(session) {
   });
 }
 
+// 0.7.3 §11: removal records that cannot be finished, cleared or given up.
+async function recordChecks(session) {
+  const { page, app, root, storage } = session;
+  const calls = await recordCalls(app);
+  const sessions = path.join(root, 'codex/sessions/2026/11/01');
+  const parked = path.join(root, 'moved-away');
+  await fs.mkdir(parked);
+  const fileOf = async (dir, tid) => (await fs.readdir(dir)).find((f) => f.includes(tid));
+  const moveAway = async (...ids) => {
+    for (const tid of ids) {
+      const name = await fileOf(sessions, tid);
+      await fs.rename(path.join(sessions, name), path.join(parked, name));
+    }
+  };
+  const bringBack = async (...ids) => {
+    for (const tid of ids) {
+      const name = await fileOf(parked, tid);
+      await fs.rename(path.join(parked, name), path.join(sessions, name));
+    }
+  };
+  // A permanent removal whose list goes out of date before it runs: "not started".
+  async function unstarted(ids) {
+    const review = await invoke(page, 'reviewRemoval', {
+      ids,
+      scope: 'local',
+      mode: 'purge',
+      kind: 'live',
+      includeDependents: false,
+    });
+    assert.ok(review.ok, JSON.stringify(review.error));
+    await invalidate(page);
+    const job = await invoke(page, 'executeRemoval', {
+      token: review.data.token,
+      permanent: true,
+    });
+    assert.equal(job.data?.status, 'attention', JSON.stringify(job));
+    return job.data;
+  }
+  async function reopen() {
+    await page.reload();
+    await page.waitForSelector('.shell');
+    await nav(page, 'activity');
+    await page.waitForSelector('.timeline');
+  }
+  const item = (title) => page.locator('.timeline-item', { hasText: title });
+  const badge = async () => {
+    const count = page.locator('nav button').nth(2).locator('.nav-count');
+    return (await count.count()) ? Number(await count.innerText()) : 0;
+  };
+  const failure = page.locator('#task-panel .task-failure');
+  const seed = (key, value) => {
+    const state = new State(path.join(root, 'app-data'));
+    state.set(key, value);
+    state.close();
+  };
+  const toast = page.locator('.toast').last();
+
+  const list = (await rows(page)).filter((r) => r.local);
+  const [a, b, c] = list;
+  await unstarted([a.id, b.id]);
+  await moveAway(a.id, b.id);
+  await reopen();
+  await calls.take();
+  const requests = storage.requests.length;
+  const attentionBefore = await badge();
+  await check(
+    'reviewing a removal whose chats are gone says so and offers to give it up',
+    async () => {
+      await item(a.title).locator('button', { hasText: TEXT.reviewRemovalAgain }).click();
+      await failure.waitFor({ timeout: 10000 });
+      const seen = (await calls.take()).map((x) => x.method);
+      assert.ok(seen.includes('refresh'), 'the local list is refreshed');
+      assert.ok(
+        seen.indexOf('refresh') < seen.indexOf('reviseRemovalPlan'),
+        'the refresh comes first',
+      );
+      assert.equal(storage.requests.length, requests, 'nothing extra is read from the cloud');
+      const text = await failure.innerText();
+      assert.ok(text.includes(a.title) && text.includes(b.title), 'names both chats');
+      assert.match(text, TEXT.notHere);
+      assert.match(await failure.locator('button.primary').innerText(), TEXT.discardRemoval);
+    },
+  );
+  await check('giving up a removal says what it means and removes the record', async () => {
+    await failure.locator('button.primary').click();
+    await page.waitForSelector('dialog[open] .question');
+    const text = await dialog(page).innerText();
+    assert.match(text, TEXT.nothingChanged);
+    assert.match(text, TEXT.keepsChats);
+    await primary(page).click();
+    await page.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await idle(page, 10000);
+    await page.waitForTimeout(300);
+    assert.equal(await item(a.title).count(), 0, 'the record is gone');
+    assert.ok((await badge()) < attentionBefore, 'the attention count went down');
+    assert.equal(await failure.count(), 0, 'the failure is gone');
+  });
+  await settle(page);
+
+  await bringBack(a.id, b.id);
+  await rows(page);
+  await unstarted([a.id, b.id]);
+  await moveAway(a.id);
+  await reopen();
+  await check('with one chat gone, a new list can be made for the one that remains', async () => {
+    await item(a.title).locator('button', { hasText: TEXT.reviewRemovalAgain }).click();
+    await failure.waitFor({ timeout: 10000 });
+    const text = await failure.innerText();
+    assert.ok(text.includes(a.title), 'names the missing chat');
+    assert.match(text, TEXT.notHere);
+    await failure.locator('button', { hasText: TEXT.discardRemoval }).waitFor({ timeout: 1000 });
+    await failure.locator('button', { hasText: TEXT.remainingOne }).click();
+    await page.waitForSelector('dialog[open] .removal-section', { timeout: 20000 });
+    const entries = dialog(page).locator('.removal-section > ul > li');
+    assert.equal(await entries.count(), 1, 'one chat in the new list');
+    assert.ok((await entries.first().innerText()).includes(b.title));
+  });
+  await settle(page);
+  await bringBack(a.id);
+  await rows(page);
+
+  await unstarted([c.id]);
+  await reopen();
+  await check('a removal that did not start can be ticked and cleared', async () => {
+    const box = item(c.title).first().locator('.timeline-head input[type=checkbox]');
+    assert.ok(await box.isEnabled(), 'the checkbox is available');
+    await box.check();
+    await page.locator('.toolbar button', { hasText: /清除所选|Clear selected/ }).click();
+    await page.waitForSelector('dialog[open] .question');
+    await primary(page).click();
+    await page.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await idle(page, 10000);
+    await page.waitForFunction(
+      ([title, before]) =>
+        [...document.querySelectorAll('.timeline-item')].filter((e) =>
+          e.textContent.includes(title),
+        ).length < before,
+      [c.title, await item(c.title).count()],
+      { timeout: 3000 },
+    );
+  });
+
+  const replacedId = crypto.randomUUID();
+  seed('removal/' + replacedId, {
+    id: replacedId,
+    at: new Date().toISOString(),
+    scope: 'local',
+    mode: 'trash',
+    kind: 'live',
+    titles: ['Synthetic replaced review'],
+    status: 'replaced',
+    sides: [{ side: 'local', home: root, token: crypto.randomUUID(), status: 'failed', count: 1 }],
+  });
+  await reopen();
+  await check('a removal replaced by a new list can be cleared', async () => {
+    const record = item('Synthetic replaced review');
+    await record.locator('.timeline-head input[type=checkbox]').check();
+    await page.locator('.toolbar button', { hasText: /清除所选|Clear selected/ }).click();
+    await page.waitForSelector('dialog[open] .question');
+    await primary(page).click();
+    await page.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await record.waitFor({ state: 'detached', timeout: 3000 });
+  });
+
+  const stuckId = crypto.randomUUID(),
+    copy = crypto.randomUUID();
+  seed('trash/' + copy, {
+    id: copy,
+    home: root,
+    ids: [crypto.randomUUID()],
+    rows: [{ title: 'Synthetic stuck copy' }],
+    files: [],
+    database: { bytes: 0 },
+    status: 'needs_recovery',
+    createdAt: new Date().toISOString(),
+  });
+  seed('removal/' + stuckId, {
+    id: stuckId,
+    at: new Date().toISOString(),
+    scope: 'local',
+    mode: 'trash',
+    kind: 'live',
+    titles: ['Synthetic stuck removal'],
+    status: 'partial',
+    sides: [
+      { side: 'local', home: root, token: copy, status: 'localCleanup', started: true, count: 1 },
+    ],
+  });
+  await rows(page);
+  await unstarted([a.id]);
+  await reopen();
+  const stuck = item('Synthetic stuck removal');
+  await check(
+    'a removal with work left says why at the checkbox and where to continue',
+    async () => {
+      assert.ok(await stuck.locator('.timeline-head input[type=checkbox]').isDisabled());
+      const reason = stuck.locator('.clear-blocked');
+      assert.match(await reason.innerText(), TEXT.localUnfinished);
+      await reason.locator('button', { hasText: TEXT.backups }).waitFor({ timeout: 1000 });
+    },
+  );
+  await check('clearing everything says how many records need attention first', async () => {
+    await page.locator('.toolbar button.danger-button').click();
+    await page.waitForSelector('dialog[open] .question');
+    await primary(page).click();
+    await page.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await toast.waitFor({ timeout: 3000 });
+    assert.match(await toast.innerText(), TEXT.clearedSkipped);
+    await stuck.waitFor({ timeout: 1000 });
+    assert.equal(await item(a.title).count(), 0, 'the record that did not start is cleared');
+  });
+}
+
 const groups = { transfer: transferChecks, removal: removalChecks, native: nativeChecks };
 Object.assign(groups, { bins: binChecks, activity: activityChecks, paths: pathChecks });
 groups.sweep = sweepChecks;
+groups.records = recordChecks;
 // Each group runs in its own test-mode session; a failed step outside a check is
 // reported as a failed setup with a screenshot.
 for (const name of only) {
