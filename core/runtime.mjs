@@ -91,6 +91,8 @@ async function executable(binary) {
   }
   return file;
 }
+// The file that actually runs for a path: its launcher followed to the real program.
+export const runtimeProgram = executable;
 async function identity(binary) {
   try {
     const file = await executable(binary),

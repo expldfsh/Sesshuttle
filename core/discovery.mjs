@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { binaryVersion } from './native.mjs';
 import { KNOWN_VERSIONS } from './codex.mjs';
-import { isScript, resolveLauncher } from './runtime.mjs';
+import { isScript, resolveLauncher, runtimeProgram } from './runtime.mjs';
 
 const entries = ['desktop', 'cli', 'ide'];
 const directories = async (name) => await fs.readdir(name, { withFileTypes: true }).catch(() => []);
@@ -197,7 +197,7 @@ export async function detectEnvironment({
         await version(c.binary)
           .then(async (runtime) =>
             // A script is only trusted with a supported version: a quick check refuses it.
-            !KNOWN_VERSIONS.includes(runtime) && (await isScript(bin))
+            !KNOWN_VERSIONS.includes(runtime) && (await isScript(await runtimeProgram(bin)))
               ? { error: 'runtime_launcher' }
               : { runtime },
           )
