@@ -244,7 +244,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 ### 10.1 判断一条删除记录能否安全清除
 
-- [ ] 在 core 中新增判断（例如 `removalClearance(job, state, vault?)`），返回 `clearable`，不可清除时返回原因码。规则：
+- [x] 在 core 中新增判断（例如 `removalClearance(job, state, vault?)`），返回 `clearable`，不可清除时返回原因码。规则：
   - **可以清除**：
     - `completed`；
     - `replaced`；
@@ -257,8 +257,8 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
     - 云端有待完成事务 →「云端还有已确认的清理没完成」；
     - 无法连接云端确认 →「需要连接存储后才能确认」；
     - 当前正在运行。
-- [ ] `clearActivity` 和 `clearableActivity` 改用这个判断，替换「只有 `completed`」的规则。清除时同时删除 `removal/<id>` 与 `removal-plan/<id>`。
-- [ ] 单元测试覆盖每一种可清除和不可清除的情况，包括来自 0.3.0 时期的旧记录（字段可能缺失，例如没有 `started`、没有 `requestedIds`）。
+- [x] `clearActivity` 和 `clearableActivity` 改用这个判断，替换「只有 `completed`」的规则。清除时同时删除 `removal/<id>` 与 `removal-plan/<id>`。
+- [x] 单元测试覆盖每一种可清除和不可清除的情况，包括来自 0.3.0 时期的旧记录（字段可能缺失，例如没有 `started`、没有 `requestedIds`）。
 
 ### 10.2 放弃删除任务
 
@@ -310,7 +310,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 | 阶段 | 状态 | 提交范围 | 备注 |
 | --- | --- | --- | --- |
-| 10.1 能否清除的判断 | 未开始 | | |
+| 10.1 能否清除的判断 | 已完成 | `e087af3` 起 | `removalClearance` 在 `core/activity.mjs`，单元测试覆盖全部规则 |
 | 10.2 放弃删除任务 | 未开始 | | |
 | 10.3 重新查看删除清单 | 未开始 | | |
 | 10.4 同类排查 | 未开始 | | |
@@ -322,6 +322,10 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 | --- | --- | --- |
 | 2026-11-08 | 没有任何一侧 `started` 的删除记录视为没有改动任何内容，可以清除或放弃；已开始的记录只有在本机回收站和云端都没有待收尾的事时才能清除，无法确认云端时不可清除 | 需求制定 |
 | 2026-11-08 | 「重新查看删除清单」先刷新本机列表再生成清单（用户点击触发）；原对话消失时报 `removal_targets_missing` 并列出标题，不再报泛泛的 `stale_plan` | 需求制定 |
+| 2026-11-08 | `removalClearance(job, state, context)` 是同步函数，`context` 带 `activeId`、当前 `space` 和可选的空间标记 `marker`。空间标记由主进程在用户点击后读取一次再传入，因为 SQLite 事务里不能等待网络。列表显示时不读云端：已连接同一空间、需要云端确认的记录返回 `confirm: true`，点击时才读取 | 开发时决定 |
+| 2026-11-08 | 云端侧已是 `done` 的不再读取空间标记（`done` 只在事务结束后写入），未连接时也能清除这类记录；任务的 `space` 缺失或与当前连接的空间不同，一律判为「无法确认」 | 开发时决定 |
+| 2026-11-08 | 判断「已开始」时，除 `started` 外，`running`/`done`/`cleanup`/`localCleanup` 状态和 `erasing` 也算已开始，防止旧记录缺字段时被当成「什么都没改」；`failed` 不算，因为检查阶段失败也是这个状态。完全没有 `sides` 的记录按「没有任何一侧开始」处理，这种记录只可能是手工构造的（`sides` 从删除记录出现起就存在） | 开发时决定 |
+| 2026-11-08 | 本机回收站状态只有「不存在」「`restored`」「`removed` 且模式为 `trash`/`restore`」算已收尾，未知状态一律不可清除 | 开发时决定 |
 
 ## 长期有效的技术决策
 

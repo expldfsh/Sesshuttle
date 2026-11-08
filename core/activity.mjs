@@ -1,6 +1,51 @@
 import { requireThat } from './util.mjs';
 
-export function clearActivity(state, keys) {
+// A side counts as started when it says so, or when its status can only follow a
+// start: records from early releases may not carry the flag.
+const sideStarted = (side) =>
+  side.started === true ||
+  side.erasing === true ||
+  ['running', 'done', 'cleanup', 'localCleanup'].includes(side.status);
+// Nothing left to finish on this computer: the recycle copy is gone or settled. A
+// permanent deletion is only finished once the copy has been erased.
+function localSettled(side, job, state) {
+  const copy = side.token ? state.get('trash/' + side.token) : null;
+  if (!copy || copy.status === 'restored') return true;
+  return copy.status === 'removed' && ['trash', 'restore'].includes(job.mode);
+}
+const blocked = (reason) => ({ clearable: false, reason });
+
+// Whether a removal record may be cleared or given up, and otherwise why not.
+// `started` says whether it may have changed anything. Only a user's click reads the
+// cloud: `marker` is the space marker it read, null when that failed and absent while
+// a list is shown, where `confirm` marks a record that still depends on the reading.
+export function removalClearance(job, state, { activeId = null, space = null, marker } = {}) {
+  if (activeId && job.id === activeId) return blocked('removal_running');
+  const sides = job.sides ?? [],
+    started = sides.some(sideStarted);
+  if (['completed', 'replaced'].includes(job.status) || !started)
+    return { clearable: true, started };
+  if (sides.some((s) => s.side === 'local' && sideStarted(s) && !localSettled(s, job, state)))
+    return blocked('removal_local_unfinished');
+  // A finished cloud side has no transaction left, so it needs no reading.
+  if (!sides.some((s) => s.side === 'cloud' && sideStarted(s) && s.status !== 'done'))
+    return { clearable: true, started };
+  if (!job.space || job.space !== space || marker === null)
+    return blocked('removal_cloud_unconfirmed');
+  if (marker === undefined) return { clearable: true, started, confirm: true };
+  return marker.pending?.id === job.id
+    ? blocked('removal_cloud_pending')
+    : { clearable: true, started };
+}
+// The removal record and the plan it could continue from.
+export function removeRemovalRecord(state, id) {
+  state.remove('removal/' + id);
+  state.remove('removal-plan/' + id);
+}
+
+// `context` is what removalClearance needs; the cloud marker is read before this call
+// because the transaction below cannot wait for it.
+export function clearActivity(state, keys, context = {}) {
   requireThat(
     Array.isArray(keys) &&
       keys.length &&
@@ -12,12 +57,14 @@ export function clearActivity(state, keys) {
     for (const k of new Set(keys)) {
       const j = state.get(k);
       requireThat(j, 'stale_plan');
-      requireThat(
-        k.startsWith('removal/') ? j.status === 'completed' : j.status !== 'running',
-        'activity_pending',
-      );
-      state.remove(k);
-      if (k.startsWith('removal/')) state.remove('removal-plan/' + j.id);
+      if (k.startsWith('removal/')) {
+        const verdict = removalClearance(j, state, context);
+        requireThat(verdict.clearable && !verdict.confirm, verdict.reason ?? 'activity_pending');
+        removeRemovalRecord(state, k.slice('removal/'.length));
+      } else {
+        requireThat(j.status !== 'running', 'activity_pending');
+        state.remove(k);
+      }
     }
     state.db.exec('COMMIT');
   } catch (e) {
@@ -70,10 +117,15 @@ export function activitySummary(state, removalJobs) {
   };
 }
 
-// Every record that clearActivity() accepts: finished transfers and completed removals.
-export function clearableActivity(state, removalJobs) {
+// Every record that clearActivity() accepts with the same context.
+export function clearableActivity(state, removalJobs, context = {}) {
   return [
     ...state.keys('job/').filter((k) => state.get(k) && state.get(k).status !== 'running'),
-    ...removalJobs.filter((j) => j.status === 'completed').map((j) => 'removal/' + j.id),
+    ...removalJobs
+      .filter((job) => {
+        const verdict = removalClearance(job, state, context);
+        return verdict.clearable && !verdict.confirm;
+      })
+      .map((job) => 'removal/' + job.id),
   ];
 }

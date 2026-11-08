@@ -672,10 +672,19 @@ export function createHandlers(ctx: Context): Handlers {
       }
     },
     // `all` clears every finished record, including pages not loaded yet.
-    clearActivity: (args) => {
-      if (args.all !== true) return clearActivity(state, args.keys);
-      const keys = clearableActivity(state, ctx.removals.jobs());
-      return keys.length ? clearActivity(state, keys) : 0;
+    clearActivity: async (args) => {
+      if (args.all !== true) {
+        // Asking to clear these records is what allows the cloud to be read for them.
+        const chosen = (Array.isArray(args.keys) ? args.keys : [])
+          .filter((k: unknown) => typeof k === 'string' && k.startsWith('removal/'))
+          .map((k: string) => state.get(k))
+          .filter(Boolean);
+        return clearActivity(state, args.keys, await ctx.removals.confirmedContext(chosen));
+      }
+      const jobs = ctx.removals.jobs();
+      const context = await ctx.removals.confirmedContext(jobs);
+      const keys = clearableActivity(state, jobs, context);
+      return keys.length ? clearActivity(state, keys, context) : 0;
     },
     activityPage: (args) =>
       activityPage(state, ctx.removals.jobs(), {

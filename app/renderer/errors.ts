@@ -34,13 +34,15 @@ const RULES: Record<string, ErrorRule> = {
     'error',
     `storage_permission storage_write_permission storage_not_connected decrypt_failed
      credentials_required invalid_endpoint invalid_bucket invalid_key space_not_found
-     credential_restore_failed credential_item_missing space_changed`,
+     credential_restore_failed credential_item_missing space_changed
+     removal_cloud_unconfirmed`,
   ),
   ...rules(
     'openBackups',
     'warning',
     `import_needs_recovery recovery_required trash_recovery_required trash_needs_recovery
-     cloud_cleanup_pending restore_pending backup_in_use`,
+     cloud_cleanup_pending restore_pending backup_in_use removal_local_unfinished
+     removal_cloud_pending`,
   ),
   ...rules('showScanIssues', 'warning', 'scan_incomplete'),
   ...rules('inspectCopies', 'warning', 'duplicate_identity copies_indexed copies_multiple_homes'),
@@ -63,7 +65,7 @@ const RULES: Record<string, ErrorRule> = {
     `busy codex_running native_provider_missing native_timeout native_unavailable
      upload_limit large_upload_confirmation attachment_confirmation_required partial_scope_confirmation`,
   ),
-  ...rules(undefined, 'info', 'nothing_to_remove legacy_format_unsupported'),
+  ...rules(undefined, 'info', 'nothing_to_remove legacy_format_unsupported removal_running'),
   // Codex runtime paths and quick checks. A deterministic failure never offers a retry.
   ...runtimeRules(
     'chooseRuntime',

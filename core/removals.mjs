@@ -3,6 +3,7 @@ import { checkScope } from './scan-scope.mjs';
 import { scan } from './codex.mjs';
 import { Trash } from './trash.mjs';
 import { cloudRemovalPlan, changeCloud, cloudBins } from './cloud-trash.mjs';
+import { removalClearance } from './activity.mjs';
 import { id, hash, canonical, requireThat, publicError, afterStart } from './util.mjs';
 
 const uuid = (s) => typeof s === 'string' && /^[0-9a-f-]{36}$/i.test(s);
@@ -79,15 +80,32 @@ export class Removals {
       ? hash(JSON.stringify([v.store.endpoint ?? null, v.store.bucket ?? null, v.space]))
       : null;
   }
+  clearanceContext() {
+    return { activeId: this.activeId ?? null, space: this.engine.vault?.space ?? null };
+  }
+  // A removal record as the interface receives it: with whether it can be cleared,
+  // from saved state alone.
+  present(job) {
+    return { ...job, clearance: removalClearance(job, this.state, this.clearanceContext()) };
+  }
+  // The context for a clearance the user asked for. The cloud marker is read once, and
+  // only when one of these records depends on it.
+  async confirmedContext(jobs) {
+    const context = this.clearanceContext();
+    if (!jobs.some((job) => removalClearance(job, this.state, context).confirm)) return context;
+    return { ...context, marker: await this.engine.vault.open().catch(() => null) };
+  }
   jobs() {
     return this.state
       .keys('removal/')
       .map((k) => this.state.get(k))
       .filter(Boolean)
       .map((j) =>
-        ['checking', 'running'].includes(j.status) && this.activeId !== j.id
-          ? { ...j, status: 'interrupted' }
-          : j,
+        this.present(
+          ['checking', 'running'].includes(j.status) && this.activeId !== j.id
+            ? { ...j, status: 'interrupted' }
+            : j,
+        ),
       )
       .sort((a, b) => b.at.localeCompare(a.at));
   }
@@ -325,7 +343,7 @@ export class Removals {
     // Every check above only reads. Errors from the run are kept in the job; one that
     // still escapes says that the removal started.
     try {
-      return await this.runPlan(token, plan, job);
+      return this.present(await this.runPlan(token, plan, job));
     } catch (e) {
       throw afterStart(e);
     }
@@ -339,7 +357,7 @@ export class Removals {
     const tickets = new Map();
     const save = () => {
       this.state.set('removal/' + token, job);
-      this.onProgress(job);
+      this.onProgress(this.present(job));
     };
     let current;
     try {
@@ -425,7 +443,7 @@ export class Removals {
               upgrade: job.upgradeAccepted,
               progress: (n, total) => {
                 side.progress = [n, total];
-                this.onProgress(job);
+                this.onProgress(this.present(job));
               },
             },
           );

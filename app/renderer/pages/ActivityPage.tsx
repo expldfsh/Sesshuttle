@@ -27,7 +27,7 @@ const entriesOf = (jobs: any[], removals: any[]): Entry[] => [
 const needsAttention = (e: Entry) =>
   (e.kind === 'job' ? TRANSFER_ATTENTION : REMOVAL_ATTENTION).includes(e.job.status);
 const clearableEntry = (e: Entry) =>
-  e.kind === 'job' ? e.job.status !== 'running' : e.job.status === 'completed';
+  e.kind === 'job' ? e.job.status !== 'running' : e.job.clearance?.clearable === true;
 
 export function ActivityPage() {
   const app = useApp();

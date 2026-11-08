@@ -1186,6 +1186,22 @@ export const messages = {
   reopenReview: ['重新打开检查清单', 'Reopen the review list'],
   reviewRemovalAgain: ['重新查看删除清单', 'Review the removal list again'],
   // Error and issue codes reported by core and the main process
+  removal_cloud_pending: [
+    '云端还有已确认的清理没完成，这条记录要先保留。请到{@backups} → {@cloudBin}继续。',
+    'A confirmed cloud cleanup is unfinished, so this record stays for now. Continue it in {@backups} → {@cloudBin}.',
+  ],
+  removal_cloud_unconfirmed: [
+    '需要连接这条任务所用的同步空间，才能确认云端没有待完成的清理。',
+    'Connect the sync space this task used to confirm that no cloud cleanup is left.',
+  ],
+  removal_local_unfinished: [
+    '本机还有未完成的删除或恢复，请先在{@backups}中处理。',
+    'A removal or restore is unfinished on this computer. Handle it in {@backups} first.',
+  ],
+  removal_running: [
+    '这条删除任务正在运行，结束后才能清除。',
+    'This removal is running. It can be cleared when it ends.',
+  ],
   activity_pending: [
     '该任务仍在运行或等待恢复。请先完成任务。',
     'This task is running or awaiting recovery. Finish it before clearing the record.',
