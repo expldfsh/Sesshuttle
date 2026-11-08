@@ -1142,8 +1142,8 @@ export const messages = {
     'Clear this many activity records on this device? Chats, cloud copies, backups and sync status will remain.',
   ],
   clearLogHint: [
-    '只清除这台电脑的操作记录。进行中的任务和仍可继续处理的删除任务会保留。',
-    'Clear activity on this device only. Running tasks and removal tasks awaiting action are kept.',
+    '只清除这台电脑的操作记录。进行中的任务和还有待收尾工作的删除任务会保留。',
+    'Clear activity on this device only. Running tasks and removal tasks with work left to finish are kept.',
   ],
   clearRecordsN: ['清除所选（{n}）', 'Clear selected ({n})'],
   clearSelectedLogs: ['清除所选记录', 'Clear selected records'],
@@ -1202,6 +1202,15 @@ export const messages = {
     '这条删除任务正在运行，结束后才能清除。',
     'This removal is running. It can be cleared when it ends.',
   ],
+  connectStorage: ['连接存储', 'Connect storage'],
+  discardKeepsChats: [
+    '放弃后不会删除任何对话。',
+    'No conversation will be deleted by giving it up.',
+  ],
+  discardNoPendingWork: ['这条任务已没有待收尾的事。', 'This task has nothing left to finish.'],
+  discardNothingChanged: ['这条任务没有改动任何内容。', 'This task did not change anything.'],
+  discardRemovalJob: ['放弃此删除任务', 'Give up this removal task'],
+  removalDiscarded: ['已放弃删除任务', 'Removal task given up'],
   activity_pending: [
     '该任务仍在运行或等待恢复。请先完成任务。',
     'This task is running or awaiting recovery. Finish it before clearing the record.',

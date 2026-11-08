@@ -123,6 +123,7 @@ export function TaskPanel() {
           onRetry={app.reviewRemaining}
           onReview={app.reviseRemoval}
           onBackups={() => app.setPage('backups')}
+          onDiscard={(id: string) => app.discardRemovalTask(id)}
           onDismiss={() => progress.setRemovalJob(null)}
         />
       ) : (

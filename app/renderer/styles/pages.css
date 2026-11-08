@@ -902,6 +902,15 @@ tr.spacer td {
   display: grid;
   gap: 8px;
 }
+.clear-blocked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 10px 44px;
+  color: var(--warning);
+  font-size: 13px;
+}
 .git-line {
   flex-basis: 100%;
   color: var(--muted);

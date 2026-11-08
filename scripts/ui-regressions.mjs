@@ -116,6 +116,8 @@ async function recordCalls(app) {
 
 const dialog = (page) => page.locator('dialog[open]').last();
 const primary = (page) => dialog(page).locator('.modal-actions button.primary').last();
+// The confirming button of a question, whether ordinary or marked as dangerous.
+const confirm = (page) => dialog(page).locator('.modal-actions button').last();
 const nav = (page, name) =>
   page
     .locator('nav button')
@@ -915,10 +917,11 @@ async function recordChecks(session) {
   await check('a removal that did not start can be ticked and cleared', async () => {
     const box = item(c.title).first().locator('.timeline-head input[type=checkbox]');
     assert.ok(await box.isEnabled(), 'the checkbox is available');
+    const before = await item(c.title).count();
     await box.check();
     await page.locator('.toolbar button', { hasText: /清除所选|Clear selected/ }).click();
     await page.waitForSelector('dialog[open] .question');
-    await primary(page).click();
+    await confirm(page).click();
     await page.waitForFunction(() => !document.querySelector('dialog[open]'));
     await idle(page, 10000);
     await page.waitForFunction(
@@ -926,7 +929,7 @@ async function recordChecks(session) {
         [...document.querySelectorAll('.timeline-item')].filter((e) =>
           e.textContent.includes(title),
         ).length < before,
-      [c.title, await item(c.title).count()],
+      [c.title, before],
       { timeout: 3000 },
     );
   });
@@ -948,7 +951,7 @@ async function recordChecks(session) {
     await record.locator('.timeline-head input[type=checkbox]').check();
     await page.locator('.toolbar button', { hasText: /清除所选|Clear selected/ }).click();
     await page.waitForSelector('dialog[open] .question');
-    await primary(page).click();
+    await confirm(page).click();
     await page.waitForFunction(() => !document.querySelector('dialog[open]'));
     await record.waitFor({ state: 'detached', timeout: 3000 });
   });
@@ -993,7 +996,7 @@ async function recordChecks(session) {
   await check('clearing everything says how many records need attention first', async () => {
     await page.locator('.toolbar button.danger-button').click();
     await page.waitForSelector('dialog[open] .question');
-    await primary(page).click();
+    await confirm(page).click();
     await page.waitForFunction(() => !document.querySelector('dialog[open]'));
     await toast.waitFor({ timeout: 3000 });
     assert.match(await toast.innerText(), TEXT.clearedSkipped);

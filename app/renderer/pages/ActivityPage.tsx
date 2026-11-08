@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PlaceError, useApp } from '../App';
 import { useI18n } from '../i18n/I18n';
 import { call } from '../hooks/useApi';
@@ -7,6 +7,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState } from '../components/EmptyState';
 import { Icon } from '../components/Icon';
 import { RemovalResult } from '../RemovalFlow';
+import { errorRule } from '../errors';
 
 // The same rules as core/activity.mjs, so the filter matches the sidebar count.
 const TRANSFER_ATTENTION = ['attention', 'interrupted', 'paused', 'failed'];
@@ -60,6 +61,11 @@ export function ActivityPage() {
     }
     return all.sort((a, b) => b.at.localeCompare(a.at) || b.key.localeCompare(a.key));
   }, [jobs, removalJobs, older, live.job, live.removalJob]);
+  // Older pages are read again from the start after any change to saved records.
+  useEffect(() => {
+    setOlder([]);
+    setCursor(undefined);
+  }, [app.localRevision]);
   const shown = filter === 'attention' ? entries.filter(needsAttention) : entries;
   const clearable = new Set(entries.filter(clearableEntry).map((e) => e.key));
   const picked = chosen.filter((k) => clearable.has(k));
@@ -86,9 +92,6 @@ export function ActivityPage() {
       setChosen([]);
       app.notify({ text: tn('clearedRecords', removed) });
     } finally {
-      // Older pages are read again from the start, like the first page.
-      setOlder([]);
-      setCursor(undefined);
       await app.localChanged();
     }
   }
@@ -188,7 +191,6 @@ function ActivityItem({
           type="checkbox"
           disabled={app.busy || !clearable}
           aria-label={t('selectLog') + ' · ' + date(entry.at)}
-          title={clearable ? undefined : t('activity_pending')}
           checked={checked && clearable}
           onChange={(e) => onCheck(e.target.checked)}
         />
@@ -212,6 +214,7 @@ function ActivityItem({
         </button>
         <StatusBadge status={job.status} />
       </div>
+      {!clearable && <ClearBlocked entry={entry} />}
       {open && (
         <div className="timeline-body" id={body}>
           {entry.kind === 'removal' ? (
@@ -222,6 +225,7 @@ function ActivityItem({
               onRetry={app.reviewRemaining}
               onReview={app.reviseRemoval}
               onBackups={() => app.setPage('backups')}
+              onDiscard={(id: string) => app.discardRemovalTask(id, 'activity')}
             />
           ) : (
             <>
@@ -278,5 +282,30 @@ function ActivityItem({
         </div>
       )}
     </li>
+  );
+}
+
+// Why a record cannot be cleared yet, next to its checkbox, and where to continue.
+function ClearBlocked({ entry }: { entry: Entry }) {
+  const app = useApp();
+  const { t } = useI18n();
+  const reason =
+    entry.kind === 'job' ? 'activity_pending' : (entry.job.clearance?.reason ?? 'removal_running');
+  const fix = errorRule(reason).fix;
+  return (
+    <div className="clear-blocked">
+      <Icon name="info" />
+      <span>{t(reason)}</span>
+      {fix === 'openBackups' && (
+        <button className="text-button" onClick={() => app.setPage('backups')}>
+          {t('backups')}
+        </button>
+      )}
+      {fix === 'openSettings' && (
+        <button className="text-button" onClick={() => app.setPage('settings', 'storage')}>
+          {t('connectStorage')}
+        </button>
+      )}
+    </div>
   );
 }

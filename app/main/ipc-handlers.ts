@@ -671,6 +671,8 @@ export function createHandlers(ctx: Context): Handlers {
         ctx.deletionActive = false;
       }
     },
+    checkRemovalClearance: (args) => ctx.removals.clearance(args.id),
+    discardRemovalJob: (args) => ctx.removals.discard(args.id),
     // `all` clears every finished record, including pages not loaded yet.
     clearActivity: async (args) => {
       if (args.all !== true) {

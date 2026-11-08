@@ -3,7 +3,7 @@ import { checkScope } from './scan-scope.mjs';
 import { scan } from './codex.mjs';
 import { Trash } from './trash.mjs';
 import { cloudRemovalPlan, changeCloud, cloudBins } from './cloud-trash.mjs';
-import { removalClearance } from './activity.mjs';
+import { removalClearance, removeRemovalRecord } from './activity.mjs';
 import { id, hash, canonical, requireThat, publicError, afterStart } from './util.mjs';
 
 const uuid = (s) => typeof s === 'string' && /^[0-9a-f-]{36}$/i.test(s);
@@ -94,6 +94,20 @@ export class Removals {
     const context = this.clearanceContext();
     if (!jobs.some((job) => removalClearance(job, this.state, context).confirm)) return context;
     return { ...context, marker: await this.engine.vault.open().catch(() => null) };
+  }
+  // Whether one record can be cleared now, as far as the user's click lets us check.
+  async clearance(token) {
+    requireThat(uuid(token), 'invalid_selection');
+    const job = this.state.get('removal/' + token);
+    requireThat(job, 'stale_plan');
+    return removalClearance(job, this.state, await this.confirmedContext([job]));
+  }
+  // Forgets a removal that has nothing left to finish. Nothing else is touched.
+  async discard(token) {
+    const verdict = await this.clearance(token);
+    requireThat(verdict.clearable, verdict.reason);
+    removeRemovalRecord(this.state, token);
+    return verdict;
   }
   jobs() {
     return this.state

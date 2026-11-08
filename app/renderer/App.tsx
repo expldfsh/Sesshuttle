@@ -359,6 +359,33 @@ function useAppState() {
       'readingRemoval',
     );
   }
+  // Gives up a removal task after saying what that means. It only forgets the record;
+  // a task with work left is refused by the main process.
+  async function discardRemovalJob(id: string) {
+    const verdict = await call('checkRemovalClearance', { id });
+    if (!verdict.clearable) {
+      await localChanged();
+      throw { code: verdict.reason };
+    }
+    const ok = await ask({
+      title: t('discardRemovalJob'),
+      message: t(verdict.started ? 'discardNoPendingWork' : 'discardNothingChanged'),
+      detail: <p>{t('discardKeepsChats')}</p>,
+      confirm: t('discardRemovalJob'),
+    });
+    if (!ok) return;
+    try {
+      await call('discardRemovalJob', { id });
+      if (progress.get().removalJob?.id === id) progress.setRemovalJob(null);
+      if (progress.failure('retryRemoval')?.request?.id === id)
+        progress.clearFailure('retryRemoval');
+      notify({ text: t('removalDiscarded') });
+    } finally {
+      await localChanged();
+    }
+  }
+  const discardRemovalTask = (id: string, place = 'page') =>
+    work(() => discardRemovalJob(id), 'working', place);
   // The previewed plan of a transfer that did not run is dropped with its staging
   // copy. It is awaited before the next request: both change the transfer state.
   function discardPlan(token: string) {
@@ -556,6 +583,7 @@ function useAppState() {
     openNativeTask,
     reviewRemaining,
     reviseRemoval,
+    discardRemovalTask,
     taskWork,
     failureActions,
     dismissFailure,

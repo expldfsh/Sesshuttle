@@ -632,7 +632,16 @@ export function RemovalFlow({
   );
 }
 
-export function RemovalResult({ job, t, onRetry, onReview, onBackups, onDismiss, busy }: any) {
+export function RemovalResult({
+  job,
+  t,
+  onRetry,
+  onReview,
+  onBackups,
+  onDismiss,
+  onDiscard,
+  busy,
+}: any) {
   const { tn } = useI18n();
   if (!job) return null;
   const running = busy && ['checking', 'running'].includes(job.status),
@@ -679,7 +688,7 @@ export function RemovalResult({ job, t, onRetry, onReview, onBackups, onDismiss,
       </div>
       {running && <progress />}
       <small>{job.titles?.join(' · ')}</small>
-      {job.sides.map((s: any) => (
+      {(job.sides ?? []).map((s: any) => (
         <p key={s.home ?? s.side}>
           <b>
             {t(s.side === 'local' ? 'thisDevice' : 'currentSpace')} ·{' '}
@@ -708,7 +717,7 @@ export function RemovalResult({ job, t, onRetry, onReview, onBackups, onDismiss,
           )}
         </p>
       ))}
-      {job.error && !job.sides.some((s: any) => s.error) && <p>{t(job.error.code)}</p>}
+      {job.error && !(job.sides ?? []).some((s: any) => s.error) && <p>{t(job.error.code)}</p>}
       {notStarted && <p className="error-note">{t('nothingRemoved')}</p>}
       <div className="actions">
         {reviewAgain ? (
@@ -722,6 +731,11 @@ export function RemovalResult({ job, t, onRetry, onReview, onBackups, onDismiss,
               {t('reviewRemaining')}
             </button>
           )
+        )}
+        {!running && onDiscard && job.clearance?.clearable && job.status !== 'completed' && (
+          <button disabled={busy} onClick={() => onDiscard(job.id)}>
+            {t('discardRemovalJob')}
+          </button>
         )}
         {onBackups && (
           <button disabled={busy} onClick={onBackups}>
