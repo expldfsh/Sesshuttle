@@ -1,4 +1,4 @@
-# Sesshuttle 0.7.2 使用指南
+# Sesshuttle 0.7.3 使用指南
 
 两台电脑都已连上 R2，并且 Linux 已经能看到云端对话时，从下面的「导入到 Linux」开始。升级时保留原同步空间、应用数据和连接文件。
 
@@ -6,13 +6,13 @@
 
 ## 安装或升级
 
-- **Mac Apple Silicon** 打开 `sesshuttle-0.7.2-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
+- **Mac Apple Silicon** 打开 `sesshuttle-0.7.3-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
 - **Arch Linux x86_64** 在安装包所在目录运行下面两行，保持解压出的目录完整，在自己的图形桌面会话中启动。
-- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.7.2-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.7.2-linux-amd64.deb`。
+- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.7.3-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.7.3-linux-amd64.deb`。
 
 ```sh
-tar -xzf sesshuttle-0.7.2-linux-x64.tar.gz
-./sesshuttle-0.7.2-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.7.3-linux-x64.tar.gz
+./sesshuttle-0.7.3-linux-x64/sesshuttle
 ```
 
 升级时退出旧版，保留原有应用数据。两台电脑分别安装并登录要使用的 Codex 应用。项目代码通过 Git 或自己的文件传输方式准备。
@@ -97,13 +97,17 @@ busctl --user introspect org.freedesktop.secrets /org/freedesktop/secrets org.fr
 
 若服务缺失且希望使用 GNOME Keyring，可安装 `sudo pacman -S --needed gnome-keyring`，在应用内重试。如果安装后当前桌面会话仍找不到服务，重新登录图形桌面再试。仅在内存中的连接在退出后需重新加入同一空间。[Arch 软件包](https://archlinux.org/packages/extra/x86_64/gnome-keyring/)
 
-[用已有云端对话在 Arch 验收](linux-acceptance.md) · [验收记录](../../validation/0.7.2.md)
+[用已有云端对话在 Arch 验收](linux-acceptance.md) · [验收记录](../../validation/0.7.3.md)
 
 ## 手动备份和同步记录
 
 预览、下载、导入和恢复都不会创建本机备份。前往「备份与恢复 → 本机手动备份」，选择 Codex 数据目录，点「创建本机备份」并确认。创建时可以开着 Codex；如果这期间有历史变动，等写入结束后重试。恢复或删除备份时，确认弹窗会列出备份摘要和将要移除的文件，危险操作的按钮写明对象。
 
 「同步记录」把传输和删除任务按时间排成一条时间线。「需处理」只显示需要你处理的任务。展开任务可查看详情；勾选已结束的记录后点「清除所选」，或点「清空记录」。「加载更多」显示更早的任务。对话、云端版本、备份和同步状态都会保留。
+
+暂时不能清除的记录，勾选框旁会写明原因并给出入口：本机回收站还有未完成的删除或恢复时，到「备份与恢复」处理；云端还有已确认的清理没完成时，到「备份与恢复 → 云端回收站」继续；无法确认云端时，先连接这条任务所用的同步空间。「清空记录」会跳过这些记录，并提示有几条需要先处理。
+
+没有改动过任何内容、或已经没有待收尾工作的删除任务，可以点「放弃此删除任务」。放弃只移除这条记录，不会删除任何对话。「重新查看删除清单」会先刷新本机列表；原来的对话已经不在时，提示会列出它们的标题，你可以放弃这条任务，或只为仍在的对话重新生成清单。
 
 ## 删除对话或备份版本
 

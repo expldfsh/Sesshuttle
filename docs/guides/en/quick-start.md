@@ -1,4 +1,4 @@
-# Sesshuttle 0.7.2
+# Sesshuttle 0.7.3
 
 If your Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
 
@@ -6,13 +6,13 @@ Terms used here and in the app: an **app** is the GPT desktop app, the CLI or th
 
 ## Install or upgrade
 
-- On Apple Silicon, open `sesshuttle-0.7.2-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
+- On Apple Silicon, open `sesshuttle-0.7.3-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session. Keep the extracted folder intact.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.7.2-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.7.2-linux-amd64.deb`.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.7.3-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.7.3-linux-amd64.deb`.
 
 ```sh
-tar -xzf sesshuttle-0.7.2-linux-x64.tar.gz
-./sesshuttle-0.7.2-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.7.3-linux-x64.tar.gz
+./sesshuttle-0.7.3-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
@@ -106,13 +106,17 @@ Previews, downloads, imports and restores do not create local backups. In **Back
 
 **Sync activity** is one timeline of transfers and removals, newest first. **Needs attention** shows only tasks that need you. Expand a task for its details, tick finished records and choose **Clear selected**, or **Clear all records**. **Load more** shows older tasks.
 
+A record that cannot be cleared yet says why next to its checkbox and offers the way to continue: an unfinished removal or restore on this computer is handled in **Backups & recovery**, an unfinished cloud cleanup continues in **Backups & recovery → Cloud recycle bin**, and if the cloud cannot be confirmed, connect the sync space that task used. **Clear all records** skips these records and tells you how many need attention first.
+
+A removal task that changed nothing, or has nothing left to finish, can be dropped with **Give up this removal task**. Giving up only removes the record and deletes no conversation. **Review the removal list again** refreshes this computer's list first; if the original chats are gone, the notice names them and you can give up the task or make a new list for the chats that remain.
+
 ## Keyboard shortcuts
 
 ⌘/Ctrl+R refreshes the conversation list when nothing else runs, ⌘/Ctrl+F focuses search and Esc closes the topmost dialog. In the list, ↑/↓ move and show details, Space ticks the current row and ⌘/Ctrl+A selects the current view. Apart from refresh, shortcuts never start a data operation. The list is also in **Settings**.
 
 ## Linux acceptance checklist
 
-Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.7.2 and keep their sync space, application data and connection file.
+Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.7.3 and keep their sync space, application data and connection file.
 
 1. **Detect the desktop app.** On Linux, open the Codex page of the GPT desktop app. In Sesshuttle, open **Apps & projects → Detect local Codex apps**, check the runtime, data folder and evidence under **GPT desktop**, and apply them. `/usr/lib/chatgpt/ChatGPT` is one known location of the desktop program itself, which is not the runtime. Check that the detected runtime is a real program: `file <path>` should report an ELF executable, not a shell script. If it is a script, the app shows “Choose a Codex runtime”; report the path and the `file` output.
 2. **Choose the chat.** In Conversations, open your uploaded title and choose **Import to this computer…**. If it is missing, choose **Settings → View cloud chats** and refresh. Select **GPT desktop**.
@@ -124,4 +128,4 @@ Use this when a chat uploaded from the Mac is visible on Linux. Both computers r
 
 To check the connection hand-over, export the connection file on the connected Mac, import it on an unconnected Linux installation, enter the Secret Access Key and connect. To check removal, use a dedicated test chat: recycle one cloud version on the Mac, confirm the imported Linux chat still opens, and restore the version from the Linux cloud recycle bin. Open a permanent deletion review and cancel it to check its two-sided list and final button.
 
-[Verification report](../../validation/0.7.2.md)
+[Verification report](../../validation/0.7.3.md)
