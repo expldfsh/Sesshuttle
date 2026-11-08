@@ -16,8 +16,18 @@ const fill = (text: string, vars?: Vars) =>
   vars
     ? text.replace(/\{(\w+)\}/g, (all, name) => (name in vars ? String(vars[name]) : all))
     : text;
+// `{@key}` names another message, usually a button or page: it shows that message's
+// current text in quotation marks, so a label and the hints that mention it stay equal.
+const quote = (locale: Locale, label: string) =>
+  locale === 'zh-CN' ? `「${label}」` : `“${label}”`;
+const references = (locale: Locale, text: string) =>
+  text.includes('{@')
+    ? text.replace(/\{@([\w$]+)\}/g, (all, key) =>
+        Object.hasOwn(table, key) ? quote(locale, translate(locale, key)) : all,
+      )
+    : text;
 // The message for one language; an unknown key (a code without a message) shows as is.
-export function translate(locale: Locale, key: string, vars?: Vars, count?: number) {
+export function translate(locale: Locale, key: string, vars?: Vars, count?: number): string {
   const entry = table[key];
   if (!entry) return key;
   const value: string | Plural = entry[locale === 'zh-CN' ? 0 : 1];
@@ -25,7 +35,7 @@ export function translate(locale: Locale, key: string, vars?: Vars, count?: numb
     typeof value === 'string'
       ? value
       : (value[pluralRules(locale).select(count ?? 2) as keyof Plural] ?? value.other);
-  return fill(text, count === undefined ? vars : { n: count, ...vars });
+  return fill(references(locale, text), count === undefined ? vars : { n: count, ...vars });
 }
 
 const formatters = new Map<string, Intl.DateTimeFormat>();

@@ -213,8 +213,8 @@ export const messages = {
   locationLocal: ['只在本机', 'On this computer only'],
   mainChats: ['主对话', 'Main chats'],
   manualRefreshHint: [
-    '点击「刷新」读取对话。需要云端对话时，请先在设置中连接同步空间。',
-    'Click Refresh to read chats. To include cloud chats, connect to your space in Settings first.',
+    '点击{@refresh}读取对话。需要云端对话时，请先在设置中连接同步空间。',
+    'Click {@refresh} to read chats. To include cloud chats, connect to your space in Settings first.',
   ],
   moreActions: ['更多操作', 'More actions'],
   nativeConfirm: [
@@ -246,8 +246,8 @@ export const messages = {
   ],
   onboardTransfer: ['完成第一次上传或导入', 'Finish a first upload or import'],
   onboardTransferHint: [
-    '在列表中勾选对话，再选择「上传」或「导入」。',
-    'Select conversations in the list, then choose Upload or Import.',
+    '在列表中勾选对话，再选择{@uploadCloud}或{@importLocal}。',
+    'Select conversations in the list, then choose {@uploadCloud} or {@importLocal}.',
   ],
   openingNative: ['正在打开原生应用…', 'Opening native app…'],
   outsideFilters: ['当前筛选之外', 'Outside current filters'],
@@ -345,8 +345,8 @@ export const messages = {
   ],
   historyReceived: ['历史已下载', 'History downloaded'],
   import_needs_recovery: [
-    '导入未完成，请在“备份与恢复”查看并恢复对应备份。',
-    'Import did not finish. Open Backups & recovery to restore the associated backup.',
+    '导入未完成，请在{@backups}查看并恢复对应备份。',
+    'Import did not finish. Open {@backups} to restore the associated backup.',
   ],
   importLocal: ['导入到这台电脑', 'Import to this computer'],
   importVersion: ['导入版本', 'Imported version'],
@@ -413,8 +413,8 @@ export const messages = {
   reviewAndRetry: ['重新预览此对话', 'Review this conversation again'],
   saveCloudCopy: ['仅下载云端副本到文件夹', 'Download a cloud copy to a folder'],
   saveCloudCopyHint: [
-    '选择私有文件夹保存已解密的历史和随备份提供的附件。要在 Codex 里继续聊，请使用「导入到这台电脑」。',
-    'Choose a private folder for decrypted history and the attachments in this backup. To continue in Codex, use Import to this computer.',
+    '选择私有文件夹保存已解密的历史和随备份提供的附件。要在 Codex 里继续聊，请使用{@importLocal}。',
+    'Choose a private folder for decrypted history and the attachments in this backup. To continue in Codex, use {@importLocal}.',
   ],
   savedCopyAt: [
     '云端副本已保存到以下位置。Codex 数据目录未修改。',
@@ -597,8 +597,8 @@ export const messages = {
   ],
   runtimeBuiltIn: ['可导入 · 已支持的 Codex 程序', 'Ready to import · Supported Codex runtime'],
   runtimeCatalogUnavailable: [
-    '暂时无法读取本机项目列表。可选择「仅导入历史」，或检查 Codex 数据目录后重试。',
-    'The local project list could not be read. Choose history only or check the Codex data folder and retry.',
+    '暂时无法读取本机项目列表。可选择{@historyOnly}，或检查 Codex 数据目录后重试。',
+    'The local project list could not be read. Choose {@historyOnly} or check the Codex data folder and retry.',
   ],
   runtimeCheckHint: [
     '用一条临时测试对话验证续聊。无需登录，通过后这台电脑会记住结果。',
@@ -689,8 +689,8 @@ export const messages = {
   // Storage connection and credentials
   accessKey: ['Access Key ID', 'Access Key ID'],
   afterServiceSetup: [
-    '设置好后点「检查凭据存储」，再点「记住连接」。本次已连接的空间可继续使用。',
-    'After setup, check credential storage and choose Remember connection. A space already connected in this session stays usable.',
+    '设置好后点{@checkStorage}，再点{@rememberAndAuthorize}。本次已连接的空间可继续使用。',
+    'After setup, choose {@checkStorage}, then {@rememberAndAuthorize}. A space already connected in this session stays usable.',
   ],
   archExample: [
     'Arch 示例（本机尚未安装密码库时）',
@@ -812,8 +812,8 @@ export const messages = {
     'The system password store is reachable. Use the button above to retry.',
   ],
   systemStoreHint: [
-    '点「记住连接」或「解锁并连接」，按 macOS 系统提示操作。',
-    'Choose Remember connection or Unlock and connect and follow the macOS dialog.',
+    '点{@rememberAndAuthorize}或{@authorizeAndConnect}，按 macOS 系统提示操作。',
+    'Choose {@rememberAndAuthorize} or {@authorizeAndConnect} and follow the macOS dialog.',
   ],
   test: ['测试连接', 'Test connection'],
   viewCloud: ['查看云端对话', 'View cloud chats'],
@@ -823,8 +823,8 @@ export const messages = {
   ],
   // Removal and recycle bins
   allCopiesRemoval: [
-    '以下文件共用一个对话 ID。本次删除范围包含列出的全部本机历史副本。要保留其中一份，请取消并打开「比较本机历史副本」。',
-    'These files share one conversation ID. This removal includes every listed local copy. To keep one active, cancel and compare local history copies.',
+    '以下文件共用一个对话 ID。本次删除范围包含列出的全部本机历史副本。要保留其中一份，请取消并打开{@inspectCopies}。',
+    'These files share one conversation ID. This removal includes every listed local copy. To keep one active, cancel and open {@inspectCopies}.',
   ],
   assetDecision_absent: ['备份中没有这份附件', 'Attachment absent from backup'],
   assetDecision_kept: ['此版本保留', 'Version retained'],
@@ -847,8 +847,8 @@ export const messages = {
   binary: ['Codex 可执行文件', 'Codex executable'],
   bind: ['选择文件夹', 'Choose folder'],
   binPolicy: [
-    '可在「备份与恢复」找回。本机和云端各自保留恢复副本，仍占用空间。',
-    'Recover these copies in Backups & recovery. Each selected location retains the data and storage usage.',
+    '可在{@backups}找回。本机和云端各自保留恢复副本，仍占用空间。',
+    'Recover these copies in {@backups}. Each selected location retains the data and storage usage.',
   ],
   binStorageFolder: ['本次处理的回收副本目录', 'Recycled copy being processed'],
   binUsesSpace: [
@@ -879,8 +879,8 @@ export const messages = {
     'Only cloud versions are active. Recycled and other known copies are shown separately in the review.',
   ],
   cloudRemovalHistory: [
-    '这份云端备份已移除。若要重新备份，请选择「上传到云端」。',
-    'This backup was removed from the cloud. Choose Upload to cloud to back it up again.',
+    '这份云端备份已移除。若要重新备份，请选择{@uploadCloud}。',
+    'This backup was removed from the cloud. Choose {@uploadCloud} to back it up again.',
   ],
   configureRemovalStorage: ['配置云端存储', 'Configure cloud storage'],
   countBackupVersions: [
@@ -1201,8 +1201,8 @@ export const messages = {
   ],
   cloud_check_failed: ['请先成功刷新云端状态。', 'Refresh cloud status successfully first.'],
   cloud_cleanup_pending: [
-    '云端上次已确认的操作尚未收尾。到「备份与恢复 → 云端回收站」继续该操作，再进行新写入。',
-    'A previously confirmed cloud change is unfinished. Resume it in Backups & recovery → Cloud recycle bin before making new changes.',
+    '云端上次已确认的操作尚未收尾。到{@backups} → {@cloudBin}继续该操作，再进行新写入。',
+    'A previously confirmed cloud change is unfinished. Resume it in {@backups} → {@cloudBin} before making new changes.',
   ],
   cloud_upgrade_required: [
     '请先确认使用此空间的客户端已升级，再执行云端操作。',
@@ -1419,12 +1419,12 @@ export const messages = {
     'Cannot verify Codex has exited. Writes were stopped.',
   ],
   project_assignment_failed: [
-    '未能确认对话已归入所选项目。到「备份与恢复」查看本次导入，再决定是否恢复。',
-    'Project placement could not be verified. Review this import in Backups & recovery before restoring.',
+    '未能确认对话已归入所选项目。到{@backups}查看本次导入，再决定是否恢复。',
+    'Project placement could not be verified. Review this import in {@backups} before restoring.',
   ],
   project_assignment_unsupported: [
-    '此版本无法验证桌面项目归属。可选择「仅导入历史」，自行在应用内打开。',
-    'This version cannot verify the desktop project. Choose history only and open it in the app.',
+    '此版本无法验证桌面项目归属。可选择{@historyOnly}，自行在应用内打开。',
+    'This version cannot verify the desktop project. Choose {@historyOnly} and open it in the app.',
   ],
   project_required: [
     '请选择这台电脑上的项目文件夹，或创建专用项目文件夹。',
@@ -1455,8 +1455,8 @@ export const messages = {
     'Choose a readable regular PNG, JPEG, GIF or WebP image.',
   ],
   restore_pending: [
-    '此前恢复中断。请到「备份与恢复」，重新确认恢复这份备份。',
-    'A restore was interrupted. Open Backups and confirm the restore again.',
+    '此前恢复中断。请到{@backups}，重新确认恢复这份备份。',
+    'A restore was interrupted. Open {@backups} and confirm the restore again.',
   ],
   resume_original_plan: [
     '已有一部分正在收尾。请返回原清单重试，或从回收站完成上次操作。',
@@ -1475,8 +1475,8 @@ export const messages = {
     'The runtime changed during verification. Run the quick check on the current executable.',
   ],
   runtime_check_needed: [
-    '在所选应用下点击「快速验证此 Codex 程序」，通过后即可查看导入清单。',
-    'Run the quick check under the selected app to review your import.',
+    '这个 Codex 程序还没有在这台电脑上验证，暂时不能导入。请在所选应用下点击{@startRuntimeCheck}，通过后即可查看导入清单。',
+    'This Codex runtime has not been checked on this computer yet, so the import cannot continue. Choose {@startRuntimeCheck} under the selected app, then review your import.',
   ],
   runtime_history_mismatch: [
     '重开测试对话后，该 Codex 程序未能读回同一条对话的完整消息。请选择其他应用导入，或将副本下载到文件夹。',
@@ -1487,8 +1487,8 @@ export const messages = {
     'The runtime could not use the isolated settings safely. Check this installation’s system-wide tool and provider settings, then retry or choose another app.',
   ],
   runtime_launcher: [
-    '此路径指向启动脚本。请在「编辑路径」中选择该安装实际使用的 Codex 可执行文件，再验证。',
-    'This path points to a launcher script. Edit the path, select the installed Codex executable, then retry.',
+    '这个路径是 GPT 桌面端或其他安装附带的启动脚本，不是 Codex 程序本身，快速验证无法确认它实际运行的是哪个程序。请选择该安装里真正的 Codex 程序。',
+    'This path is a launcher script that comes with the GPT desktop app or another installation, not the Codex runtime itself, so a quick check cannot tell which program it really runs. Choose the actual Codex runtime of that installation.',
   ],
   runtime_protocol: [
     '该 Codex 程序缺少导入或续聊所需的接口。请选择其他应用，或更新此应用后重试。',
@@ -1515,8 +1515,8 @@ export const messages = {
     'The check timed out. Retry or select another ready app.',
   ],
   scan_incomplete: [
-    '无法安全确认本次操作涉及哪些历史。展开对话页的「查看扫描时遇到的问题」检查对应文件或文件夹，再刷新。',
-    'The affected histories could not be identified safely. Open scanning issues on Conversations, check the listed location, then refresh.',
+    '无法安全确认本次操作涉及哪些历史。展开对话页的{@scanSummary}检查对应文件或文件夹，再刷新。',
+    'The affected histories could not be identified safely. Open {@scanSummary} on Conversations, check the listed location, then refresh.',
   ],
   space_changed: [
     '当前连接的同步空间已改变。请连接原空间或重新选择对话预览。',
@@ -1545,8 +1545,8 @@ export const messages = {
     'Storage write or test-object deletion permission is missing.',
   ],
   target_file_exists: [
-    '目标路径已被另一份历史占用。原文件已保留。请在「本机应用与项目」选择正确的 Codex 数据目录后重新预览。',
-    'Another history already occupies the destination path. The original was preserved. Check the Codex data folder under Apps & projects, then review again.',
+    '目标路径已被另一份历史占用。原文件已保留。请在{@projects}选择正确的 Codex 数据目录后重新预览。',
+    'Another history already occupies the destination path. The original was preserved. Choose the correct Codex data folder under {@projects}, then review again.',
   ],
   target_required: ['请至少选择一个导入目标。', 'Choose at least one destination.'],
   task_running: ['请等待当前任务完成或暂停。', 'Wait for the current task or pause it.'],
@@ -1595,8 +1595,8 @@ export const messages = {
     'Project folder unavailable. Choose an existing folder on this computer or create one.',
   ],
   workspace_create_failed: [
-    '文档目录不可写，未创建项目文件夹。请用「选择文件夹」选择可写的文件夹。',
-    'The project folder could not be created in Documents. Choose a writable folder.',
+    '文档目录不可写，未创建项目文件夹。请用{@bind}选择可写的文件夹。',
+    'The project folder could not be created in Documents. Use {@bind} to choose a writable folder.',
   ],
 } as const satisfies Record<string, Message>;
 
