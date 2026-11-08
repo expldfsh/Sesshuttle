@@ -68,6 +68,8 @@ export async function errorCodes(repo) {
     for (const m of text.matchAll(/\brequireThat\(/g))
       literals(argumentsAt(text, m.index + m[0].length)[1]).forEach((c) => codes.add(c));
     for (const m of text.matchAll(/\bcode\s*:\s*'([a-z][a-z0-9_]*)'/g)) codes.add(m[1]);
+    // Codes reported as a field of a result instead of thrown.
+    for (const m of text.matchAll(/\berror\s*[:=]\s*'([a-z]+_[a-z0-9_]+)'/g)) codes.add(m[1]);
     // Tables that translate lower-level failures into public codes.
     for (const m of text.matchAll(/(?:localCodes|cause)\s*=\s*\{([^}]*)\}/g))
       literals(m[1]).forEach((c) => codes.add(c));

@@ -12,7 +12,7 @@
 //   Codex runtime paths (0.7.2 §11): a launcher in a verified layout shows the real
 //   program; any other launcher is reported where the path is and repaired in place,
 //   only changing the unsaved path; the file chooser can enter app bundles.
-// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths]
+// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep]
 //   [--app=<packaged executable>]   by default the development build runs
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -26,7 +26,7 @@ import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-i
 const option = (name, fallback) =>
   process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const language = option('lang', 'zh-CN');
-const only = option('only', 'transfer,removal,native,bins,activity,paths').split(',');
+const only = option('only', 'transfer,removal,native,bins,activity,paths,sweep').split(',');
 const executablePath = option('app', undefined);
 
 // Interface text in both languages, so the checks do not depend on the language.
@@ -53,6 +53,7 @@ const TEXT = {
   chooseProgram: /选择 Codex 程序…|Choose Codex runtime…/,
   startCheck: /开始快速验证|Start quick check/,
   retryCheck: /重新快速验证|Retry quick check/,
+  checkStorage: /检查凭据存储|Check credential storage/,
 };
 
 const results = [];
@@ -682,8 +683,66 @@ async function pathChecks(session) {
   await page.keyboard.press('Escape');
 }
 
+// 0.7.2 §10.6: other notices that had only text or named buttons that are not there.
+async function sweepChecks(session) {
+  const { page, root } = session;
+  const script = path.join(root, 'tools', 'codex');
+  await fs.mkdir(path.dirname(script), { recursive: true });
+  await fs.writeFile(script, '#!/bin/sh\necho "codex-cli 9.9.8"\n', { mode: 0o755 });
+  const config = (await invoke(page, 'init')).data.config;
+  const targets = structuredClone(config.targets);
+  targets.desktop.binary = script;
+  await invoke(page, 'saveConfig', { ...config, targets });
+  await page.reload();
+  await page.waitForSelector('.shell');
+  await nav(page, 'projects');
+  await page.locator('.page-head button.primary').click();
+  await dialog(page).waitFor();
+  await check('a detection candidate that cannot be used offers a way to fix it', async () => {
+    const group = dialog(page).locator('.candidate-group').first();
+    await group.locator('.candidate-repair').waitFor({ timeout: 3000 });
+    await group.locator('.candidate-repair').click();
+    await page.waitForFunction(() => !document.querySelector('dialog[open]'));
+  });
+  await settle(page);
+
+  targets.desktop.binary = '';
+  await invoke(page, 'saveConfig', { ...config, targets });
+  const row = (await rows(page)).find((r) => r.local);
+  await uploadById(page, row.id);
+  await refreshList(page);
+  await page.locator('tr.conversation-row:has(.badge.tone-success)').first().click();
+  await page.locator('.entry-state button', { hasText: TEXT.importHere }).first().click();
+  await dialog(page).waitFor();
+  await primary(page).click();
+  await check('an app without a Codex runtime is explained in the dialog', async () => {
+    await dialog(page).locator('.setup-repair').first().waitFor({ timeout: 5000 });
+    assert.doesNotMatch(await dialog(page).innerText(), /entry_binary_missing/);
+  });
+  await settle(page);
+
+  if (process.platform !== 'darwin') return;
+  await invoke(page, 'disconnect');
+  const state = new State(path.join(root, 'app-data'));
+  state.set('credentialError', 'credential_write_failed');
+  state.close();
+  await page.reload();
+  await page.waitForSelector('.shell');
+  await nav(page, 'settings');
+  await page.waitForSelector('.storage-state');
+  await check('the credential check names only buttons on the screen', async () => {
+    await page.locator('.storage-state button', { hasText: TEXT.checkStorage }).click();
+    const details = page.locator('.storage-state .repair-details');
+    await details.waitFor({ timeout: 3000 });
+    const text = await details.innerText();
+    assert.doesNotMatch(text, /记住连接…|解锁并连接…|Remember connection…|Unlock and connect…/);
+    assert.match(text, /在这台电脑记住连接|Remember this connection on this computer/);
+  });
+}
+
 const groups = { transfer: transferChecks, removal: removalChecks, native: nativeChecks };
 Object.assign(groups, { bins: binChecks, activity: activityChecks, paths: pathChecks });
+groups.sweep = sweepChecks;
 // Each group runs in its own test-mode session; a failed step outside a check is
 // reported as a failed setup with a screenshot.
 for (const name of only) {
