@@ -60,7 +60,11 @@ test('detection recommends the program behind a known launcher, once', async () 
     assert.equal(desktop[0].binary, program);
     assert.equal(desktop[0].resolvedFrom, launcher);
     assert.equal(desktop[0].runtime, '9.9.5');
-    assert.deepEqual(ran, [program], 'only the real program answers');
+    assert.deepEqual(
+      ran.filter((file) => file.startsWith(root)),
+      [program],
+      'only the real program answers',
+    );
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

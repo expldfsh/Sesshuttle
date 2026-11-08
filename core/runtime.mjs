@@ -10,10 +10,53 @@ const exec = promisify(execFile);
 const rule = 2;
 const versions = new Map();
 
-// Official npm installations may keep the JS launcher across native package upgrades.
+const BUNDLE_LAUNCHER = /^(.+\/([^/]+\.app))\/Contents\/Resources\/codex-cli\/bin\/codex$/;
+const BUNDLE_PROGRAM = 'Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex';
+// Verified app bundles. The script at bin/codex only starts the program next to it.
+const VERIFIED_BUNDLES = ['ChatGPT.app', 'Codex.app'];
+
+export async function isScript(file) {
+  const fd = await fs.open(file, 'r');
+  try {
+    const buf = Buffer.alloc(2);
+    await fd.read(buf, 0, 2, 0);
+    return buf.toString() === '#!';
+  } finally {
+    await fd.close();
+  }
+}
+// The program behind an app bundle's launcher script: a regular non-script file that
+// stays inside the same bundle after links are followed; otherwise null.
+async function bundleProgram(launcher) {
+  try {
+    const [, bundle, name] = launcher.match(BUNDLE_LAUNCHER) ?? [];
+    if (!bundle || !(await isScript(launcher))) return null;
+    const file = await fs.realpath(path.join(bundle, BUNDLE_PROGRAM));
+    if (!file.startsWith(bundle + path.sep)) return null;
+    if (!(await fs.stat(file)).isFile() || (await isScript(file))) return null;
+    return { file, verified: VERIFIED_BUNDLES.includes(name) };
+  } catch {
+    return null;
+  }
+}
+// The real program for a launcher in a verified layout, or null. Reads files only.
+export async function resolveLauncher(binary) {
+  try {
+    const found = await bundleProgram(await fs.realpath(binary));
+    return found?.verified ? found.file : null;
+  } catch {
+    return null;
+  }
+}
+
+// A verified app bundle starts its program through a script, and official npm
+// installations may keep the JS launcher across native package upgrades. Both are
+// followed to the file that actually runs; the configured path stays as the user set it.
 async function executable(binary) {
   requireThat(typeof binary === 'string' && path.isAbsolute(binary), 'binary_required');
   const file = await fs.realpath(binary);
+  const bundled = await bundleProgram(file);
+  if (bundled?.verified) return bundled.file;
   if (path.basename(file) !== 'codex.js') return file;
   const root = path.dirname(path.dirname(file));
   const pkg = await fs
@@ -58,20 +101,11 @@ async function identity(binary) {
       .trim()
       .match(/^(?:codex-cli\s+)?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.+-]+)?)$/m)?.[1];
     requireThat(version, 'binary_not_codex');
-    const fd = await fs.open(file, 'r');
-    let script;
-    try {
-      const buf = Buffer.alloc(2);
-      await fd.read(buf, 0, 2, 0);
-      script = buf.toString() === '#!';
-    } finally {
-      await fd.close();
-    }
     const result = {
       file,
       stamp,
       version,
-      script,
+      script: await isScript(file),
       key: proofKey(version, stamp),
     };
     if (versions.size > 100) versions.clear();

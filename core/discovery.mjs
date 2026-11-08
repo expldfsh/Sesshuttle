@@ -3,6 +3,8 @@ import { constants } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { binaryVersion } from './native.mjs';
+import { KNOWN_VERSIONS } from './codex.mjs';
+import { isScript, resolveLauncher } from './runtime.mjs';
 
 const entries = ['desktop', 'cli', 'ide'];
 const directories = async (name) => await fs.readdir(name, { withFileTypes: true }).catch(() => []);
@@ -88,6 +90,9 @@ export async function detectEnvironment({
   userHome = os.homedir(),
   env = process.env,
   version = binaryVersion,
+  appRoots = platform === 'darwin'
+    ? ['/Applications/ChatGPT.app/Contents/Resources', '/Applications/Codex.app/Contents/Resources']
+    : ['/usr/lib/chatgpt', '/opt/ChatGPT', '/opt/chatgpt', '/usr/lib/codex'],
 } = {}) {
   const defaultHome = testRoot ? path.join(testRoot, 'codex') : path.join(userHome, '.codex');
   const candidates = testRoot || platform !== 'linux' ? [] : await liveLinuxTargets(proc);
@@ -109,14 +114,7 @@ export async function detectEnvironment({
         'installedBinary',
       );
     }
-    const roots =
-      platform === 'darwin'
-        ? [
-            '/Applications/ChatGPT.app/Contents/Resources',
-            '/Applications/Codex.app/Contents/Resources',
-          ]
-        : ['/usr/lib/chatgpt', '/opt/ChatGPT', '/opt/chatgpt', '/usr/lib/codex'];
-    for (const root of roots) {
+    for (const root of appRoots) {
       const names =
         platform === 'darwin' ? ['../MacOS/ChatGPT', '../MacOS/Codex'] : ['ChatGPT', 'Codex'];
       let launcher = '';
@@ -164,6 +162,13 @@ export async function detectEnvironment({
     unique = new Map();
   for (const c of candidates) {
     if (!(await executable(c.binary))) continue;
+    // A launcher in a verified layout is shown as the program it starts; two
+    // candidates for one program then collapse below.
+    const resolved = await resolveLauncher(c.binary);
+    if (resolved) {
+      c.resolvedFrom = c.binary;
+      c.binary = resolved;
+    }
     const bin = await fs.realpath(c.binary);
     const live = c.evidence.startsWith('live');
     // An installation fallback must not obscure a running instance of the same executable.
@@ -178,7 +183,12 @@ export async function detectEnvironment({
       versions.set(
         bin,
         await version(c.binary)
-          .then((runtime) => ({ runtime }))
+          .then(async (runtime) =>
+            // A script is only trusted with a supported version: a quick check refuses it.
+            !KNOWN_VERSIONS.includes(runtime) && (await isScript(bin))
+              ? { error: 'runtime_launcher' }
+              : { runtime },
+          )
           .catch((e) => ({ error: e.code ?? 'binary_unavailable' })),
       );
     const home = c.home || defaultHome;
