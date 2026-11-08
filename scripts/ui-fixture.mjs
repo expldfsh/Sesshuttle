@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
 import { id } from '../core/util.mjs';
+import { runtimeInfo } from '../core/runtime.mjs';
 const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-ui-')));
 await fs.writeFile(path.join(root, '.sesshuttle-test.json'), JSON.stringify({ format: 1 }));
 const home = path.join(root, 'codex');
@@ -27,6 +28,8 @@ if (!binary) {
   binary = path.join(root, 'bin', 'codex');
   await fs.mkdir(path.dirname(binary));
   await fs.writeFile(binary, '#!/bin/sh\necho "codex-cli 0.166.0"\n', { mode: 0o700 });
+  // The stand-in is a script of a supported version, already seen on this computer.
+  await runtimeInfo(binary, state);
 }
 if (synthetic && JSON.parse(synthetic.split('\n')[0]).payload.originator !== 'sesshuttle_lab')
   throw Error('Synthetic lab fixture required');

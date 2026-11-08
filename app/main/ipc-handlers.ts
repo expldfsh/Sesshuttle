@@ -16,7 +16,7 @@ import { changeCloud } from '../../core/cloud-trash.mjs';
 import { bundleBytes } from '../../core/bundle.mjs';
 import { detectEnvironment } from '../../core/discovery.mjs';
 import { localProjects } from '../../core/local-projects.mjs';
-import { runtimeInfo, savedRuntimeStatus } from '../../core/runtime.mjs';
+import { runtimeInfo, savedRuntimeDetail } from '../../core/runtime.mjs';
 import { verifyRuntime } from '../../core/runtime-check.mjs';
 import { downloadCopy } from '../../core/download-copy.mjs';
 import { keepLocalCopy, inspectTarget } from '../../core/local-copies.mjs';
@@ -113,23 +113,29 @@ async function appStatus(ctx: Context) {
   const out: Record<string, any> = {};
   for (const entry of ['desktop', 'cli', 'ide']) {
     const { home, binary } = targets[entry] ?? {};
-    const runtime = binary ? await savedRuntimeStatus(binary, ctx.state) : 'unset';
+    const detail: any = binary ? await savedRuntimeDetail(binary, ctx.state) : { status: 'unset' };
+    const runtime = detail.status;
     const folder = home
       ? (await fs.stat(home).catch(() => null))?.isDirectory()
         ? 'ok'
         : 'missing'
       : 'unset';
     out[entry] = {
+      binary,
       runtime,
+      resolved: detail.resolved ?? null,
+      candidate: detail.candidate ?? null,
       folder,
       status:
         runtime === 'unset' || runtime === 'missing'
           ? 'missingRuntime'
-          : folder !== 'ok'
-            ? 'missingFolder'
-            : ['builtin', 'verified'].includes(runtime)
-              ? 'appReady'
-              : 'needsCheck',
+          : runtime === 'launcher'
+            ? 'launcher'
+            : folder !== 'ok'
+              ? 'missingFolder'
+              : ['builtin', 'verified'].includes(runtime)
+                ? 'appReady'
+                : 'needsCheck',
     };
   }
   return out;

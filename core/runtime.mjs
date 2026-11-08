@@ -167,6 +167,25 @@ export async function rememberRuntime(
   return runtimeInfo(binary, state);
 }
 
+// What the interface shows for a configured path without running it: the saved status,
+// 'launcher' for a script that has not shown a usable version, the program actually
+// used when it differs from the path, and a bundle program worth offering by hand.
+export async function savedRuntimeDetail(binary, state) {
+  const status = await savedRuntimeStatus(binary, state);
+  if (status === 'missing') return { status };
+  try {
+    const file = await executable(binary);
+    const launcher = ['unchecked', 'untested'].includes(status) && (await isScript(file));
+    return {
+      status: launcher ? 'launcher' : status,
+      resolved: file === binary ? null : file,
+      candidate: launcher ? ((await bundleProgram(file))?.file ?? null) : null,
+    };
+  } catch {
+    return { status: 'missing' };
+  }
+}
+
 // The status of a configured runtime from saved state only: the file is resolved
 // and stat'ed, never executed. 'unchecked' means this exact file has not been
 // checked on this computer yet.

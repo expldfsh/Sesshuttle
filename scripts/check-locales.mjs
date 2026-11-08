@@ -30,7 +30,7 @@ const DATA_VALUES = `locally_removed paused restored_needs_validation unchecked
   cloudActive localBin unlistedVersion
   liveDatabase liveEnvironment liveBinary savedPath installedBinary
   history_unavailable external_image remote_resource unknown_version runtime_unfinished runtimeCatalogUnavailable
-  missingRuntime missingFolder replaced`.split(/\s+/);
+  missingRuntime missingFolder launcher replaced`.split(/\s+/);
 // Issue codes that cloud heads written by early test releases can still carry.
 const LEGACY = ['external_attachment'];
 // Statuses used inside attachment inspection only; they never reach the interface.

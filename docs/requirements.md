@@ -258,17 +258,17 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 ### 10.1 根因：识别已知启动脚本并改用真实程序
 
-- [ ] `core/runtime.mjs` 的 `executable()` 增加对已验证布局的解析：配置的路径是 macOS ChatGPT.app（以及同布局的 Codex.app）中的 `Contents/Resources/codex-cli/bin/codex` 时，改用 `Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex`。只有同时满足以下条件才采用：
+- [x] `core/runtime.mjs` 的 `executable()` 增加对已验证布局的解析：配置的路径是 macOS ChatGPT.app（以及同布局的 Codex.app）中的 `Contents/Resources/codex-cli/bin/codex` 时，改用 `Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex`。只有同时满足以下条件才采用：
   - 目标文件存在且是普通文件；
   - 不以 `#!` 开头；
   - 位于同一应用包内（`realpath` 后检查）。
 
   不满足时保持原样，让后续检查报出 `runtime_launcher`。开发者须先在本机查看真实的 ChatGPT.app 布局和脚本内容，确认对应关系（只读，不运行脚本以外的任何东西），把结论写进第三部分。
-- [ ] 解析后的身份（`identity.file`、`key`、`script`）基于真实程序，与 npm `codex.js` 的处理方式一致。用户配置中的路径保持不变。
-- [ ] 界面上凡是显示 Codex 程序路径的地方（应用卡片、传输弹窗第一步、检测结果），当实际使用的程序与配置路径不同时，加一行「实际使用：<真实路径>」。
-- [ ] `core/discovery.mjs` 对候选路径按同一规则解析：检测结果直接推荐真实程序，证据中注明「由启动脚本解析」；同一真实程序的多个候选只保留一个。
-- [ ] Linux 的 GPT 桌面端（例如 `/usr/lib/chatgpt/resources/…`）**只解析已经验证过的布局**。开发环境无法验证时不加规则，在第三部分和验收报告中列为「待用户在 Arch 上确认」。
-- [ ] 单元测试：在临时目录中构造假的应用包布局（脚本 + 真实程序替身），检查以下情况：
+- [x] 解析后的身份（`identity.file`、`key`、`script`）基于真实程序，与 npm `codex.js` 的处理方式一致。用户配置中的路径保持不变。
+- [x] 界面上凡是显示 Codex 程序路径的地方（应用卡片、传输弹窗第一步、检测结果），当实际使用的程序与配置路径不同时，加一行「实际使用：<真实路径>」。
+- [x] `core/discovery.mjs` 对候选路径按同一规则解析：检测结果直接推荐真实程序，证据中注明「由启动脚本解析」；同一真实程序的多个候选只保留一个。
+- [x] Linux 的 GPT 桌面端（例如 `/usr/lib/chatgpt/resources/…`）**只解析已经验证过的布局**。开发环境无法验证时不加规则，在第三部分和验收报告中列为「待用户在 Arch 上确认」。
+- [x] 单元测试：在临时目录中构造假的应用包布局（脚本 + 真实程序替身），检查以下情况：
   - 能正确解析；
   - 真实程序缺失、是脚本、通过符号链接指向包外时不解析；
   - 解析后的 `key` 与直接配置真实程序时一致。
@@ -381,7 +381,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 | 阶段 | 状态 | 提交范围 | 备注 |
 | --- | --- | --- | --- |
-| 10.1 识别启动脚本 | 未开始 | | |
+| 10.1 识别启动脚本 | 已完成 | 721df3d… | 单元测试 6 项新增；界面显示「实际使用」 |
 | 10.2 提前发现 | 未开始 | | |
 | 10.3 报错与就地修复 | 未开始 | | |
 | 10.4–10.5 文案引用机制与重写 | 未开始 | | |
@@ -395,6 +395,11 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 | 2026-11-08 | 启动脚本仍不能作为快速验证和导入的身份；只对已验证的应用包布局自动解析到真实程序，配置中的路径保持用户所填 | 需求制定 |
 | 2026-11-08 | 修复按钮只改写路径草稿，不自动保存、不自动运行快速验证；检查程序（`inspectBinary`）只在用户选择或编辑路径后进行 | 需求制定 |
 | 2026-11-08 | 文案引用界面名称改为占位引用另一条文案，由检查脚本保证引用存在且中英文一致 | 需求制定 |
+| 2026-11-08 | 已只读核实本机 ChatGPT.app（26.1103.41825，附带 `codex-cli` 版本 `0.167.0-alpha.3.2`）：`Contents/Resources/codex-cli/bin/codex` 是 328 字节的 POSIX sh 脚本，解析自身符号链接后执行 `exec "$bin_dir/../CodexCLI.app/Contents/MacOS/codex" "$@"`；`CodexCLI.app/Contents/MacOS/codex` 是 Mach-O arm64，`CFBundleIdentifier` 为 `com.openai.codex.cli`。`codex-package.json` 写明 `layoutVersion: 1`、`entrypoint: bin/codex`。本机没有 `/Applications/Codex.app`，「同布局的 Codex.app」按相同规则处理但未实机验证 | 开发时核实 |
+| 2026-11-08 | 解析只认 `ChatGPT.app`、`Codex.app` 两个包名和 `Contents/Resources/codex-cli/bin/codex` 这一确切位置，且启动脚本本身必须以 `#!` 开头。规则按路径形状匹配，不按 `process.platform` 限定：Linux 上不存在这种 `.app/Contents` 结构，单元测试也因此能在两个平台上运行 | 开发时决定 |
+| 2026-11-08 | Linux 的 GPT 桌面端：开发机无法验证，不加解析规则，列为「待用户在 Arch 上确认」。在 Linux 上若 `codex` 候选是脚本且版本不在支持名单内，检测结果显示 `runtime_launcher` 且不可勾选 | 开发时决定 |
+| 2026-11-08 | 「实际使用」按字面规则显示：只要真实文件与配置路径不同就显示，包括符号链接（如 Homebrew 的 `/opt/homebrew/bin/codex`）和 npm 的 `codex.js` | 开发时决定 |
+| 2026-11-08 | `appStatus` 不运行程序，因此「未检查过且是脚本」的路径直接显示 `launcher`。这可能把版本在支持名单内的自写包装脚本也标为「需要选择 Codex 程序」，用户点一次「开始快速验证」（复用名单结果）或在输入框触发检查后恢复正常。`scripts/ui-fixture.mjs` 的替身脚本为此预先记录「已见版本」，`--binary` 指定的路径不预记录 | 开发时决定 |
 
 ## 长期有效的技术决策
 

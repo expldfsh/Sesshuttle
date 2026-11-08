@@ -29,6 +29,7 @@ const TONES: Record<string, 'success' | 'accent' | 'warning' | 'danger'> = {
   locally_removed: 'warning',
   excluded: 'warning',
   needsCheck: 'warning',
+  launcher: 'warning',
   // Failed, conflicting or blocked.
   failed: 'danger',
   conflict: 'danger',

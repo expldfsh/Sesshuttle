@@ -6,7 +6,7 @@ import { Stepper } from '../components/Stepper';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Icon } from '../components/Icon';
 import { RuntimeCheck } from '../RuntimeCheck';
-import { DetectionPanel, EntryFields } from '../Environment';
+import { ActualRuntime, DetectionPanel, EntryFields } from '../Environment';
 import { Select } from '../Select';
 import { ENTRIES } from '../pages/rows';
 import { errorRule } from '../errors';
@@ -452,8 +452,12 @@ export function TransferDialog({
               )}
               {targets.map((entry) => {
                 const now = infoFor(entry);
+                const program = now?.proof?.file;
                 return (
                   <div key={entry}>
+                    {program && program !== draft.targets[entry].binary && (
+                      <ActualRuntime path={program} t={t} />
+                    )}
                     {now?.proof && (
                       <RuntimeCheck
                         key={draft.targets[entry].binary}
@@ -491,6 +495,7 @@ export function TransferDialog({
                           t={t}
                           entry={entry}
                           target={draft.targets[entry]}
+                          saved={saved[entry]}
                           pick={call}
                           change={(v) =>
                             setDraft({ ...draft, targets: { ...draft.targets, [entry]: v } })

@@ -86,6 +86,7 @@ export function ProjectsPage() {
                 <EntryFields
                   entry={entry}
                   target={cfg.targets[entry]}
+                  saved={apps[entry]}
                   t={t}
                   pick={(method) => work(() => call(method)) as Promise<string | null>}
                   change={(value) => update('targets', { ...cfg.targets, [entry]: value })}

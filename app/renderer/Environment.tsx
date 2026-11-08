@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
 import { Modal } from './components/Modal';
 
+// The program that really runs, shown when it is not the file the path names.
+export function ActualRuntime({ path, t }: { path?: string | null; t: (key: string) => string }) {
+  if (!path) return null;
+  return (
+    <small className="actual-runtime">
+      {t('actualRuntime')} <code>{path}</code>
+    </small>
+  );
+}
+
 type Props = {
   target: any;
   entry: string;
   t: (key: string) => string;
   pick: (method: string) => Promise<string | null>;
   change: (target: any) => void;
+  // Saved state of this app: what appStatus reported for the saved path.
+  saved?: any;
 };
-export function EntryFields({ target, entry, t, pick, change }: Props) {
+export function EntryFields({ target, entry, t, pick, change, saved }: Props) {
   const [error, setError] = useState('');
   async function choose(key: 'home' | 'binary') {
     setError('');
@@ -35,6 +47,9 @@ export function EntryFields({ target, entry, t, pick, change }: Props) {
               {t('browse')}
             </button>
           </span>
+          {key === 'binary' && saved?.binary === target?.binary && (
+            <ActualRuntime path={saved?.resolved} t={t} />
+          )}
         </div>
       ))}
       {error && (
@@ -150,8 +165,10 @@ export function DetectionPanel({
           )}
           {report.candidates.map((c: any, i: number) => {
             if (c.entry !== entry) return null;
+            const saved = cfg.targets[entry]?.binary;
             const same =
-              cfg.targets[entry]?.binary === c.binary && cfg.targets[entry]?.home === c.home;
+              (saved === c.binary || (!!saved && saved === c.resolvedFrom)) &&
+              cfg.targets[entry]?.home === c.home;
             return (
               <label className="candidate" key={i}>
                 <input
@@ -187,6 +204,11 @@ export function DetectionPanel({
                     {t('kernelProgram')} <code>{c.binary}</code>{' '}
                     {c.runtime || t(c.error || 'binary_unavailable')}
                   </small>
+                  {c.resolvedFrom && (
+                    <small>
+                      {t('resolvedFromLauncher')} <code>{c.resolvedFrom}</code>
+                    </small>
+                  )}
                   <small>
                     {t('historyFolder')} <code>{c.home}</code>{' '}
                     {t(

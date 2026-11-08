@@ -528,6 +528,9 @@ export const messages = {
     '此应用保存 Codex 对话的目录（CODEX_HOME），通常含 sessions 或 state 数据库。',
     'The folder (CODEX_HOME) where this app stores Codex conversations, usually containing sessions or a state database.',
   ],
+  actualRuntime: ['实际使用：', 'Actually uses:'],
+  launcher: ['需要选择 Codex 程序', 'Choose a Codex runtime'],
+  resolvedFromLauncher: ['由启动脚本解析：', 'Resolved from launcher:'],
   kernelMeaning: [
     '实际执行的 codex 可执行文件，用于检查和打开导入的历史，例如 Codex 命令行程序。桌面启动器与它是两个文件。',
     'The codex executable that verifies and opens imported history, such as the Codex command-line program. The desktop launcher is a separate file.',

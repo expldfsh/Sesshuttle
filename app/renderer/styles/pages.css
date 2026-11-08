@@ -885,6 +885,11 @@ tr.spacer td {
 .folder-state.warn {
   color: var(--warning);
 }
+.actual-runtime {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 .git-line {
   flex-basis: 100%;
   color: var(--muted);
