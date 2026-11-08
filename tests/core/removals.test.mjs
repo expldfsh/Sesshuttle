@@ -329,6 +329,205 @@ test('giving up a removal follows the clearance rule and refuses unfinished work
     x.state.close();
   }
 });
+// A permanent local removal whose list goes out of date before it runs.
+async function unstartedRemoval(x, ids, request = {}) {
+  const p = await x.removals.preview({ scope: 'local', mode: 'purge', ids, ...request });
+  x.state.set('config', { ...x.engine.config(), skipNativeConfirm: true });
+  const job = await x.removals.execute(p.token, { permanent: true, upgrade: true });
+  assert.equal(job.error.code, 'stale_plan');
+  assert.ok(job.sides.every((s) => !s.started));
+  x.state.set('config', { ...x.engine.config(), skipNativeConfirm: false });
+  return job;
+}
+const session = (x, tid) => x.home + '/sessions/' + tid + '.jsonl';
+
+test('reviewing a removal whose chats are all gone names them instead of a stale list', async () => {
+  const x = await fixture();
+  try {
+    const job = await unstartedRemoval(x, [x.a, x.b]);
+    await fs.rm(session(x, x.a));
+    await fs.rm(session(x, x.b));
+    // Even when nothing has been listed since the app started.
+    x.engine.rows = undefined;
+    await assert.rejects(x.removals.revise(job.id), (e) => {
+      assert.equal(e.code, 'removal_targets_missing');
+      assert.match(e.detail, /Sample/);
+      assert.equal(e.targets.missing.length, 2);
+      assert.ok(e.targets.missing.every((m) => m.place === 'local' && m.title.includes('Sample')));
+      assert.deepEqual(e.targets.remaining, []);
+      const shown = publicError(e);
+      assert.equal(shown.code, 'removal_targets_missing');
+      assert.deepEqual(shown.targets, e.targets);
+      return true;
+    });
+    assert.ok(await x.removals.discard(job.id));
+  } finally {
+    x.state.close();
+  }
+});
+
+test('a removal with one chat gone offers a new list for the rest, which replaces the record', async () => {
+  const x = await fixture();
+  try {
+    const job = await unstartedRemoval(x, [x.a, x.b]);
+    await fs.rm(session(x, x.a));
+    await assert.rejects(x.removals.revise(job.id), (e) => {
+      assert.equal(e.code, 'removal_targets_missing');
+      assert.deepEqual(
+        e.targets.missing.map((m) => m.id),
+        [x.a],
+      );
+      assert.deepEqual(e.targets.remaining, [x.b]);
+      return true;
+    });
+    x.engine.rows = undefined;
+    const next = await x.removals.revise(job.id, { onlyRemaining: true });
+    assert.deepEqual(next.q.ids, [x.b]);
+    assert.deepEqual(
+      next.local.flatMap((g) => g.ids),
+      [x.b],
+    );
+    assert.deepEqual(
+      next.selected.map((r) => r.id),
+      [x.b],
+      'the list still names the chat',
+    );
+    assert.equal(next.replaces, job.id);
+    const done = await x.removals.execute(next.token, { permanent: true, upgrade: true });
+    assert.equal(done.status, 'completed', JSON.stringify(done));
+    assert.equal(x.state.get('removal/' + job.id).status, 'replaced');
+    assert.equal(await exists(session(x, x.b)), false);
+  } finally {
+    x.state.close();
+  }
+});
+
+test('a record from an early release is still reviewed: no titles, no requested ids', async () => {
+  const x = await fixture();
+  try {
+    const job = await unstartedRemoval(x, [x.a]);
+    const plan = x.state.get('removal-plan/' + job.id);
+    for (const g of plan.local) {
+      delete g.requestedIds;
+      g.rows = g.rows.map(({ title, ...row }) => row);
+    }
+    delete plan.selected;
+    x.state.set('removal-plan/' + job.id, plan);
+    await fs.rm(session(x, x.a));
+    await assert.rejects(x.removals.revise(job.id), (e) => {
+      assert.equal(e.code, 'removal_targets_missing');
+      assert.equal(e.targets.missing[0].title, x.a.slice(0, 8));
+      return true;
+    });
+    x.state.set('removal-plan/' + job.id, null);
+    await assert.rejects(x.removals.revise(job.id), { code: 'removal_plan_missing' });
+    await assert.rejects(x.removals.revise(id()), { code: 'stale_plan' });
+  } finally {
+    x.state.close();
+  }
+});
+
+test('a removal does not guess when the scan is incomplete', async () => {
+  const x = await fixture();
+  try {
+    const job = await unstartedRemoval(x, [x.a]);
+    await fs.rm(session(x, x.a));
+    await fs.writeFile(x.home + '/sessions/rollout-broken.jsonl', 'not json\n');
+    await assert.rejects(x.removals.revise(job.id), { code: 'scan_incomplete' });
+  } finally {
+    x.state.close();
+  }
+});
+
+test('reviewing a cloud removal does not depend on the list and reports what the cloud lost', async () => {
+  const x = await fixture();
+  try {
+    const p = await x.removals.preview({ scope: 'cloud', mode: 'trash', ids: [x.a, x.b] });
+    x.state.set('config', { ...x.engine.config(), skipNativeConfirm: true });
+    // A cloud list that changed before the removal: the first check stops it.
+    const other = await x.removals.preview({ scope: 'cloud', mode: 'trash', ids: [x.a] });
+    await x.removals.execute(other.token, { upgrade: true });
+    const job = await x.removals.execute(p.token, { upgrade: true });
+    assert.ok(job.error, JSON.stringify(job));
+    assert.ok(job.sides.every((s) => !s.started));
+    x.engine.rows = undefined;
+    await assert.rejects(x.removals.revise(job.id), (e) => {
+      assert.equal(e.code, 'removal_targets_missing');
+      assert.deepEqual(e.targets.missing, [
+        { id: x.a, place: 'cloud', title: e.targets.missing[0].title },
+      ]);
+      assert.deepEqual(e.targets.remaining, [x.b]);
+      return true;
+    });
+    const next = await x.removals.revise(job.id, { onlyRemaining: true });
+    assert.deepEqual(
+      next.cloud.items.map((i) => i.id),
+      [x.b],
+    );
+  } finally {
+    x.state.close();
+  }
+});
+
+test('a recycle-bin copy that is gone is reported the same way', async () => {
+  const x = await fixture();
+  try {
+    const removed = await x.removals.preview({ scope: 'local', mode: 'trash', ids: [x.a] });
+    assert.equal((await x.removals.execute(removed.token)).status, 'completed');
+    const bin = x.trash.list()[0];
+    const p = await x.removals.preview({
+      scope: 'local',
+      kind: 'bin',
+      mode: 'restore',
+      ids: bin.ids,
+      binId: bin.id,
+    });
+    await x.trash.mark(bin, 'restored');
+    const job = await x.removals.execute(p.token);
+    assert.equal(job.error.code, 'stale_plan');
+    await x.trash.eraseCopy(bin);
+    await assert.rejects(x.removals.revise(job.id), { code: 'removal_targets_missing' });
+  } finally {
+    x.state.close();
+  }
+});
+
+test('a chat that vanishes after the review stops the run with an out-of-date list', async () => {
+  const x = await fixture();
+  try {
+    const p = await x.removals.preview({ scope: 'local', mode: 'purge', ids: [x.a] });
+    await fs.rm(session(x, x.a));
+    const job = await x.removals.execute(p.token, { permanent: true });
+    assert.equal(job.error.code, 'stale_plan');
+    assert.ok(job.sides.every((s) => !s.started));
+  } finally {
+    x.state.close();
+  }
+});
+
+test('refreshing only this computer reads no cloud data and keeps what is known of it', async () => {
+  const x = await fixture();
+  try {
+    let reads = 0;
+    const heads = x.vault.heads.bind(x.vault);
+    x.vault.heads = async () => {
+      reads += 1;
+      return heads();
+    };
+    const before = (await x.engine.refresh({ cloud: false })).rows;
+    assert.equal(reads, 0);
+    assert.ok(before.find((r) => r.id === x.a).remote, 'known cloud copies stay listed');
+    await fs.rm(session(x, x.a));
+    const result = await x.engine.refresh({ cloud: false });
+    assert.equal(reads, 0);
+    assert.equal(result.rows.find((r) => r.id === x.a).local, false);
+    await x.engine.refresh();
+    assert.equal(reads, 1);
+  } finally {
+    x.state.close();
+  }
+});
+
 test('a two-side failure preserves the completed side across a restart and never retries it', async () => {
   const x = await fixture();
   try {
