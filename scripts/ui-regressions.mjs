@@ -677,7 +677,11 @@ async function pathChecks(session) {
     await notice.locator('button', { hasText: TEXT.chooseProgram }).click();
     const input = dialog(page).locator('.setup-repair .entry-field input').first();
     await input.waitFor({ timeout: 3000 });
-    assert.equal(await input.inputValue(), stand);
+    await page.waitForFunction(
+      (value) => document.querySelector('dialog[open] .setup-repair input')?.value === value,
+      stand,
+      { timeout: 3000 },
+    );
     assert.equal(await dialog(page).locator('.binary-problem').count(), 0, 'the problem is gone');
   });
   await page.keyboard.press('Escape');
@@ -708,6 +712,9 @@ async function sweepChecks(session) {
 
   targets.desktop.binary = '';
   await invoke(page, 'saveConfig', { ...config, targets });
+  // The interface reads the saved settings when it loads.
+  await page.reload();
+  await page.waitForSelector('.shell');
   const row = (await rows(page)).find((r) => r.local);
   await uploadById(page, row.id);
   await refreshList(page);
@@ -717,7 +724,12 @@ async function sweepChecks(session) {
   await primary(page).click();
   await check('an app without a Codex runtime is explained in the dialog', async () => {
     await dialog(page).locator('.setup-repair').first().waitFor({ timeout: 5000 });
-    await page.waitForFunction(() => !document.querySelector('dialog[open] .flow-activity'));
+    await page.waitForFunction(
+      () =>
+        !document.querySelector('dialog[open] .flow-activity') &&
+        document.querySelector('dialog[open] .setup-repair strong'),
+    );
+    await page.waitForTimeout(500);
     assert.doesNotMatch(await dialog(page).innerText(), /entry_binary_missing/);
   });
   await settle(page);

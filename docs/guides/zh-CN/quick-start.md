@@ -1,4 +1,4 @@
-# Sesshuttle 0.7.1 使用指南
+# Sesshuttle 0.7.2 使用指南
 
 两台电脑都已连上 R2，并且 Linux 已经能看到云端对话时，从下面的「导入到 Linux」开始。升级时保留原同步空间、应用数据和连接文件。
 
@@ -6,13 +6,13 @@
 
 ## 安装或升级
 
-- **Mac Apple Silicon** 打开 `sesshuttle-0.7.1-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
+- **Mac Apple Silicon** 打开 `sesshuttle-0.7.2-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
 - **Arch Linux x86_64** 在安装包所在目录运行下面两行，保持解压出的目录完整，在自己的图形桌面会话中启动。
-- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.7.1-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.7.1-linux-amd64.deb`。
+- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.7.2-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.7.2-linux-amd64.deb`。
 
 ```sh
-tar -xzf sesshuttle-0.7.1-linux-x64.tar.gz
-./sesshuttle-0.7.1-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.7.2-linux-x64.tar.gz
+./sesshuttle-0.7.2-linux-x64/sesshuttle
 ```
 
 升级时退出旧版，保留原有应用数据。两台电脑分别安装并登录要使用的 Codex 应用。项目代码通过 Git 或自己的文件传输方式准备。
@@ -64,9 +64,13 @@ tar -xzf sesshuttle-0.7.1-linux-x64.tar.gz
 
 ### 首次使用这个 Codex 程序导入
 
-如果所选应用的 Codex 程序还没有在这台电脑验证过，点「下一步」后会在它下方显示「快速验证此 Codex 程序」。Sesshuttle 用临时对话验证能否导入并继续，通过后这台电脑会记住结果。更换 Codex 程序后可能需要重新验证。项目归属不可用时，仍可仅导入历史。若不能续聊，弹窗会说明原因，也可选择其他应用或把云端副本下载到普通文件夹。
+如果所选应用的 Codex 程序还没有在这台电脑验证过，点「下一步」后会在它下方显示「开始快速验证」。Sesshuttle 用临时对话验证能否导入并继续，通过后这台电脑会记住结果。更换 Codex 程序后可能需要重新验证。项目归属不可用时，仍可仅导入历史。若不能续聊，弹窗会写明被检查的路径和原因，并给出修复按钮；也可选择其他应用或把云端副本下载到普通文件夹。
 
 「本机应用与项目」页的应用卡片显示同样的状态（已配置并验证、需要快速验证、缺少 Codex 程序、缺少数据目录），项目行会标出所选项目文件夹是否存在。在这里修改后，用页面底部的「保存设置」保存。
+
+**GPT 桌面端的 Codex 程序。** macOS 的 ChatGPT.app 里，`codex-cli/bin/codex` 只是启动脚本。Sesshuttle 会自动改用同一应用包里的真实程序，路径下方显示「实际使用：…」，你填写的路径保持不变；「检测本机 Codex 环境」也会直接推荐真实程序并注明由启动脚本解析。
+
+**遇到「需要选择 Codex 程序」时。** 这表示路径指向 Sesshuttle 无法解析的启动脚本，快速验证无法确认它实际运行的是哪个程序。点提示里的「选择 Codex 程序…」，选中该安装里真正的可执行文件（macOS 的文件选择窗口可以进入 `.app` 内部），然后点「开始快速验证」。这个按钮只改写尚未保存的路径，不会自动保存，也不会自动验证。
 
 ## 遇到提示后如何继续
 
@@ -78,6 +82,7 @@ tar -xzf sesshuttle-0.7.1-linux-x64.tar.gz
 | --- | --- |
 | 已加入空间，凭据只保留在内存 | 本次可以直接查看和导入。点「设置 → 记住连接…」即可重试系统授权。下次打开时，若系统密码库锁定，会再请求解锁。 |
 | 检测到应用，仍缺 Codex 数据目录或 Codex 程序 | 在导入弹窗或「本机应用与项目」编辑该应用的路径，再重新检查。打开目标桌面端的 Codex 页面有助识别实际数据位置。 |
+| 应用显示「需要选择 Codex 程序」 | 路径指向无法解析的启动脚本。点提示里的「选择 Codex 程序…」，选中该安装里真正的可执行文件，再点「开始快速验证」。 |
 | 云端暂时看不到对话 | 确认双方加入同一空间，检查上传设备的任务结果，刷新当前设备并点「清除筛选」。云端检查失败时保留上次的列表。 |
 | 目标正在使用历史、清单已过期 | 保存工作并退出 Codex，或刷新后重新检查清单。确认前不会导入。确认时清单已过期的，任务不会开始，在任务面板点「刷新并重新预览」即可回到新生成的检查清单。 |
 | 缺少父历史 / 只有索引 | 在来源设备核对原记录、压缩历史及清单给出的父对话标识，补齐后再检查。保留索引有助定位原历史。 |
@@ -92,7 +97,7 @@ busctl --user introspect org.freedesktop.secrets /org/freedesktop/secrets org.fr
 
 若服务缺失且希望使用 GNOME Keyring，可安装 `sudo pacman -S --needed gnome-keyring`，在应用内重试。如果安装后当前桌面会话仍找不到服务，重新登录图形桌面再试。仅在内存中的连接在退出后需重新加入同一空间。[Arch 软件包](https://archlinux.org/packages/extra/x86_64/gnome-keyring/)
 
-[用已有云端对话在 Arch 验收](linux-acceptance.md) · [验收记录](../../validation/0.7.1.md)
+[用已有云端对话在 Arch 验收](linux-acceptance.md) · [验收记录](../../validation/0.7.2.md)
 
 ## 手动备份和同步记录
 

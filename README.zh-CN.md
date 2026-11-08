@@ -8,13 +8,13 @@
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载适合你系统的 0.7.1 安装包。
+从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载适合你系统的 0.7.2 安装包。
 
 | 平台 | 安装包 |
 | --- | --- |
-| Apple Silicon Mac | `sesshuttle-0.7.1-mac-arm64.dmg` |
-| Arch 等 x86_64 Linux | `sesshuttle-0.7.1-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.7.1-linux-amd64.deb` |
+| Apple Silicon Mac | `sesshuttle-0.7.2-mac-arm64.dmg` |
+| Arch 等 x86_64 Linux | `sesshuttle-0.7.2-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.7.2-linux-amd64.deb` |
 
 ## 第一次把对话从 Mac 带到 Linux
 
@@ -31,4 +31,4 @@
 - **同步记录** 把传输和删除任务排成一条时间线。可筛选「需处理」、重试未完成的部分，或清除已结束的记录；对话和同步状态都会保留。
 - **备份与恢复** 分为本机手动备份、本机回收站和云端回收站三个标签页。导入和恢复都不会自动创建备份。
 
-[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.7.1.md)
+[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.7.2.md)
