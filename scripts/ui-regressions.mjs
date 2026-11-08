@@ -664,6 +664,12 @@ async function pathChecks(session) {
     await primary(page).click();
     const check = dialog(page).locator('.runtime-check button.primary');
     await check.first().waitFor({ timeout: 10000 });
+    // A message that names a button quotes its current label.
+    await page.waitForFunction(
+      (label) => document.querySelector('.next-reason')?.textContent.includes(label),
+      language === 'en' ? '“Start quick check”' : '「开始快速验证」',
+      { timeout: 2000 },
+    );
     await check.first().click();
     const notice = dialog(page).locator('.runtime-check .error-notice');
     await notice.waitFor({ timeout: 10000 });

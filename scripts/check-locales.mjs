@@ -1,8 +1,9 @@
 // Checks app/renderer/i18n/messages.ts, the single table of interface messages.
 // Fails when a Chinese or English message is empty, English contains Han characters,
 // placeholders differ between languages, a key is defined twice, the interface
-// uses an undefined key, a key is never used, or an error code that core or the
-// main process can report has no message.
+// uses an undefined key, a key is never used, an error code that core or the
+// main process can report has no message, a `{@key}` reference is unknown or differs
+// between languages, or Chinese text names an interface label by hand.
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { transform } from 'esbuild';
@@ -36,6 +37,10 @@ const LEGACY = ['external_attachment'];
 // Statuses used inside attachment inspection only; they never reach the interface.
 const INTERNAL_CODES = ['unsupported', 'unsafe', 'unreadable'];
 
+// Messages allowed to contain Chinese quotation marks because they quote user data
+// or a system name instead of an interface label. Interface labels use {@key}.
+const QUOTE_ALLOWED = new Set([]);
+
 const failures = [];
 const fail = (message) => failures.push(message);
 
@@ -56,8 +61,26 @@ const placeholders = (text) =>
     .map((m) => m[1])
     .sort()
     .join(',');
+const references = (text) =>
+  [...new Set([...text.matchAll(/\{@([\w$]+)\}/g)].map((m) => m[1]))].sort().join(',');
+const referenced = new Set();
+const plainLabel = (entry) =>
+  entry.every((form) => typeof form === 'string' && !form.includes('{'));
 for (const [key, [zh, en]] of Object.entries(messages)) {
   const forms = typeof en === 'string' ? [en] : [en.one, en.other];
+  if (typeof zh === 'string') {
+    for (const form of forms)
+      if (typeof form === 'string' && references(form) !== references(zh))
+        fail(`references differ: ${key}`);
+    for (const target of references(zh).split(',').filter(Boolean)) {
+      referenced.add(target);
+      if (!Object.hasOwn(messages, target)) fail(`unknown reference {@${target}}: ${key}`);
+      else if (!plainLabel(messages[target]))
+        fail(`reference to a message with values: ${key} → ${target}`);
+    }
+    if (/[「」“”]/.test(zh) && !QUOTE_ALLOWED.has(key))
+      fail(`Chinese names an interface label by hand, use {@key}: ${key}`);
+  }
   if (typeof zh !== 'string' || !zh.trim()) fail(`empty Chinese: ${key}`);
   for (const form of forms) {
     if (typeof form !== 'string' || !form.trim()) fail(`empty English: ${key}`);
@@ -101,6 +124,7 @@ const prefixed = (key) =>
 for (const key of Object.keys(messages))
   if (
     !literals.has(key) &&
+    !referenced.has(key) &&
     !codes.has(key) &&
     !prefixed(key) &&
     !DATA_VALUES.includes(key) &&
