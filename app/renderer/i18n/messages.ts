@@ -592,8 +592,8 @@ export const messages = {
     'The selected apps already have paths. Continue with the current settings.',
   ],
   runtime_unfinished: [
-    '验证未完成。可以重试、选择另一个应用，或将云端副本下载到文件夹。',
-    'The check could not finish. Retry, select another app, or download a copy to a folder.',
+    '验证没有完成，结果没有保存。请重新快速验证。',
+    'The check did not finish and no result was saved. Run the quick check again.',
   ],
   runtimeBuiltIn: ['可导入 · 已支持的 Codex 程序', 'Ready to import · Supported Codex runtime'],
   runtimeCatalogUnavailable: [
@@ -601,8 +601,8 @@ export const messages = {
     'The local project list could not be read. Choose {@historyOnly} or check the Codex data folder and retry.',
   ],
   runtimeCheckHint: [
-    '用一条临时测试对话验证续聊。无需登录，通过后这台电脑会记住结果。',
-    'Check continuation with a temporary sample chat. No sign-in is needed. This computer remembers a pass.',
+    '用一条临时测试对话验证续聊，无需登录，通过后这台电脑会记住结果。',
+    'Checks continuation with a temporary sample chat. No sign-in is needed, and this computer remembers a pass.',
   ],
   runtimeCheckTitle: ['快速验证 Codex 程序', 'Quick check for this Codex runtime'],
   runtimeContinue: ['正在续写并重新打开同一条对话…', 'Continuing and reopening the same chat…'],
@@ -1180,24 +1180,24 @@ export const messages = {
   ],
   backup_not_found: ['未找到备份。', 'Backup not found.'],
   binary_missing: [
-    '这个路径没有文件。请选择这台电脑上已安装的 Codex 程序。',
-    'There is no file at this path. Choose the Codex runtime installed on this computer.',
+    '这个路径没有文件，无法使用。请选择这台电脑上已安装的 Codex 程序。',
+    'There is no file at this path, so it cannot be used. Choose the Codex runtime installed on this computer.',
   ],
   binary_not_executable: [
     '这个文件没有执行权限，无法运行。请选择可以运行的 Codex 程序。',
-    'This file does not have execute permission and cannot run. Choose a Codex runtime that can.',
+    'This file does not have execute permission, so it cannot run. Choose a Codex runtime that can.',
   ],
   binary_not_codex: [
-    '该程序未报告 Codex 版本。请选择 Codex 程序的可执行文件。',
-    'This program did not report a Codex version. Select the Codex runtime executable.',
+    '这个程序运行后没有报告 Codex 版本，无法确认它是 Codex 程序。请选择真正的 Codex 程序。',
+    'This program did not report a Codex version, so it cannot be confirmed as a Codex runtime. Choose the actual Codex runtime.',
   ],
   binary_required: [
-    '请为目标应用配置 Codex 程序。',
-    'Configure the Codex runtime for the target app.',
+    '这个应用还没有设置 Codex 程序，无法验证或导入。请选择这台电脑上的 Codex 程序。',
+    'This app has no Codex runtime yet, so it cannot be checked or imported into. Choose the Codex runtime on this computer.',
   ],
   binary_unavailable: [
-    '无法运行所选 Codex 可执行文件。',
-    'Cannot run the selected Codex executable.',
+    '无法运行这个文件，可能已被移动或被系统阻止。请选择可以运行的 Codex 程序。',
+    'This file could not be run. It may have been moved or blocked by the system. Choose a Codex runtime that can run.',
   ],
   cloud_check_failed: ['请先成功刷新云端状态。', 'Refresh cloud status successfully first.'],
   cloud_cleanup_pending: [
@@ -1295,7 +1295,10 @@ export const messages = {
     '同一 Codex 数据目录选了不同的原生项目。请统一项目或分开导入。',
     'Select one project per shared Codex data folder or import separately.',
   ],
-  disk_space: ['本地剩余空间不足，已停止写入。', 'Insufficient local disk space. Writes stopped.'],
+  disk_space: [
+    '本地剩余空间不足，已停止写入。请释放磁盘空间后重试。',
+    'There is not enough local disk space, so writing stopped. Free up disk space, then try again.',
+  ],
   duplicate_identity: [
     '同一对话有内容不同的本机副本。在对话详情中比较副本，可选一份上传，或确认后整理本机历史。',
     'Local copies of this conversation differ. Compare them in its details to upload one or review and reconcile local history.',
@@ -1463,56 +1466,56 @@ export const messages = {
     'Work from the original review is still pending. Retry that review or finish it from the recycle bin.',
   ],
   runtime_busy: [
-    '另一个 Codex 程序正在验证。请等它完成，或先取消那次验证。',
-    'Another check is running. Wait for it to finish or cancel that check.',
+    '另一项快速验证正在进行，这次没有开始。请等它结束后再试。',
+    'Another quick check is running, so this one did not start. Try again when it finishes.',
   ],
   runtime_cancelled: [
-    '已取消验证。对话和路径选择已保留。',
-    'Check cancelled. Your chat and path selections are kept.',
+    '已取消快速验证，没有保存结果，路径选择保持不变。可以随时重新开始。',
+    'The quick check was cancelled. No result was saved and your path selection is unchanged. You can start again at any time.',
   ],
   runtime_changed: [
-    '验证期间 Codex 程序文件已变化。请重新快速验证当前 Codex 程序。',
-    'The runtime changed during verification. Run the quick check on the current executable.',
+    '验证期间这个程序文件发生了变化，结果无效，没有保存。请重新快速验证当前文件。',
+    'The program file changed during the check, so the result is not valid and was not saved. Run the quick check again on the current file.',
   ],
   runtime_check_needed: [
     '这个 Codex 程序还没有在这台电脑上验证，暂时不能导入。请在所选应用下点击{@startRuntimeCheck}，通过后即可查看导入清单。',
     'This Codex runtime has not been checked on this computer yet, so the import cannot continue. Choose {@startRuntimeCheck} under the selected app, then review your import.',
   ],
   runtime_history_mismatch: [
-    '重开测试对话后，该 Codex 程序未能读回同一条对话的完整消息。请选择其他应用导入，或将副本下载到文件夹。',
-    'The runtime did not reopen the same chat with its messages intact. Select another app for import or download a copy.',
+    '重新打开测试对话后，这个程序没有读回同一条对话的完整内容，无法确认导入后能继续聊，结果没有保存。请选择其他 Codex 程序。',
+    'After reopening the sample chat, this program did not read back the full conversation, so continuing after an import cannot be confirmed. No result was saved. Choose another Codex runtime.',
   ],
   runtime_isolation: [
-    '无法确认该 Codex 程序只使用临时配置与本机应答。请检查此安装的全局工具或模型设置，再重试或选择其他应用。',
-    'The runtime could not use the isolated settings safely. Check this installation’s system-wide tool and provider settings, then retry or choose another app.',
+    '无法确认这个程序只使用临时配置和本机应答，验证已停止，结果没有保存。请选择其他 Codex 程序，或检查此安装的全局工具与模型设置后再选择它。',
+    'This program could not be confirmed to use only the temporary settings and the local test reply, so the check stopped and no result was saved. Choose another Codex runtime, or check this installation’s system-wide tool and provider settings before choosing it again.',
   ],
   runtime_launcher: [
     '这个路径是 GPT 桌面端或其他安装附带的启动脚本，不是 Codex 程序本身，快速验证无法确认它实际运行的是哪个程序。请选择该安装里真正的 Codex 程序。',
     'This path is a launcher script that comes with the GPT desktop app or another installation, not the Codex runtime itself, so a quick check cannot tell which program it really runs. Choose the actual Codex runtime of that installation.',
   ],
   runtime_protocol: [
-    '该 Codex 程序缺少导入或续聊所需的接口。请选择其他应用，或更新此应用后重试。',
-    'This runtime lacks a required import or continuation operation. Select another app or update this one and retry.',
+    '这个程序缺少导入或续聊所需的接口，无法用于导入，结果没有保存。请选择其他 Codex 程序，或更新它之后再选择。',
+    'This program lacks an operation that importing or continuing needs, so it cannot be used for imports and no result was saved. Choose another Codex runtime, or update this one and choose it again.',
   ],
   runtime_reply_unavailable: [
-    '本机测试应答未完成，尚未取得验证结果。请重试或选择其他应用。',
-    'The local test reply did not finish. Retry the check or select another app.',
+    '本机测试应答没有完成，还没有取得验证结果。请重新快速验证。',
+    'The local test reply did not finish, so there is no result yet. Run the quick check again.',
   ],
   runtime_schema: [
-    '该 Codex 程序无法写入测试对话的历史格式。请选择其他应用，或下载副本以保留文件。',
-    'This runtime could not store the sample history format. Use another app or download the files to keep a copy.',
+    '这个程序无法写入测试对话的历史格式，无法用于导入，结果没有保存。请选择其他 Codex 程序。',
+    'This program could not store the sample chat’s history format, so it cannot be used for imports and no result was saved. Choose another Codex runtime.',
   ],
   runtime_start_failed: [
-    '测试进程提前退出。请检查所选 Codex 程序能否运行，再重试或选择其他应用。',
-    'The test process stopped early. Check that the selected Codex runtime runs, then retry or choose another app.',
+    '测试进程提前退出，还没有取得验证结果。请确认这个程序能正常运行，再重新快速验证。',
+    'The test process stopped early, so there is no result yet. Confirm that this program runs normally, then run the quick check again.',
   ],
   runtime_temp_denied: [
-    '系统未允许创建临时文件或本机测试连接。请检查临时目录权限和本机连接限制，再重试。',
-    'The system denied temporary storage or the local test connection. Check temporary folder and loopback permissions, then retry.',
+    '系统不允许创建临时文件或本机测试连接，快速验证没有完成。请允许写入系统临时目录和回环连接（127.0.0.1），再重新快速验证。',
+    'The system did not allow temporary files or the local test connection, so the check did not finish. Allow writing to the system temporary folder and loopback connections (127.0.0.1), then run the quick check again.',
   ],
   runtime_timeout: [
-    '本次测试等待超时。可以重试，或选择其他已就绪的应用。',
-    'The check timed out. Retry or select another ready app.',
+    '测试等待超时，还没有取得验证结果。请重新快速验证。',
+    'The check timed out, so there is no result yet. Run the quick check again.',
   ],
   scan_incomplete: [
     '无法安全确认本次操作涉及哪些历史。展开对话页的{@scanSummary}检查对应文件或文件夹，再刷新。',
