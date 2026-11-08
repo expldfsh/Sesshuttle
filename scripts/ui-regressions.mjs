@@ -14,7 +14,7 @@
 //   only changing the unsaved path; the file chooser can enter app bundles.
 //   Removal records (0.7.3 §11): a removal that cannot be finished can be given up or
 //   cleared, and one with work left says why and where to continue.
-// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep,records]
+// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep,records,retarget]
 //   [--app=<packaged executable>]   by default the development build runs
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -22,13 +22,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
 import { openSession, setSize } from './lib/ui-session.mjs';
-import { invoke } from './lib/test-app.mjs';
+import { invoke, launchApp } from './lib/test-app.mjs';
 import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-in.mjs';
 
 const option = (name, fallback) =>
   process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const language = option('lang', 'zh-CN');
-const only = option('only', 'transfer,removal,native,bins,activity,paths,sweep,records').split(',');
+const only = option(
+  'only',
+  'transfer,removal,native,bins,activity,paths,sweep,records,retarget',
+).split(',');
 const executablePath = option('app', undefined);
 
 // Interface text in both languages, so the checks do not depend on the language.
@@ -63,7 +66,8 @@ const TEXT = {
   remainingOne: /只为仍在的 1 条重新生成清单|Review a new list for the 1 remaining/,
   backups: /备份与恢复|Backups & recovery/,
   localUnfinished: /本机还有未完成的删除或恢复|unfinished on this computer/,
-  clearedSkipped: /已清除 \d+ 条，1 条需要先处理|Cleared \d+ records?, 1 needs attention first/,
+  clearedSkipped: /已清除 \d+ 条，1 条需要先处理|Cleared \d+ records?, 1 kept until handled/,
+  transferTargetsGone: /已不在列表中|no longer in the list/,
 };
 
 const results = [];
@@ -993,6 +997,17 @@ async function recordChecks(session) {
       await reason.locator('button', { hasText: TEXT.backups }).waitFor({ timeout: 1000 });
     },
   );
+  await check('a reason and its way out fit a narrow window', async () => {
+    await setSize(session.app, page, [780, 600]);
+    await stuck.locator('.clear-blocked button').waitFor({ timeout: 1000 });
+    const overflow = await page.evaluate(() => {
+      const content = document.querySelector('.content');
+      return content.scrollWidth - content.clientWidth;
+    });
+    assert.ok(overflow <= 1, `content overflows by ${overflow}px`);
+    await page.screenshot({ path: path.join(shots, 'narrow-reason.png') });
+    await setSize(session.app, page, [1320, 860]);
+  });
   await check('clearing everything says how many records need attention first', async () => {
     await page.locator('.toolbar button.danger-button').click();
     await page.waitForSelector('dialog[open] .question');
@@ -1005,10 +1020,94 @@ async function recordChecks(session) {
   });
 }
 
+// 0.7.3 §10.4: repairs that open a transfer again when its chats are gone, and a
+// transfer interrupted by a restart.
+async function retargetChecks(session) {
+  const { page, root } = session;
+  const sessions = path.join(root, 'codex/sessions/2026/11/01');
+  const remove = async (tid) => {
+    const name = (await fs.readdir(sessions)).find((f) => f.includes(tid));
+    await fs.rename(path.join(sessions, name), path.join(root, name));
+  };
+  async function failedUpload(titles) {
+    await refreshList(page);
+    for (const title of titles)
+      await page
+        .locator('tr.conversation-row', { hasText: title })
+        .locator('input[type=checkbox]')
+        .check();
+    await page.locator('.selection-bar button.primary').first().click();
+    await dialog(page).waitFor();
+    await primary(page).click();
+    await page.waitForSelector('dialog[open].sync-plan');
+    await invalidate(page);
+    await primary(page).click();
+    await page.waitForFunction(() => !document.querySelector('dialog[open]'));
+    await panel(page).locator('.task-failure .error-notice').waitFor({ timeout: 10000 });
+  }
+  const [a, b, c] = (await rows(page)).filter((r) => r.local);
+  await failedUpload([a.title, b.title]);
+  await remove(a.id);
+  await check(
+    'a transfer reopened with one chat gone says so and continues with the rest',
+    async () => {
+      await panel(page).locator('button', { hasText: TEXT.refreshAndPreview }).click();
+      await page.waitForSelector('dialog[open].sync-plan', { timeout: 30000 });
+      const text = await dialog(page).innerText();
+      assert.match(text, TEXT.transferTargetsGone);
+      assert.ok(text.includes(a.title), 'names the missing chat');
+      assert.equal(await page.locator('.task-failure').count(), 0, 'the failure was used');
+      assert.ok(text.includes(b.title), 'the rest is still listed');
+    },
+  );
+  await settle(page);
+  await page.locator('.selection-bar .text-button').last().click();
+  await failedUpload([c.title]);
+  await remove(c.id);
+  await check('a transfer reopened with every chat gone says why it cannot continue', async () => {
+    await panel(page).locator('button', { hasText: TEXT.refreshAndPreview }).click();
+    await dialog(page).waitFor({ timeout: 30000 });
+    await page.waitForFunction(() => !document.querySelector('.working'));
+    await dialog(page).locator('.next-reason').waitFor({ timeout: 3000 });
+    assert.match(await dialog(page).locator('.next-reason').innerText(), TEXT.transferTargetsGone);
+    assert.ok((await dialog(page).innerText()).includes(c.title), 'names the missing chat');
+    assert.ok(await primary(page).isDisabled(), 'nothing to continue with');
+  });
+  await settle(page);
+
+  // A transfer that was running when the app stopped does not stay running.
+  const jobId = crypto.randomUUID();
+  await session.app.close();
+  const state = new State(path.join(root, 'app-data'));
+  state.set('job/' + jobId, {
+    id: jobId,
+    total: 1,
+    startedAt: new Date().toISOString(),
+    status: 'running',
+    items: [],
+  });
+  state.close();
+  const again = await launchApp(root, { executablePath });
+  current = again.page;
+  try {
+    await again.page.waitForSelector('.shell');
+    await check('a transfer interrupted by a restart can be cleared', async () => {
+      await nav(again.page, 'activity');
+      const box = again.page.locator('.timeline-item .timeline-head input[type=checkbox]').first();
+      await box.waitFor({ timeout: 5000 });
+      assert.ok(await box.isEnabled(), 'not stuck as running');
+      assert.equal(await again.page.locator('.clear-blocked').count(), 0);
+    });
+  } finally {
+    await again.app.close();
+  }
+}
+
 const groups = { transfer: transferChecks, removal: removalChecks, native: nativeChecks };
 Object.assign(groups, { bins: binChecks, activity: activityChecks, paths: pathChecks });
 groups.sweep = sweepChecks;
 groups.records = recordChecks;
+groups.retarget = retargetChecks;
 // Each group runs in its own test-mode session; a failed step outside a check is
 // reported as a failed setup with a screenshot.
 for (const name of only) {
