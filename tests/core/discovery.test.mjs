@@ -88,3 +88,32 @@ test('detection does not offer a launcher it cannot resolve', async () => {
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+test('detection accepts an npm installation whose entry point is a Node script', async (t) => {
+  const triplet = {
+    linux: { x64: 'x86_64-unknown-linux-musl', arm64: 'aarch64-unknown-linux-musl' },
+    darwin: { arm64: 'aarch64-apple-darwin', x64: 'x86_64-apple-darwin' },
+  }[process.platform]?.[process.arch];
+  if (!triplet) return t.skip('no npm layout for this platform');
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-detect-')));
+  try {
+    const pkg = path.join(root, 'lib/node_modules/@openai/codex');
+    const entry = path.join(pkg, 'bin/codex.js');
+    const program = path.join(pkg, 'vendor', triplet, 'codex/codex');
+    await fs.mkdir(path.dirname(entry), { recursive: true });
+    await fs.mkdir(path.dirname(program), { recursive: true });
+    await fs.writeFile(path.join(pkg, 'package.json'), '{"name":"@openai/codex"}');
+    await fs.writeFile(entry, '#!/usr/bin/env node\n', { mode: 0o755 });
+    await fs.writeFile(program, 'not a script', { mode: 0o755 });
+    const report = await detectEnvironment({
+      testRoot: root,
+      config: { targets: { cli: { binary: entry, home: root } } },
+      version: async () => '9.9.7',
+    });
+    const [candidate] = report.candidates;
+    assert.equal(candidate.error, undefined, 'the program behind codex.js is not a script');
+    assert.equal(candidate.runtime, '9.9.7');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
