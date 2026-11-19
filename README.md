@@ -8,13 +8,15 @@ Continue the same Codex conversation on another computer. Choose a chat on your 
 
 ## Install
 
-Download the 0.7.3 package for your computer from [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
+Local 0.8.0 builds are in `release/`. Published builds are available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
 
 | Platform | Package |
 | --- | --- |
-| Apple Silicon Mac | `sesshuttle-0.7.3-mac-arm64.dmg` |
-| Arch and other x86_64 Linux distributions | `sesshuttle-0.7.3-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.7.3-linux-amd64.deb` |
+| Apple Silicon Mac | `sesshuttle-0.8.0-mac-arm64.dmg` |
+| Arch and other x86_64 Linux distributions | `sesshuttle-0.8.0-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.8.0-linux-amd64.deb` |
+
+Choose a storage location on first launch. The app shows the full path of its dedicated `Sesshuttle Data` folder. When upgrading, you can copy existing data and credentials, check them and approve cleanup in Settings. [Choose, move or remove your data folder](docs/guides/en/quick-start.md#your-sesshuttle-data-folder)
 
 ## Move your first chat from Mac to Linux
 
@@ -31,4 +33,4 @@ On each computer, the **Getting started** list at the top of Conversations shows
 - **Sync activity** is one timeline of transfers and removals. Filter to what needs attention, retry unfinished work, or clear finished records; your chats and sync status stay.
 - **Backups & recovery** has three tabs: manual device backups, the local trash and the cloud recycle bin. Importing and restoring do not create backups automatically.
 
-[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.7.3.md)
+[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.8.0.md)

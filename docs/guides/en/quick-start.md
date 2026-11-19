@@ -1,4 +1,4 @@
-# Sesshuttle 0.7.3
+# Sesshuttle 0.8.0
 
 If your Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
 
@@ -6,18 +6,26 @@ Terms used here and in the app: an **app** is the GPT desktop app, the CLI or th
 
 ## Install or upgrade
 
-- On Apple Silicon, open `sesshuttle-0.7.3-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
+- On Apple Silicon, open `sesshuttle-0.8.0-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session. Keep the extracted folder intact.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.7.3-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.7.3-linux-amd64.deb`.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.8.0-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.8.0-linux-amd64.deb`.
 
 ```sh
-tar -xzf sesshuttle-0.7.3-linux-x64.tar.gz
-./sesshuttle-0.7.3-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.8.0-linux-x64.tar.gz
+./sesshuttle-0.8.0-linux-x64/sesshuttle
 ```
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
 
 The **Getting started** list at the top of Conversations shows four steps: detect Codex apps, connect cloud storage, refresh the list and finish a first upload or import. Use the buttons beside the first three steps; for the final step, select a chat and upload or import it. The list hides itself when all steps are done. You can also choose **Hide**.
+
+## Your Sesshuttle data folder
+
+1. Open the app and choose the parent for a dedicated `Sesshuttle Data` folder. Check the full path before confirming. To reopen an existing folder, select it in the same picker. The Linux archive uses the desktop's `zenity` or `kdialog` picker. The Debian package depends on one of them.
+2. Quit the old version before upgrading. If the previous installation is found, choose **Copy previous data**. Open **Settings → Local settings** and check your device, backups, trash and new location. If a connection was saved, choose **Migrate saved credentials…**, set a local password and authorize access to the previous credentials.
+3. Choose **Review old files…** when ready. The confirmation shows the previous path, the items to remove and the new location. Cancel to keep the originals. A change to the old data, an incomplete copy or unverified credentials stops cleanup. Personal files left alongside app files stay in place and the app shows their location.
+4. When the folder lives directly in your home directory, reopen it from the app icon. For any other location, use `Open Sesshuttle.command` (Mac) or `Open Sesshuttle.sh` (Linux, run as a program) inside the data folder. You can also select the existing folder again from the app icon. Connect external drives before opening. To relocate your data, use **Move data folder…**, verify it at the new location and review cleanup of the old one.
+5. Before uninstalling, keep any device backups or recycled copies you still need. Quit the app and remove the application and your selected data folder. For a Debian installation use the software manager to remove the program. Exported connection files, project folders, native Codex conversations and your cloud space are managed separately. The operating system manages its own recent items and installation records.
 
 ## Connect both computers
 
@@ -26,7 +34,7 @@ The **Getting started** list at the top of Conversations shows four steps: detec
 3. After the space is created, the **Next: export the connection file** card stays until you choose **Export connection file**. The file holds the space decryption key and the Access Key ID. Keep it safe.
 4. On the second computer, choose **I already have a sync space: import its connection file**. The endpoint, bucket, space and Access Key ID are filled in; enter the R2 Secret Access Key to join. **Enter connection details manually** is also available.
 5. **Connected to your sync space** means the connection succeeded, and the top bar shows the connection with the first characters of the space ID. **View cloud chats** opens the list.
-6. **Remember this connection on this computer** is checked by default. A locked Linux password store can open its system authorization window. Cancelling leaves you connected for this session; choose **Remember connection…** later to try again. If no provider is available, **Check credential storage** explains how to set one up.
+6. Connections are session-only by default. Select **Remember with a local password** or choose **Remember connection…** later to save encrypted credentials in the selected folder. If you forget the password, rejoin with the connection file and R2 Secret Access Key.
 
 ## Upload from the first computer
 
@@ -80,7 +88,7 @@ If an upload, import or removal cannot start, the task indicator in the top bar 
 
 | What you see | What to do |
 | --- | --- |
-| Connected, credentials kept only in memory | You can view and import now. Choose **Settings → Remember connection…** to retry system authorization. |
+| Connected, credentials kept only in memory | You can view and import now. Choose **Settings → Remember connection…** to set a local password. Use **Unlock and connect…** next time. |
 | An app is detected but its data folder or runtime is missing | Edit the paths for that app in the import dialog or on **Apps & projects**, then check again. Opening the destination app's Codex page helps detection. |
 | An app shows “Choose a Codex runtime” | The path is a launcher script that cannot be resolved. Select **Choose Codex runtime…** in the notice, pick the actual executable of that installation, then select **Start quick check**. |
 | The cloud chat does not appear | Make sure both computers joined the same space, check the task result on the uploading computer, refresh and **Clear filters**. A failed cloud check keeps the previous list. |
@@ -88,7 +96,7 @@ If an upload, import or removal cannot start, the task indicator in the top bar 
 | One app failed | Open the task and choose **Fix and retry** for that app. Uploaded and verified targets are listed separately. If recovery is needed, open **Backups & recovery**. |
 | Both computers continued the chat | Choose **Compare versions**, then pick the version and target. Local versions that need protection are kept before importing. |
 
-On Arch, choose **Remember connection…** in Settings, or **Unlock and connect…** when a secure credential is already saved. Enter your password only in the system window. If diagnostics report no Secret Service, install a provider such as GNOME Keyring (`sudo pacman -S --needed gnome-keyring`), sign in to the desktop again if needed, and retry. [Arch package](https://archlinux.org/packages/extra/x86_64/gnome-keyring/)
+To migrate credentials from an older Linux keyring, sign into the original desktop account and unlock that keyring when prompted. You can cancel and come back to Settings later. If the original password store can no longer decrypt a credential, you can rejoin with the connection file and R2 Secret Access Key. The unverified originals stay in place.
 
 ## Delete chats and manage recovery copies
 
@@ -116,7 +124,7 @@ A removal task that changed nothing, or has nothing left to finish, can be dropp
 
 ## Linux acceptance checklist
 
-Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.7.3 and keep their sync space, application data and connection file.
+Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.8.0 and keep their sync space, application data and connection file.
 
 1. **Detect the desktop app.** On Linux, open the Codex page of the GPT desktop app. In Sesshuttle, open **Apps & projects → Detect local Codex apps**, check the runtime, data folder and evidence under **GPT desktop**, and apply them. `/usr/lib/chatgpt/ChatGPT` is one known location of the desktop program itself, which is not the runtime. Check that the detected runtime is a real program: `file <path>` should report an ELF executable, not a shell script. If it is a script, the app shows “Choose a Codex runtime”; report the path and the `file` output.
 2. **Choose the chat.** In Conversations, open your uploaded title and choose **Import to this computer…**. If it is missing, choose **Settings → View cloud chats** and refresh. Select **GPT desktop**.
@@ -128,4 +136,4 @@ Use this when a chat uploaded from the Mac is visible on Linux. Both computers r
 
 To check the connection hand-over, export the connection file on the connected Mac, import it on an unconnected Linux installation, enter the Secret Access Key and connect. To check removal, use a dedicated test chat: recycle one cloud version on the Mac, confirm the imported Linux chat still opens, and restore the version from the Linux cloud recycle bin. Open a permanent deletion review and cancel it to check its two-sided list and final button.
 
-[Verification report](../../validation/0.7.3.md)
+[Verification report](../../validation/0.8.0.md)

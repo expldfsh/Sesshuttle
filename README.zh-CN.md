@@ -8,13 +8,15 @@
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载适合你系统的 0.7.3 安装包。
+本地构建的 0.8.0 安装包在 `release/`。已发布版本可从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载。
 
 | 平台 | 安装包 |
 | --- | --- |
-| Apple Silicon Mac | `sesshuttle-0.7.3-mac-arm64.dmg` |
-| Arch 等 x86_64 Linux | `sesshuttle-0.7.3-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.7.3-linux-amd64.deb` |
+| Apple Silicon Mac | `sesshuttle-0.8.0-mac-arm64.dmg` |
+| Arch 等 x86_64 Linux | `sesshuttle-0.8.0-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.8.0-linux-amd64.deb` |
+
+首次打开时选择保存位置。应用会显示即将创建的 `Sesshuttle Data` 完整路径。升级时可迁移旧版数据和凭据，核对后再从设置清理旧位置。[选择位置、迁移和卸载](docs/guides/zh-CN/quick-start.md#你的-sesshuttle-数据文件夹)
 
 ## 第一次把对话从 Mac 带到 Linux
 
@@ -31,4 +33,4 @@
 - **同步记录** 把传输和删除任务排成一条时间线。可筛选「需处理」、重试未完成的部分，或清除已结束的记录；对话和同步状态都会保留。
 - **备份与恢复** 分为本机手动备份、本机回收站和云端回收站三个标签页。导入和恢复都不会自动创建备份。
 
-[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.7.3.md)
+[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.8.0.md)
