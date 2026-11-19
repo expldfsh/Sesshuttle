@@ -3,7 +3,9 @@ import { constants } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { binaryVersion } from './native.mjs';
-import { KNOWN_VERSIONS } from './codex.mjs';
+import { knownRuntimeVersion } from './codex.mjs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { isScript, resolveLauncher, runtimeProgram } from './runtime.mjs';
 
 const entries = ['desktop', 'cli', 'ide'];
@@ -85,6 +87,11 @@ export async function liveLinuxTargets(proc = '/proc', uid = process.getuid?.())
 // Where to open the file chooser for the desktop app when no path is set: the
 // resources of an installed app bundle, found with a stat at the moment of choosing.
 export async function installedAppResources({ platform = process.platform, testRoot = null } = {}) {
+  if (platform === 'win32' && !testRoot) {
+    const roots = await windowsAppRoots(process.env);
+    for (const root of roots) if (await directory(root)) return root;
+    return undefined;
+  }
   if (platform !== 'darwin') return undefined;
   const base = testRoot ? path.join(testRoot, 'Applications') : '/Applications';
   for (const name of ['ChatGPT.app', 'Codex.app']) {
@@ -92,6 +99,39 @@ export async function installedAppResources({ platform = process.platform, testR
     if (await directory(resources)) return resources;
   }
   return undefined;
+}
+
+// Ask the OS for per-user Store installations. WindowsApps is not enumerable by ordinary users.
+async function windowsAppRoots(env) {
+  const roots = [];
+  for (const base of [
+    env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs'),
+    env.ProgramFiles,
+  ].filter(Boolean))
+    for (const name of ['Codex', 'ChatGPT']) roots.push(path.join(base, name, 'resources'));
+  if (!env.SystemRoot) return roots;
+  const powershell = path.join(
+    env.SystemRoot,
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe',
+  );
+  const script =
+    "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); Get-AppxPackage -Name 'OpenAI.*' | Where-Object { $_.Name -match '^OpenAI\\.(Codex|ChatGPT)(-|$)' } | ForEach-Object { $_.InstallLocation }";
+  try {
+    const { stdout } = await promisify(execFile)(
+      powershell,
+      ['-NoProfile', '-NonInteractive', '-Command', script],
+      { windowsHide: true, timeout: 8000, maxBuffer: 65536 },
+    );
+    for (const base of stdout.split(/\r?\n/).filter((p) => path.isAbsolute(p))) {
+      roots.push(path.join(base, 'app', 'resources'), path.join(base, 'resources'));
+    }
+  } catch {
+    /* Saved and manually selected paths remain available. */
+  }
+  return roots;
 }
 
 export async function detectEnvironment({
@@ -104,7 +144,9 @@ export async function detectEnvironment({
   version = binaryVersion,
   appRoots = platform === 'darwin'
     ? ['/Applications/ChatGPT.app/Contents/Resources', '/Applications/Codex.app/Contents/Resources']
-    : ['/usr/lib/chatgpt', '/opt/ChatGPT', '/opt/chatgpt', '/usr/lib/codex'],
+    : platform === 'win32'
+      ? []
+      : ['/usr/lib/chatgpt', '/opt/ChatGPT', '/opt/chatgpt', '/usr/lib/codex'],
 } = {}) {
   const defaultHome = testRoot ? path.join(testRoot, 'codex') : path.join(userHome, '.codex');
   const candidates = testRoot || platform !== 'linux' ? [] : await liveLinuxTargets(proc);
@@ -113,11 +155,15 @@ export async function detectEnvironment({
   const launchers = [...new Set(candidates.map((c) => c.app).filter(Boolean))];
   if (!testRoot) {
     const home = path.isAbsolute(env.CODEX_HOME ?? '') ? env.CODEX_HOME : defaultHome;
+    const windows = platform === 'win32';
+    if (windows && !appRoots.length) appRoots = await windowsAppRoots(env);
     for (const dir of [
       ...(env.PATH ?? '').split(path.delimiter),
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      path.join(userHome, '.local/bin'),
+      ...(windows
+        ? env.APPDATA
+          ? [path.join(env.APPDATA, 'npm')]
+          : []
+        : ['/opt/homebrew/bin', '/usr/local/bin', path.join(userHome, '.local/bin')]),
     ].filter((p) => path.isAbsolute(p))) {
       add(
         'cli',
@@ -125,10 +171,15 @@ export async function detectEnvironment({
         home,
         'installedBinary',
       );
+      if (windows) add('cli', path.join(dir, 'codex.cmd'), home, 'installedBinary');
     }
     for (const root of appRoots) {
       const names =
-        platform === 'darwin' ? ['../MacOS/ChatGPT', '../MacOS/Codex'] : ['ChatGPT', 'Codex'];
+        platform === 'darwin'
+          ? ['../MacOS/ChatGPT', '../MacOS/Codex']
+          : windows
+            ? ['../Codex.exe', '../ChatGPT.exe']
+            : ['ChatGPT', 'Codex'];
       let launcher = '';
       for (const name of names) {
         const file = path.resolve(root, name);
@@ -138,13 +189,20 @@ export async function detectEnvironment({
           break;
         }
       }
-      for (const suffix of [
-        'codex-cli/bin/codex',
-        'codex',
-        'resources/codex-cli/bin/codex',
-        'resources/codex',
-        'resources/app.asar.unpacked/codex-cli/bin/codex',
-      ])
+      for (const suffix of windows
+        ? [
+            'codex.exe',
+            'codex-cli/bin/codex.exe',
+            'codex-cli/vendor/x86_64-pc-windows-msvc/bin/codex.exe',
+            'app.asar.unpacked/codex-cli/bin/codex.exe',
+          ]
+        : [
+            'codex-cli/bin/codex',
+            'codex',
+            'resources/codex-cli/bin/codex',
+            'resources/codex',
+            'resources/app.asar.unpacked/codex-cli/bin/codex',
+          ])
         add('desktop', path.join(root, suffix), home, 'installedBinary', launcher);
     }
     for (const editor of ['.vscode', '.vscode-insiders', '.vscode-oss', '.cursor']) {
@@ -197,7 +255,7 @@ export async function detectEnvironment({
         await version(c.binary)
           .then(async (runtime) =>
             // A script is only trusted with a supported version: a quick check refuses it.
-            !KNOWN_VERSIONS.includes(runtime) && (await isScript(await runtimeProgram(bin)))
+            !knownRuntimeVersion(runtime, platform) && (await isScript(await runtimeProgram(bin)))
               ? { error: 'runtime_launcher' }
               : { runtime },
           )

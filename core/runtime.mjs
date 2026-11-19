@@ -4,7 +4,7 @@ import { constants } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
-import { KNOWN_VERSIONS } from './codex.mjs';
+import { knownRuntimeVersion } from './codex.mjs';
 import { Fault, hash, requireThat } from './util.mjs';
 
 const exec = promisify(execFile);
@@ -22,6 +22,7 @@ const canRun = (file) =>
     () => false,
   );
 export async function isScript(file) {
+  if (process.platform === 'win32' && /\.(?:cmd|bat|ps1|js)$/i.test(file)) return true;
   const fd = await fs.open(file, 'r');
   try {
     const buf = Buffer.alloc(2);
@@ -60,7 +61,18 @@ export async function resolveLauncher(binary) {
 // followed to the file that actually runs; the configured path stays as the user set it.
 async function executable(binary) {
   requireThat(typeof binary === 'string' && path.isAbsolute(binary), 'binary_required');
-  const file = await fs.realpath(binary);
+  let file = await fs.realpath(binary);
+  if (process.platform === 'win32' && /^codex(?:\.cmd|\.ps1)?$/i.test(path.basename(file))) {
+    const entry = path.join(
+      path.dirname(file),
+      'node_modules',
+      '@openai',
+      'codex',
+      'bin',
+      'codex.js',
+    );
+    if ((await fs.stat(entry).catch(() => null))?.isFile()) file = await fs.realpath(entry);
+  }
   const bundled = await bundleProgram(file);
   if (bundled?.verified) return bundled.file;
   if (path.basename(file) !== 'codex.js') return file;
@@ -75,6 +87,7 @@ async function executable(binary) {
   const triplet = {
     linux: { x64: 'x86_64-unknown-linux-musl', arm64: 'aarch64-unknown-linux-musl' },
     darwin: { arm64: 'aarch64-apple-darwin', x64: 'x86_64-apple-darwin' },
+    win32: { x64: 'x86_64-pc-windows-msvc' },
   }[platform]?.[arch];
   if (triplet) {
     let optional;
@@ -85,7 +98,13 @@ async function executable(binary) {
     } catch {}
     for (const base of [optional, root].filter(Boolean))
       for (const folder of ['bin', 'codex']) {
-        const candidate = path.join(base, 'vendor', triplet, folder, 'codex');
+        const candidate = path.join(
+          base,
+          'vendor',
+          triplet,
+          folder,
+          platform === 'win32' ? 'codex.exe' : 'codex',
+        );
         if ((await fs.stat(candidate).catch(() => null))?.isFile()) return fs.realpath(candidate);
       }
   }
@@ -104,10 +123,17 @@ async function identity(binary) {
     requireThat(await canRun(file), 'binary_not_executable');
     const stamp = [file, stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join('|');
     if (versions.has(stamp)) return versions.get(stamp);
+    if (process.platform === 'win32')
+      requireThat(/\.exe$/i.test(file) && !(await isScript(file)), 'runtime_launcher');
     const { stdout } = await exec(file, ['--version'], {
       timeout: 5000,
       maxBuffer: 8192,
-      env: { PATH: process.env.PATH, LANG: 'C' },
+      windowsHide: true,
+      env: {
+        PATH: process.env.PATH,
+        LANG: 'C',
+        ...(process.platform === 'win32' ? { SystemRoot: process.env.SystemRoot } : {}),
+      },
     });
     const version = stdout
       .trim()
@@ -140,7 +166,7 @@ export async function runtimeInfo(binary, state) {
   // without running it again (see savedRuntimeStatus).
   if (state && state.get(seenKey(info.file))?.stamp !== info.stamp)
     state.set(seenKey(info.file), { stamp: info.stamp, version: info.version });
-  const builtin = KNOWN_VERSIONS.includes(info.version),
+  const builtin = knownRuntimeVersion(info.version),
     saved = state?.get(info.key);
   return {
     ...info,
@@ -251,7 +277,7 @@ export async function savedRuntimeStatus(binary, state) {
     const stamp = [file, stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join('|');
     const seen = state.get(seenKey(file));
     if (seen?.stamp !== stamp) return 'unchecked';
-    if (KNOWN_VERSIONS.includes(seen.version)) return 'builtin';
+    if (knownRuntimeVersion(seen.version)) return 'builtin';
     return state.get(proofKey(seen.version, stamp))?.passed ? 'verified' : 'untested';
   } catch {
     return 'missing';

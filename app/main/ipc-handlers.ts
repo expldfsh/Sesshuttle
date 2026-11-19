@@ -226,7 +226,7 @@ async function destinationInfo(ctx: Context, targets: any) {
         checked.supported = checked.supported && checked.proof.projects;
         if (entry !== 'cli') {
           checked.manualOpen = (await canonical(home)) !== path.join(os.homedir(), '.codex');
-          if (process.platform === 'linux')
+          if (process.platform === 'linux' || process.platform === 'win32')
             checked.manualOpen ||= !(await protocolHandler(entry, 2500));
         }
       } catch (e: any) {

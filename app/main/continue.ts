@@ -1,20 +1,26 @@
 // Opens a verified conversation in its native app. Nothing is submitted to the
 // conversation and no historical command runs; the user continues it there.
-import { shell } from 'electron';
+import { app, shell } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { liveLinuxTargets } from '../../core/discovery.mjs';
+import { runtimeProgram } from '../../core/runtime.mjs';
 import { Fault, requireThat, atomic, exists, canonical } from '../../core/util.mjs';
 import type { Context } from './context';
 
 const exec = promisify(execFile);
 
-// The desktop app and VS Code register URL schemes; Linux needs a registered handler.
+// Ask the desktop which application owns the registered URL scheme.
 export function protocolHandler(entry: string, timeout: number) {
   const scheme = entry === 'desktop' ? 'codex' : 'vscode';
+  if (process.platform === 'win32')
+    return app.getApplicationInfoForProtocol(scheme + '://').then(
+      (handler) => handler.path || handler.name,
+      () => '',
+    );
   return exec('xdg-mime', ['query', 'default', 'x-scheme-handler/' + scheme], { timeout }).then(
     (v) => v.stdout.trim(),
     () => '',
@@ -72,12 +78,13 @@ export async function continueEntry(ctx: Context, { logicalId, entry }: any) {
         live.length ? matching.length === live.length : home === path.join(os.homedir(), '.codex'),
         'custom_home_launcher',
       );
-      requireThat(!!(await protocolHandler(entry, 3000)), 'no_protocol_handler');
     } else
       requireThat(
         home === (await canonical(path.join(os.homedir(), '.codex'))),
         'custom_home_launcher',
       );
+    if (process.platform === 'win32' || process.platform === 'linux')
+      requireThat(!!(await protocolHandler(entry, 3000)), 'no_protocol_handler');
   }
   if (entry === 'desktop') {
     await shell.openExternal('codex://threads/' + encodeURIComponent(logicalId));
@@ -90,13 +97,29 @@ export async function continueEntry(ctx: Context, { logicalId, entry }: any) {
   // A launcher script contains only individually quoted paths and a UUID. The user
   // starts the native CLI explicitly; there is no task prompt on the command line.
   requireThat(/^[0-9a-f-]{36}$/i.test(logicalId), 'invalid_selection');
+  if (process.platform === 'win32') {
+    const launcher = app.isPackaged
+      ? path.join(path.dirname(process.execPath), 'Sesshuttle.exe')
+      : path.join(app.getAppPath(), 'dist', 'Sesshuttle.exe');
+    try {
+      await exec(
+        launcher,
+        [
+          '--resume-cli',
+          await runtimeProgram(target.binary),
+          record.home,
+          record.project,
+          logicalId,
+        ],
+        { timeout: 8000, windowsHide: true },
+      );
+    } catch {
+      throw new Fault('manual_cli_required');
+    }
+    return { status: 'opened' };
+  }
   const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
-  const file = path.join(
-    state.root,
-    'launchers',
-    logicalId + (process.platform === 'win32' ? '.cmd' : '.command'),
-  );
-  if (process.platform === 'win32') throw new Fault('manual_cli_required');
+  const file = path.join(state.root, 'launchers', logicalId + '.command');
   await atomic(
     file,
     `#!/bin/sh\nexport CODEX_HOME=${quote(record.home)}\nexec ${quote(target.binary)} --cd ${quote(record.project)} resume ${quote(logicalId)}\n`,

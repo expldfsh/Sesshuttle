@@ -1,5 +1,8 @@
 import { scanHistory } from './scanner.mjs';
 export const KNOWN_VERSIONS = ['0.166.0', '0.164.0', '0.164.0-alpha.11.1', '0.166.0-alpha.5.1'];
+// Windows uses the same local continuation check until a native release has been verified there.
+export const knownRuntimeVersion = (version, platform = process.platform) =>
+  platform !== 'win32' && KNOWN_VERSIONS.includes(version);
 export function sourceOf(meta) {
   if (typeof meta.source === 'object' && meta.source?.subagent) return 'subagent';
   if (['codex_work_desktop', 'codex_desktop'].includes(meta.originator)) return 'desktop';

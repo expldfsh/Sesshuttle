@@ -1,4 +1,4 @@
-import { BrowserWindow, session } from 'electron';
+import { app, BrowserWindow, session } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getTheme } from '../shared/themes';
@@ -25,6 +25,16 @@ export function createWindow(ctx: Context) {
       webSecurity: true,
     },
   });
+  if (process.platform === 'win32' && app.isPackaged) {
+    const launcher = path.join(path.dirname(process.execPath), 'Sesshuttle.exe');
+    window.setAppDetails({
+      appId: 'com.expldfsh.sesshuttle',
+      appIconPath: launcher,
+      appIconIndex: 0,
+      relaunchCommand: '"' + launcher + '"',
+      relaunchDisplayName: 'Sesshuttle',
+    });
+  }
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => {
     if (url !== rendererUrl(ctx)) event.preventDefault();

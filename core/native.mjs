@@ -16,7 +16,7 @@ export async function assertCodexClosed(home) {
       await exec(
         windows ? 'tasklist' : 'ps',
         windows ? ['/FO', 'CSV', '/NH'] : ['-axo', 'pid=,comm='],
-        { timeout: 8000, maxBuffer: 4 * 1024 * 1024 },
+        { timeout: 8000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
       )
     ).stdout;
   } catch {
@@ -24,7 +24,7 @@ export async function assertCodexClosed(home) {
   }
   for (const line of output.split('\n')) {
     if (
-      !/(?:^|[/\\\s"])(?:codex(?:\.exe)?|codex-app-server|codex-app-serve)(?:[\s",]|$)/i.test(line)
+      !/(?:^|[/\\\s"])(?:codex|codex-app-server|codex-app-serve)(?:\.exe)?(?:[\s",]|$)/i.test(line)
     )
       continue;
     // Linux exposes the launch environment per PID. An explicitly separate
@@ -122,6 +122,14 @@ export class NativeClient {
       all = ['-p', profile, binary, ...args];
     }
     const env = {
+      ...(process.platform === 'win32'
+        ? {
+            SystemRoot: process.env.SystemRoot,
+            ComSpec: process.env.ComSpec,
+            TEMP: home,
+            TMP: home,
+          }
+        : {}),
       PATH: process.env.PATH ?? '/usr/bin:/bin',
       CODEX_HOME: home,
       TMPDIR: home,
@@ -319,7 +327,9 @@ export async function prepareNative({
         excludeTurns: true,
       });
       requireThat(
-        r.thread?.id === f.id && r.cwd === project && r.sandbox?.type === 'readOnly',
+        r.thread?.id === f.id &&
+          (await canonical(r.cwd)) === project &&
+          r.sandbox?.type === 'readOnly',
         'native_verification_failed',
       );
       await client.rpc('thread/settings/update', {

@@ -56,7 +56,7 @@ export async function writeShortcut(folder: string) {
     : 'node "' + path.join(app.getAppPath(), 'scripts', 'start.mjs').replaceAll('%', '%%') + '"';
   const content = windows
     ? header +
-      'setlocal DisableDelayedExpansion\r\nstart "" ' +
+      'setlocal DisableDelayedExpansion\r\nchcp 65001 >nul\r\nstart "" ' +
       windowsCommand +
       ' "--sesshuttle-folder=%~dp0."\r\n'
     : header +

@@ -23,7 +23,9 @@ const preferred = mac
   ? spawnSync('/usr/bin/defaults', ['read', '-g', 'AppleLanguages'], {
       encoding: 'utf8',
     }).stdout?.match(/["(\s]([a-z]{2})[-_",\s]/i)?.[1]
-  : null;
+  : windows
+    ? Intl.DateTimeFormat().resolvedOptions().locale
+    : null;
 const locale = (preferred || lang || 'en').startsWith('zh') ? 0 : 1;
 function t(key: keyof typeof messages) {
   return String(messages[key][locale]);
