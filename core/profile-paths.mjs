@@ -16,7 +16,8 @@ export function checkedTestRoot(root) {
   );
   return root;
 }
-export function readMarker(folder) {
+/** @param {string} folder @param {string} [expectedId] */
+export function readMarker(folder, expectedId) {
   requireThat(path.isAbsolute(folder) && fs.realpathSync(folder) === folder, 'folder_invalid');
   const file = path.join(folder, markerName);
   const stat = fs.lstatSync(file);
@@ -28,6 +29,7 @@ export function readMarker(folder) {
       /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(marker.id),
     'folder_invalid',
   );
+  requireThat(expectedId === undefined || marker.id === expectedId, 'folder_location_mismatch');
   return marker;
 }
 export function privateDir(parent, name) {
