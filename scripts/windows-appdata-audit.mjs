@@ -41,6 +41,11 @@ if (action === 'device') {
   }
   await scan(process.env.APPDATA, 'Roaming');
   await scan(process.env.LOCALAPPDATA, 'Local');
+  const profileData = path.join(os.homedir(), 'AppData');
+  for (const entry of await fs.readdir(profileData, { withFileTypes: true })) {
+    if (entry.isDirectory() && !['roaming', 'local'].includes(entry.name.toLowerCase()))
+      await scan(path.join(profileData, entry.name), entry.name);
+  }
   await fs.writeFile(target, JSON.stringify({ files, unreadable }));
 } else {
   assert.equal(action, 'compare');

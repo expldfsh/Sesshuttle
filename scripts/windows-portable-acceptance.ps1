@@ -1,5 +1,5 @@
 # Run on the disposable Windows 11 desktop as its ordinary test user.
-param([Parameter(Mandatory=$true)][string]$Archive, [Parameter(Mandatory=$true)][string]$Node)
+param([Parameter(Mandatory=$true)][string]$Archive, [Parameter(Mandatory=$true)][string]$Node, [string]$DataParent)
 $ErrorActionPreference = 'Stop'
 if ($env:COMPUTERNAME -ne 'SESSHUTTLE-QA' -or $env:USERNAME -ne 'SesshuttleQA') { throw 'Disposable test desktop required' }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -13,11 +13,12 @@ $scope = [Windows.Automation.TreeScope]
 $wsh = New-Object -ComObject WScript.Shell
 $work = Join-Path ([Environment]::GetFolderPath('MyDocuments')) ('Portable test ' + [guid]::NewGuid())
 $program = Join-Path $work 'Portable app'
-$parent = Join-Path $work ('Chat ' + [char]0x4e2d + [char]0x6587 + ' 100%')
+$chosen = if ($DataParent) { Join-Path (Resolve-Path -LiteralPath $DataParent).Path ([guid]::NewGuid().ToString()) } else { $work }
+$parent = Join-Path $chosen ('Chat ' + [char]0x4e2d + [char]0x6587 + ' 100%')
 $folder = Join-Path $parent 'Sesshuttle Data'
 $db = Join-Path $folder 'data\sesshuttle.sqlite'
 $audit = Join-Path $PSScriptRoot 'windows-appdata-audit.mjs'
-New-Item -ItemType Directory -Path $parent -Force | Out-Null
+New-Item -ItemType Directory -Path $work,$parent -Force | Out-Null
 function Snapshot($name) {
   & $Node $audit snapshot (Join-Path $work ($name + '.json'))
   if ($LASTEXITCODE) { throw 'AppData inventory failed' }

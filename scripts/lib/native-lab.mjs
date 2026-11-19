@@ -11,7 +11,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { setTimeout as pause } from 'node:timers/promises';
 import { isDeepStrictEqual } from 'node:util';
-import { hash, id } from '../../core/util.mjs';
+import { canonical, hash, id } from '../../core/util.mjs';
 
 export const LAB_PREFIX = 'sesshuttle-lab-';
 const MARKER = '.sesshuttle-lab.json';
@@ -216,7 +216,7 @@ export class LabClient {
         clientInfo: { name: 'sesshuttle_lab', version: '0.1.0' },
         capabilities: { experimentalApi: true },
       });
-      if (fs.realpathSync(result.codexHome) !== home)
+      if ((await canonical(result.codexHome)) !== home)
         refuse('Server did not honor the isolated data location');
       client.notify('initialized');
       return client;
@@ -443,7 +443,7 @@ export async function proveDirectory(client, tid, project, marker) {
   const command = commands.at(-1);
   if (!command) throw new Error('No persisted command result');
   if (command.exitCode !== 0) throw new Error('Command failed: ' + JSON.stringify(command));
-  if (fs.realpathSync(command.cwd) !== project) throw new Error('Command ran in ' + command.cwd);
+  if ((await canonical(command.cwd)) !== project) throw new Error('Command ran in ' + command.cwd);
   if (!command.aggregatedOutput.includes(project) || !command.aggregatedOutput.includes(marker))
     throw new Error('Working folder proof missing: ' + command.aggregatedOutput);
 }

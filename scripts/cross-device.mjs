@@ -17,7 +17,7 @@ import { R2Store } from '../core/storage.mjs';
 import { newKey } from '../core/crypto.mjs';
 import { runtimeInfo } from '../core/runtime.mjs';
 import { verifyRuntime } from '../core/runtime-check.mjs';
-import { id } from '../core/util.mjs';
+import { canonical, id } from '../core/util.mjs';
 import { startFixtureProvider, writeFixtureConfig } from '../core/fixture-provider.mjs';
 import { Lab, proveDirectory, startThread, turn, turns, withClient } from './lib/native-lab.mjs';
 
@@ -75,7 +75,7 @@ try {
   const continueHere = () =>
     withClient(lab, binary, home, project, options, async (client) => {
       const read = (await client.rpc('thread/read', { threadId: tid })).thread;
-      assert.equal(await fs.realpath(read.cwd), project);
+      assert.equal(await canonical(read.cwd), project);
       if (projectId) {
         assert.equal(read.projectId, projectId);
         const listed = await client.rpc('thread/list', { projectId, modelProviders: [] });
