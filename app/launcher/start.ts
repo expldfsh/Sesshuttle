@@ -3,19 +3,19 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { checkedTestRoot, readMarker, runtimePaths } from '../../core/profile-paths.mjs';
+import { locationFile, readFolderLocation } from '../../core/folder-location.mjs';
 import { spawnSync } from 'node:child_process';
 import { messages } from '../renderer/i18n/messages';
 import {
   createDataFolder,
   folderName,
   markerName,
-  openDataFolder,
   legacyFolder,
   disjoint,
   checkDatabasePaths,
 } from '../../core/data-folder.mjs';
 const testRoot = checkedTestRoot(process.env.SESSHUTTLE_TEST_ROOT);
-const home = testRoot || os.homedir();
+const home = testRoot || fs.realpathSync(os.homedir());
 const mac = process.platform === 'darwin';
 const lang = process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG;
 const preferred = mac
@@ -98,15 +98,14 @@ async function launch() {
     if (!testRoot && env.CODEX_HOME && path.isAbsolute(env.CODEX_HOME))
       disjoint(folder, path.resolve(env.CODEX_HOME));
   }
-  async function ready(folder: string) {
+  async function ready(folder: string, expectedId?: string) {
     const visited = new Set<string>();
     let current = folder;
     for (;;) {
       allowed(current);
-      await openDataFolder(current);
       if (visited.has(current) || visited.size > 32) throw Error(t('folder_relocated'));
       visited.add(current);
-      const marker = readMarker(current);
+      const marker = readMarker(current, expectedId);
       if (!marker.movedTo) {
         fs.accessSync(current, fs.constants.W_OK | fs.constants.X_OK);
         const data = path.join(current, 'data');
@@ -122,32 +121,48 @@ async function launch() {
           fs.accessSync(dir, fs.constants.W_OK | fs.constants.X_OK);
         return current;
       }
-      allowed(marker.movedTo);
-      if (readMarker(marker.movedTo).id !== marker.movedId) throw Error(t('folder_relocated'));
+      if (typeof marker.movedId !== 'string') throw Error(t('folder_relocated'));
+      expectedId = marker.movedId;
       current = marker.movedTo;
     }
   }
   let root: string | undefined;
-  const initial = explicit || (hasMarker(standard) ? standard : undefined);
+  let invalidLocation = false;
+  const saved = explicit
+    ? null
+    : await readFolderLocation(home).catch(() => {
+        invalidLocation = true;
+        native('error', t('folder_location_invalid') + '\n' + locationFile(home));
+        return null;
+      });
+  const initial =
+    explicit || saved?.folder || (!invalidLocation && hasMarker(standard) ? standard : undefined);
   if (initial) {
     try {
-      root = await ready(initial);
+      root = await ready(initial, saved?.id);
     } catch {
       native('error', t('folderRelocate') + '\n' + initial);
+      // Reconnecting a drive while the message is open needs no new selection.
+      root = await ready(initial, saved?.id).catch(() => undefined);
     }
   }
   while (!root) {
-    const picked = native('choose', t('folderChooseParent'));
+    const picked = native('choose', t(initial ? 'folderChooseExisting' : 'folderChooseParent'));
     if (!picked) return;
     try {
       const parent = fs.realpathSync(picked);
       const target = hasMarker(parent) ? parent : path.join(parent, folderName);
       allowed(target);
-      if (hasMarker(target)) root = await ready(target);
-      else if (native('confirm', t('folderCreateAt') + '\n\n' + target))
-        root = await ready(await createDataFolder(parent));
+      if (hasMarker(target)) root = await ready(target, saved?.id);
+      else if (initial) throw Error(t('folderChooseExisting'));
+      else {
+        const message = [t('folderCreateAt'), target, '', t('folderOpenFromIcon')];
+        if (target !== standard) message.push(t('folderLocationNote'), locationFile(home));
+        if (native('confirm', message.join('\n')))
+          root = await ready(await createDataFolder(parent));
+      }
     } catch {
-      native('error', t('folderChooseAgain'));
+      native('error', t(initial ? 'folder_location_mismatch' : 'folderChooseAgain'));
     }
   }
   const profile = path.join(root, 'runtime', 'profile');

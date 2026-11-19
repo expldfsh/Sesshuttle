@@ -3,6 +3,7 @@ import { app, dialog } from 'electron';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import { checkedTestRoot, readMarker, runtimePaths } from '../../core/profile-paths.mjs';
+import { locationFile, rememberFolderLocation } from '../../core/folder-location.mjs';
 import { initializeFolder, label } from './data-folder';
 import path from 'node:path';
 import os from 'node:os';
@@ -27,7 +28,7 @@ try {
   if (!testFixture) {
     requireThat(dataFolder, 'folder_invalid');
     if (testRoot) requireThat(dataFolder!.startsWith(testRoot + path.sep), 'unsafe_path');
-    requireThat(!readMarker(dataFolder).movedTo, 'folder_relocated');
+    requireThat(!readMarker(dataFolder!).movedTo, 'folder_relocated');
   }
   for (const [name, value] of Object.entries(runtimePaths(testFixture ? testRoot : dataFolder)))
     app.setPath(name, value);
@@ -35,7 +36,7 @@ try {
   const code = publicError(e).code;
   dialog.showErrorBox(
     'Sesshuttle',
-    label(code === 'folder_relocated' ? code : 'folderRelocate', process.env.LANG ?? 'en') +
+    label(code === 'folder_relocated' ? code : 'folder_invalid', process.env.LANG ?? 'en') +
       (dataFolder ? '\n' + dataFolder : ''),
   );
   process.exit(1);
@@ -148,6 +149,21 @@ async function start() {
   ctx.removals = new Removals(ctx.engine, ctx.trash, {
     onProgress: (job: any) => send({ kind: 'removal-progress', job }),
   } as any);
+  if (dataFolder) {
+    const home = testRoot || os.homedir();
+    try {
+      const file = await rememberFolderLocation(home, dataFolder);
+      if (file) ctx.folderLocation = { file };
+    } catch {
+      ctx.folderLocation = { file: locationFile(home), failed: true };
+      await dialog.showMessageBox({
+        type: 'warning',
+        title: 'Sesshuttle',
+        message: label('folderLocationFailed', state.get('config').language),
+        detail: ctx.folderLocation.file,
+      });
+    }
+  }
   applyAppearance(null, state.get('config'));
   ctx.window = createWindow(ctx);
   registerIpc(ctx, createHandlers(ctx));

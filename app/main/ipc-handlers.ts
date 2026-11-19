@@ -433,6 +433,7 @@ export function createHandlers(ctx: Context): Handlers {
     ...folderHandlers(ctx),
     init: () => ({
       dataFolder: ctx.dataFolder ?? null,
+      folderLocation: ctx.folderLocation ?? null,
       migration: (() => {
         const m = state.get('folderMigration');
         return m ? { source: m.source, credentialsReady: m.credentialsReady } : null;

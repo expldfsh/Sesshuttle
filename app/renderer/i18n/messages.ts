@@ -8,8 +8,17 @@ export const messages = {
   folderTitle: ['Sesshuttle 数据文件夹', 'Sesshuttle data folder'],
   folderOpen: ['打开数据文件夹', 'Open data folder'],
   folderSettingsHint: [
-    '设置、备份和临时文件保存在这里。下次可用这个文件夹里的 Open Sesshuttle 启动。',
-    'Settings, backups and temporary files are kept here. Use Open Sesshuttle in this folder next time.',
+    '设置、备份和临时文件保存在这里。',
+    'Your settings, backups and temporary files are kept here.',
+  ],
+  folderOpenFromIcon: ['下次直接点应用图标即可打开。', 'Next time, open the app from its icon.'],
+  folderLocationNote: [
+    '应用通过下面的文件记住自选位置，卸载时可一并删除。',
+    'The file below remembers your chosen location. You can delete it when uninstalling.',
+  ],
+  folderLocationFailed: [
+    '数据文件夹已打开，但无法记住位置。请确认下方文件名可用、主目录可写，下次可从数据文件夹里的 Open Sesshuttle 启动。',
+    'Your data folder is open, but its location could not be saved. Check that the filename below is available and your home folder is writable. You can reopen with Open Sesshuttle inside your data folder.',
   ],
   folderMove: ['迁移数据文件夹…', 'Move data folder…'],
   folderCopyRestart: ['复制并重新打开', 'Copy and reopen'],
@@ -21,14 +30,26 @@ export const messages = {
     '将在以下位置创建专用数据文件夹，保存设置、备份和临时文件。',
     'Create a dedicated folder for settings, backups and temporary files at this location?',
   ],
+  folderChooseExisting: [
+    '选择原来的 Sesshuttle 数据文件夹',
+    'Select your original Sesshuttle data folder',
+  ],
   folderUse: ['使用此位置', 'Use this location'],
   folderChooseAgain: [
     '此位置无法创建专用文件夹。请选择另一个可写位置，或打开已有的 Sesshuttle 数据文件夹。',
     'A dedicated folder could not be created here. Choose another writable location or select an existing Sesshuttle data folder.',
   ],
   folderRelocate: [
-    '数据文件夹不可用。请连接原磁盘，或从应用图标重新选择已有数据文件夹。',
-    'The data folder is unavailable. Connect its drive or open the application to choose the existing folder.',
+    '无法打开原数据文件夹。请接回原磁盘再点确定重试。如果文件夹已移动，请在接下来的窗口选择它。',
+    'Your original data folder could not be opened. Reconnect its drive and press OK to retry. If you moved the folder, select it in the next window.',
+  ],
+  folder_location_invalid: [
+    '无法读取下方的位置记录。请选择要打开的数据文件夹。如果该文件另有用途，可以先将它改名。',
+    'The location file below could not be read. Select the data folder you want to open. If the file belongs to you, you can rename it first.',
+  ],
+  folder_location_mismatch: [
+    '请选择上次使用的完整数据文件夹。如果它在外接盘上，请先连接原磁盘。',
+    'Select the same complete data folder you used last time. If it is on an external drive, reconnect the original drive first.',
   ],
   folderLinuxPicker: [
     '请安装 zenity 或 kdialog 后重新打开 Sesshuttle，以选择数据文件夹。',

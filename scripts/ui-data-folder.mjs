@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createDataFolder } from '../core/data-folder.mjs';
+import { locationFile, readFolderLocation } from '../core/folder-location.mjs';
 import { State } from '../core/state.mjs';
 import { launchApp, makeFixture, invoke, startStorage } from './lib/test-app.mjs';
 
@@ -10,14 +11,17 @@ const executablePath = process.argv[2];
 const root = makeFixture(),
   source = path.join(root, 'legacy');
 let app, page, storage;
-async function launch(folder) {
+async function launch(folder, fromIcon = false) {
   ({ app, page } = await launchApp(root, {
     executablePath,
     env: { SESSHUTTLE_TEST_LAUNCHER: '1', SESSHUTTLE_TEST_COPY: '1' },
-    args: [
-      '--sesshuttle-folder=' + folder,
-      '--user-data-dir=' + path.join(folder, 'runtime', 'profile'),
-    ],
+    args:
+      fromIcon && executablePath
+        ? []
+        : [
+            '--sesshuttle-folder=' + folder,
+            '--user-data-dir=' + path.join(folder, 'runtime', 'profile'),
+          ],
   }));
   await page.waitForSelector('.shell');
 }
@@ -48,6 +52,8 @@ try {
   await launch(folder);
   const init = await call('init');
   assert.equal(init.dataFolder, folder);
+  assert.equal(init.folderLocation.file, locationFile(root));
+  assert.equal((await readFolderLocation(root)).folder, folder);
   assert.deepEqual(init.device, device);
   assert.equal(init.migration.credentialsReady, true);
   const paths = await app.evaluate(({ app }) =>
@@ -61,6 +67,7 @@ try {
   for (const [key, dir] of Object.entries(paths)) assert.ok(dir.startsWith(folder + path.sep), key);
   await page.getByRole('button', { name: 'Review migration', exact: true }).click();
   await page.getByText(folder, { exact: true }).waitFor();
+  await page.getByText(locationFile(root), { exact: true }).waitFor();
   await confirmWith(0);
   assert.equal(await call('cleanupDataFolder'), null);
   await fs.access(path.join(source, 'sesshuttle.sqlite'));
@@ -91,7 +98,10 @@ try {
   await modal.waitFor({ state: 'hidden' });
   await app.close();
   app = null;
-  await launch(folder);
+  // With a packaged app there is no folder argument, just like a click on the app icon.
+  const standard = await createDataFolder(root);
+  await launch(folder, true);
+  assert.equal((await call('init')).dataFolder, folder);
   assert.equal((await call('init')).connected, false);
   await page.locator('nav button').last().click();
   await page.getByRole('button', { name: 'Unlock and connect…' }).click();
@@ -116,8 +126,9 @@ try {
   await closed;
   app = null;
   const moved = path.join(nextParent, 'Sesshuttle Data');
-  await launch(moved);
+  await launch(moved, true);
   assert.equal((await call('init')).dataFolder, moved);
+  assert.equal((await readFolderLocation(root)).folder, moved);
   assert.ok(
     (await fs.stat(path.join(moved, 'data/launchers/resume.sh'))).mode & 0o100,
     'CLI launchers remain executable after both copies',
@@ -127,8 +138,22 @@ try {
   assert.deepEqual(await call('cleanupDataFolder'), { remaining: null });
   await assert.rejects(fs.access(folder));
   assert.equal(await fs.readFile(path.join(moved, 'data/backups/fixture'), 'utf8'), 'verified');
+  await app.close();
+  app = null;
+  await launch(moved, true);
+  assert.equal((await call('init')).dataFolder, moved);
+  assert.deepEqual((await call('init')).device, device);
+  await app.close();
+  app = null;
+  await launch(standard);
+  assert.equal((await call('init')).folderLocation, null);
+  assert.equal(await readFolderLocation(root), null);
+  await app.close();
+  app = null;
+  await launch(standard, true);
+  assert.equal((await call('init')).dataFolder, standard);
   console.log(
-    'PASS folder migration, runtime paths, separate cleanup, unknown files, password save/reopen, move and cleanup',
+    'PASS migration, passwords, app icon after moving and after cleanup, standard folder with no location file',
   );
 } finally {
   if (app) await app.close().catch(() => {});

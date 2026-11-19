@@ -6,6 +6,7 @@ export type RuntimeProof = { id: string; controller: AbortController; done: Prom
 export type Context = {
   testRoot?: string;
   dataFolder?: string;
+  folderLocation?: { file: string; failed?: boolean };
   relocating?: boolean;
   releaseLegacy?: () => void;
   rendererFile: string;

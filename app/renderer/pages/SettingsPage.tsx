@@ -230,7 +230,16 @@ export function SettingsPage() {
           <div className="field">
             <strong>{t('folderTitle')}</strong>
             <code className="path">{init.dataFolder}</code>
-            <small>{t('folderSettingsHint')}</small>
+            <small>
+              {t('folderSettingsHint')}{' '}
+              {t(init.folderLocation?.failed ? 'folderLocationFailed' : 'folderOpenFromIcon')}
+            </small>
+            {init.folderLocation && (
+              <>
+                {!init.folderLocation.failed && <small>{t('folderLocationNote')}</small>}
+                <code className="path">{init.folderLocation.file}</code>
+              </>
+            )}
             <div className="actions">
               <button
                 disabled={busy}
