@@ -4,7 +4,13 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { exists, portableBasename, requireThat } from './util.mjs';
+import {
+  absoluteLocalPath,
+  exists,
+  ordinaryWindowsPath,
+  portableBasename,
+  requireThat,
+} from './util.mjs';
 export const TABLES = {
   state: ['threads', 'thread_dynamic_tools', 'thread_spawn_edges', 'thread_attachments'],
   history: [
@@ -277,10 +283,12 @@ export function projectFor(catalog, thread, cwd) {
   const all = catalog.projects ?? [],
     explicit = all.find((p) => p.id === thread?.project_id);
   if (explicit) return { nativeId: explicit.id, name: explicit.name, match: 'id' };
-  const normalize = (p) =>
-    String(p ?? '')
-      .replaceAll('\\', '/')
-      .replace(/\/$/, '');
+  const normalize = (value) => {
+    const p = ordinaryWindowsPath(String(value ?? ''));
+    if (absoluteLocalPath(p, path.win32))
+      return path.win32.normalize(p).replaceAll('\\', '/').toLowerCase().replace(/\/$/, '');
+    return p.replace(/\/$/, '');
+  };
   const dir = normalize(cwd);
   let candidates = all
     .map((p) => ({

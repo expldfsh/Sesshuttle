@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
 import { knownRuntimeVersion } from './codex.mjs';
-import { Fault, hash, requireThat } from './util.mjs';
+import { absoluteLocalPath, Fault, hash, requireThat } from './util.mjs';
 
 const exec = promisify(execFile);
 const rule = 2;
@@ -60,7 +60,7 @@ export async function resolveLauncher(binary) {
 // installations may keep the JS launcher across native package upgrades. Both are
 // followed to the file that actually runs; the configured path stays as the user set it.
 async function executable(binary) {
-  requireThat(typeof binary === 'string' && path.isAbsolute(binary), 'binary_required');
+  requireThat(absoluteLocalPath(binary), 'binary_required');
   let file = await fs.realpath(binary);
   if (process.platform === 'win32' && /^codex(?:\.cmd|\.ps1)?$/i.test(path.basename(file))) {
     const entry = path.join(

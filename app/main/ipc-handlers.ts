@@ -25,6 +25,7 @@ import { R2Store } from '../../core/storage.mjs';
 import { Vault } from '../../core/vault.mjs';
 import { newKey, parseKey } from '../../core/crypto.mjs';
 import {
+  absoluteLocalPath,
   Fault,
   requireThat,
   publicError,
@@ -95,7 +96,7 @@ async function folderStatus(ctx: Context, paths: unknown) {
   requireThat(Array.isArray(paths) && paths.length <= 200, 'invalid_selection');
   const out: Record<string, string> = {};
   for (const p of paths as unknown[]) {
-    if (typeof p !== 'string' || !path.isAbsolute(p)) continue;
+    if (typeof p !== 'string' || !absoluteLocalPath(p)) continue;
     if (ctx.testRoot && !p.startsWith(ctx.testRoot + path.sep)) {
       out[p] = 'unknown';
       continue;
@@ -259,21 +260,21 @@ async function saveConfig(ctx: Context, input: any) {
     nativeBindings: {},
   };
   for (const p of input.sourceHomes.filter((x: any) => x !== '')) {
-    requireThat(typeof p === 'string' && path.isAbsolute(p), 'invalid_path');
+    requireThat(typeof p === 'string' && absoluteLocalPath(p), 'invalid_path');
     cfg.sourceHomes.push(p);
   }
   for (const entry of ['desktop', 'cli', 'ide']) {
     const t = input.targets?.[entry] ?? {};
     for (const k of ['home', 'binary'])
       requireThat(
-        typeof (t[k] ?? '') === 'string' && (!t[k] || path.isAbsolute(t[k])),
+        typeof (t[k] ?? '') === 'string' && (!t[k] || absoluteLocalPath(t[k])),
         'invalid_path',
       );
     cfg.targets[entry] = { home: t.home ?? '', binary: t.binary ?? '' };
   }
   for (const [k, v] of Object.entries(input.bindings ?? {})) {
     requireThat(
-      /^[0-9a-f-]{36}$/i.test(k) && typeof v === 'string' && path.isAbsolute(v),
+      /^[0-9a-f-]{36}$/i.test(k) && typeof v === 'string' && absoluteLocalPath(v),
       'invalid_path',
     );
     cfg.bindings[k] = v;
@@ -286,7 +287,7 @@ async function saveConfig(ctx: Context, input: any) {
     cfg.nativeBindings[source] = {};
     for (const [home, projectId] of Object.entries(homes)) {
       requireThat(
-        path.isAbsolute(home) && typeof projectId === 'string' && projectId.length <= 256,
+        absoluteLocalPath(home) && typeof projectId === 'string' && projectId.length <= 256,
         'invalid_settings',
       );
       cfg.nativeBindings[source][home] = projectId;
@@ -467,7 +468,7 @@ export function createHandlers(ctx: Context): Handlers {
         typeof args.id === 'string' &&
           /^[a-f0-9-]{36}$/i.test(args.id) &&
           typeof args.binary === 'string' &&
-          path.isAbsolute(args.binary),
+          absoluteLocalPath(args.binary),
         'invalid_selection',
       );
       const controller = new AbortController();
@@ -548,7 +549,7 @@ export function createHandlers(ctx: Context): Handlers {
     pickBinary: async (args) => {
       const requested = args.defaultPath;
       requireThat(
-        requested === undefined || (typeof requested === 'string' && path.isAbsolute(requested)),
+        requested === undefined || (typeof requested === 'string' && absoluteLocalPath(requested)),
         'invalid_path',
       );
       const defaultPath =

@@ -73,12 +73,16 @@ export function portableBasename(value) {
   return (/^(?:[a-z]:[\\/]|\\\\)/i.test(value) ? path.win32 : path.posix).basename(value);
 }
 
+export function ordinaryWindowsPath(p) {
+  // Native programs can return the extended spelling of a drive or UNC path.
+  if (typeof p !== 'string') return p;
+  if (/^\\\\\?\\[a-z]:\\/i.test(p)) return p.slice(4);
+  if (/^\\\\\?\\UNC\\/i.test(p)) return '\\\\' + p.slice(8);
+  return p;
+}
+
 export async function canonical(p) {
-  if (process.platform === 'win32' && typeof p === 'string') {
-    // Native programs can report the extended spelling returned by GetFinalPathNameByHandle.
-    if (/^\\\\\?\\[a-z]:\\/i.test(p)) p = p.slice(4);
-    else if (/^\\\\\?\\UNC\\/i.test(p)) p = '\\\\' + p.slice(8);
-  }
+  if (process.platform === 'win32') p = ordinaryWindowsPath(p);
   requireThat(absoluteLocalPath(p), 'invalid_path');
   return fs.realpath(p);
 }
