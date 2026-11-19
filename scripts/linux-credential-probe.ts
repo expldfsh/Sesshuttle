@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { State } from '../core/state.mjs';
-import { credentialHealth, persistConnection, retrieveConnection } from '../app/main/credentials';
+import { linuxCredential, linuxKeyringHealth } from '../app/main/linux-keyring';
 const marker = '/run/sesshuttle-isolated-vm';
 assert.equal(process.platform, 'linux');
 assert.equal(fs.statSync(marker).uid, 0);
@@ -20,19 +20,19 @@ app.whenReady().then(async () => {
       key: 'fixture-recovery',
     };
     const mode = process.env.SESSHUTTLE_PROBE_MODE;
+    const reference = state.get('device').id;
     if (mode === 'cancel') {
-      await assert.rejects(retrieveConnection(state), { code: 'credential_cancelled' });
+      await assert.rejects(linuxCredential(reference), { code: 'credential_cancelled' });
     } else if (mode === 'save') {
       state.set('connection', { space: 'isolated-fixture' });
-      await persistConnection(state, value);
-    } else assert.deepEqual(await retrieveConnection(state), value);
-    const health = await credentialHealth();
+      await linuxCredential(reference, JSON.stringify(value));
+    } else assert.deepEqual(JSON.parse(await linuxCredential(reference)), value);
+    const health = await linuxKeyringHealth();
     console.log(
       JSON.stringify({
         result: 'PASS',
         mode: process.env.SESSHUTTLE_PROBE_MODE,
-        method: state.get('credentialMethod'),
-        backend: health.backend,
+        method: 'secret-service',
         service: health.service,
       }),
     );

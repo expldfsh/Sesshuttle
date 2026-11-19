@@ -10,7 +10,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { openSession } from './lib/ui-session.mjs';
-import { invoke, recordIpc } from './lib/test-app.mjs';
+import { invoke, recordIpc, chooseFixtureDirectory } from './lib/test-app.mjs';
 import { rawKeys } from './lib/raw-keys.mjs';
 
 const option = (name, fallback) =>
@@ -221,7 +221,10 @@ async function connected(language, size, tag) {
         if (step === 'import-3')
           await h.action(async () => {
             if (await historyOnly.count()) await historyOnly.first().click();
-            if (await create.count()) await create.first().click();
+            if (await create.count()) {
+              await chooseFixtureDirectory(session.app, session.root);
+              await create.first().click();
+            }
             await page.waitForTimeout(500);
           });
         if (await primary(page).isDisabled()) {

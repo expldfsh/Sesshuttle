@@ -22,7 +22,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
 import { openSession, setSize } from './lib/ui-session.mjs';
-import { invoke, launchApp } from './lib/test-app.mjs';
+import { invoke, launchApp, chooseFixtureDirectory } from './lib/test-app.mjs';
 import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-in.mjs';
 
 const option = (name, fallback) =>
@@ -58,7 +58,6 @@ const TEXT = {
   chooseProgram: /选择 Codex 程序…|Choose Codex runtime…/,
   startCheck: /开始快速验证|Start quick check/,
   retryCheck: /重新快速验证|Retry quick check/,
-  checkStorage: /检查凭据存储|Check credential storage/,
   discardRemoval: /放弃此删除任务|Give up this removal task/,
   notHere: /已不在本机|No longer on this computer/,
   nothingChanged: /没有改动任何内容|did not change anything/,
@@ -279,6 +278,7 @@ async function transferChecks(session) {
   await dialog(page).locator('button', { hasText: TEXT.createFolder }).first().waitFor();
   const historyOnly = dialog(page).locator('button', { hasText: TEXT.historyOnly });
   if (await historyOnly.count()) await historyOnly.first().click();
+  await chooseFixtureDirectory(app, session.root);
   await dialog(page).locator('button', { hasText: TEXT.createFolder }).first().click();
   await page.waitForFunction(
     () => !document.querySelector('dialog[open] .modal-actions button.primary[disabled]'),
@@ -462,6 +462,7 @@ async function binChecks(session) {
   });
   if (restored)
     await check('deleting a restored copy permanently removes it at once', async () => {
+      if (await panel(page).isVisible()) await page.keyboard.press('Escape');
       const before = await page.locator('[role=tabpanel] .backup-row').count();
       await localRow.locator('button', { hasText: TEXT.permanent }).click();
       await dialog(page).waitFor();
@@ -480,6 +481,7 @@ async function binChecks(session) {
   else skip('deleting a restored copy permanently removes it at once', 'restore not shown');
 
   // A cloud recycle bin entry, shown once, then restored.
+  if (await panel(page).isVisible()) await page.keyboard.press('Escape');
   await uploadById(page, list[1].id);
   await rows(page);
   await removeById(page, list[1].id, 'cloud');
@@ -498,6 +500,7 @@ async function binChecks(session) {
       await primary(page).click();
       await page.waitForFunction(() => !document.querySelector('dialog[open]'));
       await idle(page, 30000);
+      if (await panel(page).isVisible()) await page.keyboard.press('Escape');
       const settled = storage.requests.length;
       await page.waitForTimeout(1500);
       assert.equal(storage.requests.length, settled, 'no storage request after the restore');
@@ -776,7 +779,6 @@ async function sweepChecks(session) {
   });
   await settle(page);
 
-  if (process.platform !== 'darwin') return;
   await invoke(page, 'disconnect');
   const state = new State(path.join(root, 'app-data'));
   state.set('credentialError', 'credential_write_failed');
@@ -784,14 +786,11 @@ async function sweepChecks(session) {
   await page.reload();
   await page.waitForSelector('.shell');
   await nav(page, 'settings');
-  await page.waitForSelector('.storage-state');
-  await check('the credential check names only buttons on the screen', async () => {
-    await page.locator('.storage-state button', { hasText: TEXT.checkStorage }).click();
-    const details = page.locator('.storage-state .repair-details');
-    await details.waitFor({ timeout: 3000 });
-    const text = await details.innerText();
-    assert.doesNotMatch(text, /记住连接…|解锁并连接…|Remember connection…|Unlock and connect…/);
-    assert.match(text, /在这台电脑记住连接|Remember this connection on this computer/);
+  await check('a credential write error is visible beside the connection form', async () => {
+    const error = page.locator('.storage-state [role="alert"]');
+    await error.waitFor();
+    assert.doesNotMatch(await error.innerText(), /credential_write_failed/);
+    assert.ok((await error.innerText()).length > 10);
   });
 }
 

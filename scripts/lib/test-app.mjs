@@ -36,6 +36,8 @@ export async function startStorage(root) {
 // `executablePath` selects a packaged app; by default the development build runs.
 // `args` are extra Chromium switches, such as --force-device-scale-factor=2.
 export async function launchApp(root, { executablePath, env = {}, args = [] } = {}) {
+  if (!args.some((arg) => arg.startsWith('--user-data-dir=')))
+    args = [...args, '--user-data-dir=' + path.join(root, 'runtime', 'profile')];
   const app = await electron.launch({
     ...(executablePath ? { executablePath, args } : { args: [repo, ...args] }),
     cwd: repo,
@@ -66,3 +68,14 @@ export async function recordIpc(app) {
 
 export const invoke = (page, method, args = {}) =>
   page.evaluate(([m, a]) => window.sesshuttle.invoke(m, a), [method, args]);
+
+// Answer one native directory chooser with a location inside the synthetic fixture.
+export async function chooseFixtureDirectory(app, root) {
+  await app.evaluate(({ dialog }, folder) => {
+    const original = dialog.showOpenDialog;
+    dialog.showOpenDialog = async () => {
+      dialog.showOpenDialog = original;
+      return { canceled: false, filePaths: [folder] };
+    };
+  }, root);
+}
