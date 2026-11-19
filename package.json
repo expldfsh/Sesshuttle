@@ -42,7 +42,9 @@
       "!dist/macos-keychain.node",
       "!dist/**/*.map",
       "!dist/sesshuttle-start.cjs",
-      "!dist/macos-launcher"
+      "!dist/macos-launcher",
+      "!dist/Sesshuttle.exe",
+      "!dist/windows-build/**"
     ],
     "asar": true,
     "npmRebuild": false,
@@ -67,7 +69,9 @@
       "syncDesktopName": true
     },
     "win": {
-      "target": "zip"
+      "target": "zip",
+      "executableName": "Sesshuttle",
+      "signAndEditExecutable": false
     },
     "icon": "assets/icon.png",
     "artifactName": "sesshuttle-${version}-${os}-${arch}.${ext}",

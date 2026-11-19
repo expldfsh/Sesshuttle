@@ -1,6 +1,20 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-exports.default = async ({ appOutDir, electronPlatformName }) => {
+const { execFileSync } = require('node:child_process');
+exports.default = async ({ appOutDir, electronPlatformName, packager }) => {
+  if (electronPlatformName === 'win32') {
+    execFileSync(process.execPath, ['scripts/windows-launcher.mjs'], { stdio: 'inherit' });
+    await fs.rename(
+      path.join(appOutDir, packager.appInfo.productFilename + '.exe'),
+      path.join(appOutDir, 'sesshuttle-runtime.exe'),
+    );
+    await fs.copyFile('dist/Sesshuttle.exe', path.join(appOutDir, 'Sesshuttle.exe'));
+    await fs.copyFile(
+      'dist/sesshuttle-start.cjs',
+      path.join(appOutDir, 'resources/sesshuttle-start.cjs'),
+    );
+    return;
+  }
   if (!['darwin', 'linux'].includes(electronPlatformName)) return;
   const mac = electronPlatformName === 'darwin';
   const contents = path.join(appOutDir, 'sesshuttle.app', 'Contents');

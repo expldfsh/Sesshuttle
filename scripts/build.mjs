@@ -32,6 +32,7 @@ await build({
   external: ['electron'],
 });
 
+if (process.platform === 'win32') await import('./windows-launcher.mjs');
 if (process.platform === 'darwin') {
   execFileSync('xcrun', [
     'clang',

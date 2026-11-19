@@ -17,6 +17,7 @@ import {
 const testRoot = checkedTestRoot(process.env.SESSHUTTLE_TEST_ROOT);
 const home = testRoot || fs.realpathSync(os.homedir());
 const mac = process.platform === 'darwin';
+const windows = process.platform === 'win32';
 const lang = process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG;
 const preferred = mac
   ? spawnSync('/usr/bin/defaults', ['read', '-g', 'AppleLanguages'], {
@@ -32,12 +33,22 @@ const option = (key: string) => args.find((a) => a.startsWith(key + '='))?.slice
 const explicit = option('--sesshuttle-folder');
 const dev = process.env.SESSHUTTLE_DEV_ENTRY;
 const runtime = dev ? (require('electron') as string) : process.execPath;
-const wrapper = dev ? runtime : path.join(path.dirname(runtime), 'sesshuttle');
+const wrapper = windows
+  ? path.join(dev ? path.join(dev, 'dist') : path.dirname(runtime), 'Sesshuttle.exe')
+  : dev
+    ? runtime
+    : path.join(path.dirname(runtime), 'sesshuttle');
 function run(command: string, argv: string[]) {
   return spawnSync(command, argv, { encoding: 'utf8', maxBuffer: 65536 });
 }
 const kde = (process.env.XDG_CURRENT_DESKTOP ?? '').toLowerCase().includes('kde');
 function native(kind: 'choose' | 'confirm' | 'error', message: string): string | null {
+  if (windows) {
+    const r = run(wrapper, ['--folder-dialog', kind, message, home]);
+    if (r.status === 1) return null;
+    if (r.status !== 0) throw r.error || Error(message);
+    return kind === 'choose' ? r.stdout : 'ok';
+  }
   if (mac) {
     const body =
       kind === 'choose'
@@ -83,7 +94,7 @@ async function launch() {
   );
   const execute = (extra: string[]) => {
     const argv = [runtime, ...(dev ? [dev] : []), ...pass, ...extra];
-    if (process.execve) process.execve(runtime, argv, env as Record<string, string>);
+    if (!windows && process.execve) process.execve(runtime, argv, env as Record<string, string>);
     const r = spawnSync(runtime, argv.slice(1), { env, stdio: 'inherit' });
     process.exit(r.status ?? 1);
   };
@@ -136,7 +147,9 @@ async function launch() {
         return null;
       });
   const initial =
-    explicit || saved?.folder || (!invalidLocation && hasMarker(standard) ? standard : undefined);
+    (explicit && path.resolve(explicit)) ||
+    saved?.folder ||
+    (!invalidLocation && hasMarker(standard) ? standard : undefined);
   if (initial) {
     try {
       root = await ready(initial, saved?.id);
