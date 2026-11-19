@@ -1,6 +1,8 @@
 import { hasPendingImport } from './guards.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { digestFile, copyVerified } from './stream.mjs';
+import { ensureFreeSpace } from './guards.mjs';
 import { scan } from './codex.mjs';
 import { hash, id, inside, requireThat } from './util.mjs';
 import { checkScope } from './scan-scope.mjs';
@@ -116,7 +118,18 @@ export async function keepLocalCopy(engine, { logical, token, file, entry }) {
           path.relative(home, copy.file),
         );
         await fs.mkdir(path.dirname(dest), { recursive: true, mode: 0o700 });
-        await fs.rename(copy.file, dest);
+        try {
+          await fs.rename(copy.file, dest);
+        } catch (error) {
+          if (error.code !== 'EXDEV') throw error;
+          const snapshot = await digestFile(copy.file);
+          await ensureFreeSpace(path.dirname(dest), snapshot.bytes);
+          await copyVerified(copy.file, dest, snapshot.hash);
+          requireThat((await digestFile(dest)).hash === snapshot.hash, 'corrupt_backup');
+          await engine.importer.processGuard(home);
+          requireThat((await digestFile(copy.file)).hash === snapshot.hash, 'stale_plan');
+          await fs.unlink(copy.file);
+        }
       }
       const after = await scan([home]);
       checkScope(after, [logical]);

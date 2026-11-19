@@ -2,7 +2,6 @@
 // and the provider are private fixtures. No cloud store or device configuration is used.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import { setTimeout as pause } from 'node:timers/promises';
 import { NativeClient } from './native.mjs';
 import { runtimeInfo, rememberRuntime } from './runtime.mjs';
@@ -39,7 +38,10 @@ export async function verifyRuntime(
   };
   try {
     step('runtimeSample');
-    root = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'sesshuttle-runtime-'));
+    const temp = path.join(state.root, 'temp');
+    await fs.mkdir(temp, { recursive: true, mode: 0o700 });
+    requireThat((await fs.realpath(temp)) === temp, 'unsafe_path');
+    root = await fs.mkdtemp(path.join(temp, 'sesshuttle-runtime-'));
     service = await startFixtureProvider();
     // Whether a request after the import carried both turns: the history continued.
     const carried = () =>
