@@ -29,7 +29,17 @@ async function legacyRaw(state: any, migration: any, method: string): Promise<st
   const file = await inside(state.root, path.join(state.root, 'connection-secret.bin'));
   const buffer = await stableRead(file, 256 * 1024);
   if (process.platform === 'darwin') await macKeychain(migration.device, 'unlock');
-  return (await safeStorage.decryptStringAsync(buffer)).result;
+  try {
+    const { result } = await safeStorage.decryptStringAsync(buffer);
+    requireThat(result, 'credential_legacy_unreadable');
+    return result;
+  } catch (error: any) {
+    throw new Fault(
+      error.message?.includes('temporarily unavailable')
+        ? 'credential_service_unavailable'
+        : 'credential_legacy_unreadable',
+    );
+  }
 }
 
 export async function protectMigratedCredentials(state: any, password: string, testRoot?: string) {

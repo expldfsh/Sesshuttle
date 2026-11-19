@@ -16,7 +16,8 @@ const marker = '/run/sesshuttle-isolated-vm';
 assert.equal(process.platform, 'linux');
 assert.equal((await fs.stat(marker)).uid, 0);
 assert.equal((await fs.readFile(marker, 'utf8')).trim(), 'loopback-only-fixture');
-const [binary, previousBinary] = process.argv.slice(2);
+const [binary, previousBinary, sampleMode] = process.argv.slice(2);
+const unreadable = sampleMode === '--unreadable';
 const root = await fs.mkdtemp('/tmp/sesshuttle-native-');
 const parent = path.join(root, 'chosen');
 await fs.mkdir(parent);
@@ -75,7 +76,27 @@ try {
   assert.equal((await exited)[0], 0);
   assert.equal(await fs.stat(old).catch(() => null), null);
 
+  // Establish the same keyring contents for the old reader and the new reader.
+  const secretItem = JSON.stringify(
+    previousBinary ? { ...record, key: 'earlier-fixture' } : record,
+  );
+  assert.equal(item(reference, secretItem).status, 0);
+  assert.equal(item(unrelated, 'keep-me').status, 0);
+
   if (previousBinary) {
+    // Model an existing installation. The OS key provider has already been initialized
+    // in an earlier process before the old app stores the connection.
+    const warm = await _electron.launch({ executablePath: previousBinary, env });
+    try {
+      await (await warm.firstWindow()).waitForSelector('.shell');
+      await warm.evaluate(async ({ safeStorage }) => {
+        await safeStorage.isAsyncEncryptionAvailable();
+        safeStorage.getSelectedStorageBackend();
+        await safeStorage.encryptStringAsync('throwaway fixture');
+      });
+    } finally {
+      await warm.close();
+    }
     const previous = await _electron.launch({ executablePath: previousBinary, env });
     try {
       await (await previous.firstWindow()).waitForSelector('.shell');
@@ -93,17 +114,36 @@ try {
     } finally {
       await previous.close();
     }
+    const file = path.join(old, 'connection-secret.bin');
+    let ciphertext = await fs.readFile(file);
+    if (unreadable) {
+      ciphertext = ciphertext.subarray(0, 7);
+      await fs.writeFile(file, ciphertext);
+    }
+    const beforeUpgrade = await _electron.launch({ executablePath: previousBinary, env });
+    try {
+      await (await beforeUpgrade.firstWindow()).waitForSelector('.shell');
+      const raw = await beforeUpgrade.evaluate(async ({ safeStorage }, value) => {
+        try {
+          return (await safeStorage.decryptStringAsync(Buffer.from(value, 'base64'))).result;
+        } catch {
+          return null;
+        }
+      }, ciphertext.toString('base64'));
+      assert.equal(
+        raw,
+        unreadable ? null : JSON.stringify(record),
+        'the source version confirms whether this fixture is recoverable',
+      );
+    } finally {
+      await beforeUpgrade.close();
+    }
   }
   const state = new State(old);
   state.set('credentialMethod', previousBinary ? 'system' : 'secret-service');
   state.set('credentialReference', reference);
   state.set('connection', connection);
   state.close();
-  const secretItem = JSON.stringify(
-    previousBinary ? { ...record, key: 'earlier-fixture' } : record,
-  );
-  assert.equal(item(reference, secretItem).status, 0);
-  assert.equal(item(unrelated, 'keep-me').status, 0);
   const launch = _electron.launch({ executablePath: binary, env, timeout: 60000 });
   launch.catch(() => {});
   await focus('Choose where to save');
@@ -127,29 +167,45 @@ try {
   const protectedResult = await invoke(page, 'protectMigration', {
     password: 'fixture-passphrase',
   });
-  assert.ok(protectedResult.ok, JSON.stringify(protectedResult.error));
-  assert.equal(item(reference).stdout, secretItem);
-  await app.evaluate(({ dialog }) => {
-    dialog.showMessageBox = async () => ({ response: 1 });
-  });
-  const cleaned = await invoke(page, 'cleanupDataFolder');
-  assert.ok(cleaned.ok, JSON.stringify(cleaned.error));
-  assert.equal(item(reference).status, 1);
-  assert.equal(item(unrelated).stdout, 'keep-me');
-  await app.close();
-  app = null;
-  const reopened = new State(path.join(selected, 'data'));
-  assert.deepEqual(await retrieveConnection(reopened, 'fixture-passphrase'), {
-    credentials: record.credentials,
-    key: record.key,
-  });
-  reopened.close();
-  assert.deepEqual(await fs.readdir(old).catch(() => []), []);
-  assert.equal(await fs.stat(old).catch(() => null), null);
-  assert.equal(await fs.stat(path.join(env.XDG_CACHE_HOME, 'sesshuttle')).catch(() => null), null);
-  console.log(
-    'PASS native Linux picker cancel/create, verified Secret Service migration, scoped credential deletion and profile cleanup',
-  );
+  if (unreadable) {
+    assert.equal(protectedResult.error?.code, 'credential_legacy_unreadable');
+    assert.equal((await invoke(page, 'cleanupDataFolder')).error?.code, 'migration_credentials');
+    await fs.access(path.join(old, 'sesshuttle.sqlite'));
+    await fs.access(path.join(old, 'connection-secret.bin'));
+    assert.equal(item(reference).stdout, secretItem);
+    console.log(
+      'PASS unreadable credential confirmed by 0.7.3, originals preserved and cleanup blocked',
+    );
+  } else {
+    assert.ok(protectedResult.ok, JSON.stringify(protectedResult.error));
+    assert.equal(item(reference).stdout, secretItem);
+    await app.evaluate(({ dialog }) => {
+      dialog.showMessageBox = async () => ({ response: 1 });
+    });
+    const cleaned = await invoke(page, 'cleanupDataFolder');
+    assert.ok(cleaned.ok, JSON.stringify(cleaned.error));
+    assert.equal(item(reference).status, 1);
+    assert.equal(item(unrelated).stdout, 'keep-me');
+    await app.close();
+    app = null;
+    const reopened = new State(path.join(selected, 'data'));
+    assert.deepEqual(await retrieveConnection(reopened, 'fixture-passphrase'), {
+      credentials: record.credentials,
+      key: record.key,
+    });
+    reopened.close();
+    assert.deepEqual(await fs.readdir(old).catch(() => []), []);
+    assert.equal(await fs.stat(old).catch(() => null), null);
+    assert.equal(
+      await fs.stat(path.join(env.XDG_CACHE_HOME, 'sesshuttle')).catch(() => null),
+      null,
+    );
+    console.log(
+      previousBinary
+        ? 'PASS verified 0.7.3 system ciphertext migration, scoped credential deletion and profile cleanup'
+        : 'PASS native Linux picker cancel/create, verified Secret Service migration and scoped cleanup',
+    );
+  }
 } finally {
   if (app) await app.close().catch(() => {});
   await fs.rm(root, { recursive: true, force: true });

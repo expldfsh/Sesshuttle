@@ -176,6 +176,13 @@ test('credentials survive a cancelled prompt, verified conversion and interrupte
   });
   assert.equal(state.get('folderMigration').credentialsReady, false);
   await assert.rejects(
+    protectLegacySecrets(state, 'fixture-password', () => 'unreadable'),
+    {
+      code: 'credential_legacy_unreadable',
+    },
+  );
+  assert.ok(await fs.stat(path.join(source, 'sesshuttle.sqlite')));
+  await assert.rejects(
     protectLegacySecrets(state, 'fixture-password', () =>
       JSON.stringify({ ...value, connection: { space: 'different' } }),
     ),

@@ -133,6 +133,10 @@ export const messages = {
     '文件自迁移后已变动。清理已停止，请核对两处数据。',
     'Files changed after migration. Cleanup stopped. Review both locations.',
   ],
+  credential_legacy_unreadable: [
+    '原系统密码库无法解开旧凭据，原件仍在。请解锁原账户的密码库后重试。也可用连接文件和 R2 Secret Access Key 重新连接。',
+    'The original password store could not decrypt these credentials. The originals are still in place. Unlock the original account’s password store and retry, or reconnect with your connection file and R2 Secret Access Key.',
+  ],
   credential_changed: [
     '旧凭据已发生变化，清理已停止。请核对原连接。',
     'The previous credentials changed. Cleanup stopped. Check the original connection.',

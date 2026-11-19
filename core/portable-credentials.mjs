@@ -127,7 +127,14 @@ export async function protectLegacySecrets(state, password, read) {
     fingerprints[method] = hash(records[method]);
   }
   const method = m.method ?? (m.methods.includes('system') ? 'system' : null);
-  const active = method && records[method] ? JSON.parse(records[method]) : null;
+  let active = null;
+  if (method && records[method]) {
+    try {
+      active = JSON.parse(records[method]);
+    } catch {
+      throw new Fault('credential_legacy_unreadable');
+    }
+  }
   if (m.connection && ['mac-keychain', 'secret-service', 'system'].includes(method))
     requireThat(matches(active, m.connection), 'credential_changed');
   const archive = await verifiedEnvelope(records, password);
