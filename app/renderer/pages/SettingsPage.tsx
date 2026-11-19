@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PlaceError, useApp } from '../App';
 import { useI18n } from '../i18n/I18n';
 import { call } from '../hooks/useApi';
-import { StorageStatus } from '../StorageStatus';
+import { StorageStatus, FolderPassword } from '../StorageStatus';
 import { ConnectionForm, emptyConnection } from '../ConnectionForm';
 import { StatusBadge } from '../components/StatusBadge';
 import { UnsavedBar } from '../components/UnsavedBar';
@@ -53,29 +53,32 @@ export function SettingsPage() {
     app.setNeedsRefresh(true);
     app.setData({ rows: [], errors: [] });
   };
-  async function restoreSaved() {
-    app.setPhase('waitingAuthorization');
-    // The saved connection state is read again even when authorization fails.
-    try {
-      await call('restoreConnection');
-    } catch (e) {
-      await app.reloadInit().catch(() => {});
-      throw e;
+  const [prompt, setPrompt] = useState<'save' | 'unlock' | 'migrate' | null>(null);
+  const [remaining, setRemaining] = useState('');
+  function closePassword() {
+    setPrompt(null);
+    if (prompt === 'save' && app.deferred) {
+      app.setDeferred(null);
+      app.setPage('conversations');
     }
-    const next = await app.reloadInit();
-    if (!next.connected) {
-      app.notify({
-        error: true,
-        code: next.credentialError ?? 'credentials_required',
-        text: t(next.credentialError ?? 'credentials_required'),
-      });
-      return;
-    }
-    resetList();
-    app.notify({ text: t('manualRefreshHint') });
+  }
+  async function passwordAction(password: string) {
+    const method =
+      prompt === 'save'
+        ? 'retryCredentialSave'
+        : prompt === 'unlock'
+          ? 'restoreConnection'
+          : 'protectMigration';
+    const result = await call(method, { password });
+    await app.reloadInit();
+    if (result?.warning) throw Object.assign(new Error(result.warning), { code: result.warning });
+    if (prompt === 'unlock') resetList();
+    closePassword();
+    app.notify({ text: t(prompt === 'unlock' ? 'spaceJoined' : 'saved') });
   }
   return (
     <div className="settings">
+      {prompt && <FolderPassword mode={prompt} close={closePassword} submit={passwordAction} />}
       <section className="card" id="storage" aria-labelledby="storage-title">
         <div className="card-title">
           <h2 id="storage-title">{t('storage')}</h2>
@@ -84,11 +87,10 @@ export function SettingsPage() {
         <StorageStatus
           init={init}
           t={t}
-          call={call}
-          reload={app.reloadInit}
           viewCloud={app.viewCloud}
           busy={busy}
-          restore={() => work(restoreSaved, 'waitingAuthorization', 'storage')}
+          restore={() => setPrompt('unlock')}
+          remember={() => setPrompt('save')}
         />
         {!init.connected && (
           <ConnectionForm
@@ -124,17 +126,10 @@ export function SettingsPage() {
                   await call('connect', connection);
                   setConnection({ ...emptyConnection });
                   await app.reloadInit();
-                  if (connection.remember) {
-                    app.setPhase('waitingAuthorization');
-                    try {
-                      await call('retryCredentialSave');
-                    } finally {
-                      await app.reloadInit();
-                    }
-                  }
+                  if (connection.remember) setPrompt('save');
                   resetList();
                   app.notify({ text: t('spaceJoined') + ' ' + t('manualRefreshHint') });
-                  if (app.deferred) {
+                  if (app.deferred && !connection.remember) {
                     app.setDeferred(null);
                     app.setPage('conversations');
                   }
@@ -229,8 +224,63 @@ export function SettingsPage() {
         )}
         <PlaceError place="storage" />
       </section>
-      <section className="card" aria-labelledby="local-title">
+      <section className="card" id="data-folder" aria-labelledby="local-title">
         <h2 id="local-title">{t('localSettings')}</h2>
+        {init.dataFolder && (
+          <div className="field">
+            <strong>{t('folderTitle')}</strong>
+            <code className="path">{init.dataFolder}</code>
+            <small>{t('folderSettingsHint')}</small>
+            <div className="actions">
+              <button
+                disabled={busy}
+                onClick={() => work(() => call('openDataFolder'), 'working', 'settings')}
+              >
+                {t('folderOpen')}
+              </button>
+              {!init.migration && (
+                <button
+                  disabled={busy}
+                  onClick={() => work(() => call('moveDataFolder'), 'working', 'settings')}
+                >
+                  {t('folderMove')}
+                </button>
+              )}
+            </div>
+            {init.migration && (
+              <div className="credential-note">
+                <p>{t(init.migration.credentialsReady ? 'folderVerified' : 'folderProtectHint')}</p>
+                <code className="path">{init.migration.source}</code>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    init.migration.credentialsReady
+                      ? work(
+                          async () => {
+                            const result = await call('cleanupDataFolder');
+                            if (result) {
+                              setRemaining(result.remaining || '');
+                              await app.reloadInit();
+                              app.notify({ text: t('folderCleaned') });
+                            }
+                          },
+                          'working',
+                          'settings',
+                        )
+                      : setPrompt('migrate')
+                  }
+                >
+                  {t(init.migration.credentialsReady ? 'folderReviewCleanup' : 'folderProtect')}
+                </button>
+              </div>
+            )}
+            {remaining && (
+              <small>
+                {t('folderRemaining')} {remaining}
+              </small>
+            )}
+          </div>
+        )}
         <label className="field">
           <span>{t('deviceName')}</span>
           <input

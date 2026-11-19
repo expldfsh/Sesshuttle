@@ -13,7 +13,7 @@ export const emptyConnection = {
   accessKeyId: '',
   secretAccessKey: '',
   recoveryToken: '',
-  remember: true,
+  remember: false,
 };
 
 // Creating a space or joining one by connection file comes first; typing every

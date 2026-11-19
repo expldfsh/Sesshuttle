@@ -771,9 +771,10 @@ function ProjectChoice({ row: r, homeGroups, targets, draft, databases, setDraft
         </button>
         <button
           onClick={() =>
-            run('chooseFolder', async () =>
-              setBinding(await call('createWorkspace', { projectId: r.projectId })),
-            )
+            run('chooseFolder', async () => {
+              const dir = await call('createWorkspace', { projectId: r.projectId });
+              if (dir) setBinding(dir);
+            })
           }
         >
           {t('createWorkingFolder')}

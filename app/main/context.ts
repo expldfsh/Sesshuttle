@@ -5,6 +5,9 @@ export type RuntimeProof = { id: string; controller: AbortController; done: Prom
 // Process-wide state shared by startup, the IPC handlers and the window.
 export type Context = {
   testRoot?: string;
+  dataFolder?: string;
+  relocating?: boolean;
+  releaseLegacy?: () => void;
   rendererFile: string;
   state: any;
   engine: any;

@@ -1,6 +1,6 @@
 {
   "name": "sesshuttle",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "private": true,
   "description": "Encrypted, user-owned Codex conversation sync",
   "author": {
@@ -12,7 +12,7 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "vite build && node scripts/build.mjs",
-    "start": "electron .",
+    "start": "node scripts/start.mjs",
     "test": "node --test tests/core/*.test.mjs",
     "check": "node node_modules/typescript-native/bin/tsc --noEmit && node scripts/check-locales.mjs",
     "format": "prettier --write app core scripts tests eslint.config.mjs vite.config.ts",
@@ -39,7 +39,9 @@
       "assets/font-licenses/**/*",
       "assets/fonts.json",
       "!dist/macos-keychain.node",
-      "!dist/**/*.map"
+      "!dist/**/*.map",
+      "!dist/sesshuttle-start.cjs",
+      "!dist/macos-launcher"
     ],
     "asar": true,
     "npmRebuild": false,
@@ -71,7 +73,22 @@
     "electronLanguages": [
       "en-US",
       "zh-CN"
-    ]
+    ],
+    "afterPack": "scripts/package-launcher.cjs",
+    "deb": {
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0",
+        "zenity | kdialog"
+      ]
+    }
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1161.0",

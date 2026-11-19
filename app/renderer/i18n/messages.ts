@@ -5,6 +5,139 @@ export type Plural = { one: string; other: string };
 export type Message = readonly [string, string | Plural];
 
 export const messages = {
+  folderTitle: ['Sesshuttle 数据文件夹', 'Sesshuttle data folder'],
+  folderOpen: ['打开数据文件夹', 'Open data folder'],
+  folderSettingsHint: [
+    '设置、备份和临时文件保存在这里。下次可用这个文件夹里的 Open Sesshuttle 启动。',
+    'Settings, backups and temporary files are kept here. Use Open Sesshuttle in this folder next time.',
+  ],
+  folderMove: ['迁移数据文件夹…', 'Move data folder…'],
+  folderCopyRestart: ['复制并重新打开', 'Copy and reopen'],
+  folderChooseParent: [
+    '选择保存 Sesshuttle Data 的位置，或打开已有数据文件夹',
+    'Choose where to save Sesshuttle Data, or open an existing data folder',
+  ],
+  folderCreateAt: [
+    '将在以下位置创建专用数据文件夹，保存设置、备份和临时文件。',
+    'Create a dedicated folder for settings, backups and temporary files at this location?',
+  ],
+  folderUse: ['使用此位置', 'Use this location'],
+  folderChooseAgain: [
+    '此位置无法创建专用文件夹。请选择另一个可写位置，或打开已有的 Sesshuttle 数据文件夹。',
+    'A dedicated folder could not be created here. Choose another writable location or select an existing Sesshuttle data folder.',
+  ],
+  folderRelocate: [
+    '数据文件夹不可用。请连接原磁盘，或从应用图标重新选择已有数据文件夹。',
+    'The data folder is unavailable. Connect its drive or open the application to choose the existing folder.',
+  ],
+  folderLinuxPicker: [
+    '请安装 zenity 或 kdialog 后重新打开 Sesshuttle，以选择数据文件夹。',
+    'Install zenity or kdialog and reopen Sesshuttle to choose a data folder.',
+  ],
+  folderOldFound: [
+    '发现旧版 Sesshuttle 数据。要复制到新位置吗？',
+    'Copy the previous Sesshuttle data to this folder?',
+  ],
+  folderCopyOld: ['迁移旧版数据', 'Copy previous data'],
+  folderStartFresh: ['使用空白数据文件夹', 'Start with an empty folder'],
+  folderMigrationHint: [
+    '将核对数据库、备份和回收站。成功后，前往设置检查新位置并确认清理旧数据。',
+    'The database, backups and trash will be verified. After the copy, open Settings to review the new location and confirm cleanup.',
+  ],
+  folderCopied: [
+    '数据已复制到新位置，旧位置等待你核对。',
+    'Your data was copied. The previous location is ready for review.',
+  ],
+  folderReview: ['查看迁移', 'Review migration'],
+  folderVerified: [
+    '数据已复制并校验。确认新位置的内容后，可查看旧位置的清理清单。',
+    'Your data was copied and verified. Check it in the new folder, then review the old files for cleanup.',
+  ],
+  folderProtect: ['迁移旧版连接凭据…', 'Migrate saved credentials…'],
+  folderProtectHint: [
+    '数据已复制。设置一个本地密码，授权读取旧凭据并加密保存到新文件夹。验证成功后即可查看清理清单。',
+    'Data has been copied. Set a local password and authorize reading your previous credentials. They will be encrypted in the new folder and verified before cleanup.',
+  ],
+  folderReviewCleanup: ['查看旧位置清理清单…', 'Review old files…'],
+  folderCleanup: ['清理列出的旧数据', 'Remove listed old data'],
+  folderCleanupHint: [
+    '确认后将删除上方已核对的旧数据。你的新数据文件夹在下方。',
+    'Confirm to remove the verified old data listed above. Your new data folder is shown below.',
+  ],
+  folderCleanupKey: [
+    '以及已核对属于这次安装的旧系统凭据条目。',
+    'Includes the verified system credential item belonging to this installation.',
+  ],
+  folderCleaned: ['已清理确认的旧数据。', 'The approved old data was removed.'],
+  folderRemaining: ['以下位置还有其他文件，可自行查看：', 'Other files remain in this location:'],
+  folderPassword: ['本地解锁密码', 'Local unlock password'],
+  folderPasswordRepeat: ['再次输入密码', 'Repeat password'],
+  folderPasswordHint: [
+    '这个密码用于加密数据文件夹中的连接凭据。下次打开时输入同一密码解锁。',
+    'This password encrypts the connection credentials in your data folder. Enter it again to unlock the connection next time.',
+  ],
+  folderUnlockHint: [
+    '输入保存连接时设置的本地密码。',
+    'Enter the local password used when saving this connection.',
+  ],
+  folderPasswordMismatch: [
+    '请填写密码，并确认两次输入相同。',
+    'Enter your password and confirm both entries match.',
+  ],
+  folder_password_wrong: [
+    '解锁失败。请核对本地密码和数据文件夹后再次解锁。',
+    'Could not unlock these credentials. Check the password and data folder and try again.',
+  ],
+  folder_password_required: ['请输入本地解锁密码。', 'Enter the local unlock password.'],
+  folder_invalid: [
+    '无法识别数据文件夹。请从应用图标重新选择完整的原文件夹。',
+    'This data folder could not be opened. Reopen the app and select the complete original folder.',
+  ],
+  folder_move_unfinished: [
+    '这里有一份尚未完成的迁移。请打开原数据文件夹，在设置中重新选择这个目标位置。',
+    'This move was interrupted. Open the original data folder and select this destination again in Settings.',
+  ],
+  folder_relocated: [
+    '此数据文件夹已迁移。请使用新位置内的启动入口。',
+    'This data folder has moved. Use the launcher in the new location.',
+  ],
+  folder_not_empty: [
+    '目标已包含文件。请选择其他位置，或打开已有数据文件夹。',
+    'This destination already contains files. Choose another location or open the existing data folder.',
+  ],
+  folder_overlap: [
+    '数据文件夹与原位置或工作目录重叠。请选择独立位置。',
+    'The data and working folders overlap. Choose a separate location.',
+  ],
+  folder_another_instance: [
+    '另一份 Sesshuttle 正在使用数据文件夹。请先退出该应用，再打开这个文件夹。',
+    'Another copy of Sesshuttle is running. Quit it before opening this data folder.',
+  ],
+  folder_in_use: [
+    '旧位置正在使用。请退出使用它的 Sesshuttle，再继续迁移或清理。',
+    'The old folder is in use. Quit the copy of Sesshuttle using it, then continue.',
+  ],
+  migration_invalid: [
+    '迁移记录与磁盘位置不符。请核对原文件夹和目标文件夹。',
+    'The migration record and folder locations differ. Check the original and destination folders.',
+  ],
+  migration_credentials: [
+    '请先迁移并验证旧版连接凭据，然后再清理旧位置。',
+    'Migrate and verify the previous credentials before removing the old files.',
+  ],
+  migration_pending: [
+    '上一次迁移仍待处理。请先在设置中核对旧位置。',
+    'A previous migration needs attention. Review the old location in Settings first.',
+  ],
+  migration_changed: [
+    '文件自迁移后已变动。清理已停止，请核对两处数据。',
+    'Files changed after migration. Cleanup stopped. Review both locations.',
+  ],
+  credential_changed: [
+    '旧凭据已发生变化，清理已停止。请核对原连接。',
+    'The previous credentials changed. Cleanup stopped. Check the original connection.',
+  ],
+  workspaceParent: ['选择新项目文件夹的上级位置', 'Choose where to create the project folder'],
   // Shell, navigation and common words
   applying: ['正在保存配置…', 'Saving settings…'],
   browse: ['选择', 'Choose'],
@@ -688,22 +821,6 @@ export const messages = {
   ],
   // Storage connection and credentials
   accessKey: ['Access Key ID', 'Access Key ID'],
-  afterServiceSetupLocked: [
-    '设置好后点{@checkStorage}，再点{@authorizeAndConnect}。',
-    'After setup, choose {@checkStorage}, then {@authorizeAndConnect}.',
-  ],
-  afterServiceSetupForm: [
-    '设置好后点{@checkStorage}，再在下方重新连接并勾选{@rememberDevice}。',
-    'After setup, choose {@checkStorage}, then reconnect below with {@rememberDevice} selected.',
-  ],
-  afterServiceSetup: [
-    '设置好后点{@checkStorage}，再点{@rememberAndAuthorize}。本次已连接的空间可继续使用。',
-    'After setup, choose {@checkStorage}, then {@rememberAndAuthorize}. A space already connected in this session stays usable.',
-  ],
-  archExample: [
-    'Arch 示例（本机尚未安装密码库时）',
-    'Arch example if no password store is installed',
-  ],
   archive: ['已归档', 'Archived'],
   authorizeAndConnect: ['解锁并连接…', 'Unlock and connect…'],
   bucket: ['Bucket 名称', 'Bucket name'],
@@ -713,7 +830,6 @@ export const messages = {
   ],
   changeConnectionMethod: ['换一种方式', 'Choose another way'],
   checkingStorage: ['正在检查凭据存储…', 'Checking credential storage…'],
-  checkStorage: ['检查凭据存储', 'Check credential storage'],
   connectCreate: ['连接并创建空间', 'Connect & create space'],
   connected: ['已连接', 'Connected'],
   connectHint: [
@@ -731,19 +847,22 @@ export const messages = {
     'Disconnected. Reconnect using your connection file.',
   ],
   credential_save_pending: [
-    '同步空间已连接。请在系统密码库的授权窗口中完成保存。',
-    'Your sync space is connected. Complete the system password-store prompt to remember this connection.',
+    '同步空间已连接。可在连接设置中设置本地密码并保存。',
+    'Your sync space is connected. Set a local password in connection settings to remember it.',
   ],
   credential_session_only: [
-    '你选择了仅本次使用。退出后需重新填写连接凭据。',
-    'You chose to use this connection for this session. Enter credentials again after quitting.',
+    '本次连接仅保留在内存。退出前请妥善保存连接文件和 R2 Secret Access Key。',
+    'This connection is held in memory. Before quitting, keep your connection file and R2 Secret Access Key in a safe place.',
   ],
   credentialsRemembered: [
-    '连接已安全保存在这台电脑，下次启动会尝试自动连接。',
-    'Connection saved securely on this computer. Sesshuttle will reconnect on startup.',
+    '连接凭据已加密保存在数据文件夹中。',
+    'Credentials are encrypted in your data folder.',
   ],
   disconnect: ['断开连接', 'Disconnect'],
-  disconnectHint: ['仅断开连接，本机和云端历史均保留。', 'Local and cloud history will be kept.'],
+  disconnectHint: [
+    '断开时移除当前保存的连接。',
+    'Disconnecting forgets the currently saved connection.',
+  ],
   endpoint: ['R2 S3 地址', 'R2 S3 endpoint'],
   existingSpace: [
     '已有同步空间：导入连接文件',
@@ -773,15 +892,11 @@ export const messages = {
     '旧文件未包含 Access Key ID。可在已连接的电脑上用新版重新导出，或在下方填写 ID。',
     'This older file has no Access Key ID. Export it again with the new version on the connected computer, or enter the ID below.',
   ],
-  linuxSetupHelp: [
-    '如何在当前 Linux 会话启用密码库',
-    'Enable a password store for this Linux session',
-  ],
   manageConnection: ['管理连接', 'Manage connection'],
   manualConnection: ['改为手动输入连接信息', 'Enter connection details manually'],
   nextExportHint: [
-    '其他电脑需要这个文件才能加入同步空间，请保存在安全的位置。',
-    'Your other computers need this file to join the sync space. Keep it somewhere safe.',
+    '请在退出前导出连接文件，其中包含恢复此同步空间所需的密钥。',
+    'Export the connection file before quitting. It contains the key needed to recover this space.',
   ],
   nextExportTitle: ['下一步：导出连接文件', 'Next: export the connection file'],
   onlyThisSession: [
@@ -797,54 +912,16 @@ export const messages = {
   recoveryKey: ['空间密钥', 'Space key'],
   recoverySaved: ['连接文件已保存，请妥善保管。', 'Connection file saved. Keep it somewhere safe.'],
   rememberAndAuthorize: ['记住连接…', 'Remember connection…'],
-  rememberDevice: ['在这台电脑记住连接', 'Remember this connection on this computer'],
-  savedConnectionLocked: ['已保存的连接尚未恢复。', 'The saved connection has not been restored.'],
+  rememberDevice: ['用本地密码记住连接', 'Remember with a local password'],
   secretKey: ['Secret Access Key', 'Secret Access Key'],
-  serviceSetup: [
-    '请在当前图形会话中启用支持 Secret Service 的密码库，例如 GNOME Keyring、KWallet 或已启用此功能的 KeePassXC。已有密码库时优先使用它。',
-    'Enable a Secret Service provider for this graphical login, such as GNOME Keyring, KWallet, or KeePassXC with Secret Service enabled. Prefer your existing provider.',
-  ],
   signInAgain: ['重新填写凭据以恢复连接', 'Enter credentials to reconnect'],
   space: ['同步空间 ID', 'Sync space ID'],
   spaceJoined: ['已加入同步空间', 'Connected to your sync space'],
   stillNeeded: ['连接还需要填写', 'Still needed to connect'],
   storage: ['自有云端存储', 'Your cloud storage'],
-  storageCheckResult: ['凭据存储检查结果', 'Credential storage result'],
   systemDetail: ['系统返回', 'System response'],
-  systemLocked: [
-    '系统密码库已锁定。使用上方按钮可请求系统打开解锁窗口。',
-    'The password store is locked. Use the authorization button above to request the system dialog.',
-  ],
-  systemReachable: [
-    '系统密码库可访问。使用上方按钮重试。',
-    'The system password store is reachable. Use the button above to retry.',
-  ],
-  systemStoreLockedHint: [
-    '点{@authorizeAndConnect}，按 macOS 系统提示操作。',
-    'Choose {@authorizeAndConnect} and follow the macOS dialog.',
-  ],
-  systemStoreFormHint: [
-    '在下方重新连接并勾选{@rememberDevice}，再按 macOS 系统提示操作。',
-    'Reconnect below with {@rememberDevice} selected, then follow the macOS dialog.',
-  ],
-  systemLockedForm: [
-    '系统密码库已锁定。请先在系统中解锁，再在下方重新连接并勾选{@rememberDevice}。',
-    'The password store is locked. Unlock it in the system, then reconnect below with {@rememberDevice} selected.',
-  ],
-  systemReachableForm: [
-    '系统密码库可访问。请在下方重新连接并勾选{@rememberDevice}。',
-    'The system password store is reachable. Reconnect below with {@rememberDevice} selected.',
-  ],
-  systemStoreHint: [
-    '点{@rememberAndAuthorize}，按 macOS 系统提示操作。',
-    'Choose {@rememberAndAuthorize} and follow the macOS dialog.',
-  ],
   test: ['测试连接', 'Test connection'],
   viewCloud: ['查看云端对话', 'View cloud chats'],
-  waitingAuthorization: [
-    '正在访问系统密码库。若系统弹出授权窗口，请在那里确认或取消。',
-    'Accessing the system password store. If a system dialog opens, allow or cancel there.',
-  ],
   // Removal and recycle bins
   allCopiesRemoval: [
     '以下文件共用一个对话 ID。本次删除范围包含列出的全部本机历史副本。要保留其中一份，请取消并打开{@inspectCopies}。',
@@ -1346,8 +1423,8 @@ export const messages = {
     'The password store responded but could not complete the request. Retry authorization or connect for this session.',
   ],
   credential_restore_failed: [
-    '上次保存的凭据无法读取。解锁系统密钥环后重开应用，或使用连接文件重新连接。',
-    'Saved credentials could not be read. Unlock the keyring and reopen the app, or reconnect using your connection file.',
+    '无法读取已保存的凭据。请核对所选数据文件夹，或用连接文件和 R2 Secret Access Key 重新连接。',
+    'Could not read the saved credentials. Check the selected data folder or reconnect with your connection file and R2 Secret Access Key.',
   ],
   credential_service_timeout: [
     '系统密码库没有响应。请重新检查服务，再试一次。',
@@ -1605,8 +1682,8 @@ export const messages = {
     'The test process stopped early, so there is no result yet. Confirm that this program runs normally, then run the quick check again.',
   ],
   runtime_temp_denied: [
-    '系统不允许创建临时文件或本机测试连接，快速验证没有完成。请允许写入系统临时目录和回环连接（127.0.0.1），再重新快速验证。',
-    'The system did not allow temporary files or the local test connection, so the check did not finish. Allow writing to the system temporary folder and loopback connections (127.0.0.1), then run the quick check again.',
+    '系统不允许创建临时文件或本机测试连接，快速验证没有完成。请允许写入所选数据文件夹和回环连接（127.0.0.1），再重新快速验证。',
+    'The system did not allow temporary files or the local test connection, so the check did not finish. Allow writing to your Sesshuttle data folder and loopback connections (127.0.0.1), then run the quick check again.',
   ],
   runtime_timeout: [
     '测试等待超时，还没有取得验证结果。请重新快速验证。',
@@ -1693,8 +1770,8 @@ export const messages = {
     'Project folder unavailable. Choose an existing folder on this computer or create one.',
   ],
   workspace_create_failed: [
-    '文档目录不可写，未创建项目文件夹。请用{@bind}选择可写的文件夹。',
-    'The project folder could not be created in Documents. Use {@bind} to choose a writable folder.',
+    '所选位置无法创建项目文件夹。请用{@bind}选择可写的文件夹。',
+    'The project folder could not be created in the selected location. Use {@bind} to choose a writable folder.',
   ],
 } as const satisfies Record<string, Message>;
 

@@ -25,7 +25,25 @@ await build({
   external: ['electron'],
 });
 
+await build({
+  ...common,
+  entryPoints: ['app/launcher/start.ts'],
+  outfile: 'dist/sesshuttle-start.cjs',
+  external: ['electron'],
+});
+
 if (process.platform === 'darwin') {
+  execFileSync('xcrun', [
+    'clang',
+    '-O2',
+    '-arch',
+    'arm64',
+    '-arch',
+    'x86_64',
+    'app/launcher/macos.c',
+    '-o',
+    'dist/macos-launcher',
+  ]);
   const headers = path.resolve(path.dirname(realpathSync(process.execPath)), '../include/node');
   if (!existsSync(path.join(headers, 'node_api.h')))
     throw Error('macOS build requires the Node.js installation headers at ' + headers);

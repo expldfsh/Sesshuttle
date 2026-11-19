@@ -8,6 +8,7 @@ import {
   createDataFolder,
   openDataFolder,
   migrateData,
+  verifyPreparedMove,
   cleanMigration,
   migrationReview,
 } from '../../core/data-folder.mjs';
@@ -127,6 +128,10 @@ test('copying then cleaning a moved profile removes its reviewed runtime and kee
   const parent = await fs.mkdtemp(path.join(root, 'moved-'));
   const target = await createDataFolder(parent);
   await migrateData(active.root, target, { portable: true, ownedState: active });
+  await verifyPreparedMove(active, target);
+  active.set('second-writing-session', true);
+  await assert.rejects(verifyPreparedMove(active, target), { code: 'migration_changed' });
+  active.remove('second-writing-session');
   active.close();
   await fs.writeFile(
     path.join(first, markerName),

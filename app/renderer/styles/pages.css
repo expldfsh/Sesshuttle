@@ -1036,3 +1036,8 @@ tr.spacer td {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
+
+.field .path {
+  overflow-wrap: anywhere;
+  user-select: text;
+}

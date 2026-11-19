@@ -4,7 +4,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { DatabaseSync, backup } from 'node:sqlite';
-import { Fault, atomic, exists, hash, id, inside, requireThat, stableRead } from './util.mjs';
+import { Fault, atomic, exists, hash, id, inside, requireThat } from './util.mjs';
 import { copyVerified, digestFile } from './stream.mjs';
 import { State } from './state.mjs';
 import { readMarker, markerName } from './profile-paths.mjs';
@@ -24,6 +24,16 @@ const chromium = [
   'DawnGraphiteCache',
   'DawnWebGPUCache',
   'Dictionaries',
+  'DIPS',
+  'DIPS-wal',
+  'DIPS-shm',
+  'DevToolsActivePort',
+  'Extension State',
+  'GPUPersistentCache',
+  'declarative_performance_observer.db',
+  'declarative_performance_observer.db-journal',
+  'SingletonCookie',
+  'SingletonSocket',
   'Local Storage',
   'Session Storage',
   'Shared Dictionary',
@@ -58,13 +68,18 @@ export async function openDataFolder(folder) {
   readMarker(folder);
   return folder;
 }
-export async function createDataFolder(parent) {
+export async function createDataFolder(parent, movingFrom = null) {
   const root = path.join(await fs.realpath(parent), folderName);
   await fs.mkdir(root, { mode: 0o700 }); // Never adopt a nonempty folder by name.
   try {
     await atomic(
       path.join(root, markerName),
-      JSON.stringify({ format: 1, product: 'sesshuttle', id: id() }),
+      JSON.stringify({
+        format: 1,
+        product: 'sesshuttle',
+        id: id(),
+        ...(movingFrom ? { movingFrom } : {}),
+      }),
     );
   } catch (error) {
     await fs.rmdir(root).catch(() => {});
@@ -76,7 +91,9 @@ export async function createDataFolder(parent) {
 function databaseSignature(db) {
   requireThat(db.prepare('PRAGMA quick_check').get().quick_check === 'ok', 'corrupt_backup');
   const digest = createHash('sha256');
-  for (const row of db.prepare('SELECT key,value FROM kv ORDER BY key').iterate())
+  for (const row of db
+    .prepare("SELECT key,value FROM kv WHERE key != 'folderMigration' ORDER BY key")
+    .iterate())
     digest.update(JSON.stringify([row.key, row.value]) + '\n');
   return digest.digest('hex');
 }
@@ -88,12 +105,26 @@ async function rootIdentity(source) {
   requireThat(stat.isDirectory() && (await fs.realpath(source)) === source, 'unsafe_path');
   return [String(stat.dev), String(stat.ino)];
 }
+const controlLinks = new Set([
+  'SingletonCookie',
+  'SingletonSocket',
+  'runtime/profile/SingletonCookie',
+  'runtime/profile/SingletonSocket',
+]);
 async function inventory(root, names, skip = new Set()) {
   const files = [],
     dirs = [];
   async function visit(name) {
     if (skip.has(name)) return;
-    const file = await inside(root, path.join(root, name));
+    const candidate = path.join(root, name);
+    if (controlLinks.has(name)) {
+      if (path.dirname(candidate) !== root) await inside(root, path.dirname(candidate));
+      if ((await fs.lstat(candidate)).isSymbolicLink()) {
+        files.push({ name, link: await fs.readlink(candidate) });
+        return;
+      }
+    }
+    const file = await inside(root, candidate);
     const stat = await fs.lstat(file);
     if (stat.isDirectory()) {
       dirs.push(name);
@@ -103,7 +134,14 @@ async function inventory(root, names, skip = new Set()) {
       files.push({ name, ...(await digestFile(file)) });
     }
   }
-  for (const name of names) if (await exists(path.join(root, name))) await visit(name);
+  for (const name of names) {
+    if (
+      await fs.lstat(path.join(root, name)).catch((e) => {
+        if (e.code !== 'ENOENT') throw e;
+      })
+    )
+      await visit(name);
+  }
   return { files, dirs };
 }
 export async function checkDatabasePaths(source) {
@@ -257,6 +295,7 @@ export async function migrateData(source, target, { portable = false, ownedState
         device: next.get('device').id,
         signature,
         before,
+        copiedSignature: portable ? databaseSignature(next.db) : null,
         methods,
         method,
         reference: next.get('credentialReference'),
@@ -286,6 +325,35 @@ export async function migrateData(source, target, { portable = false, ownedState
     return copy();
   }
   return withSourceLock(source, portable, copy);
+}
+
+// Resume a copy that finished just before an interruption publishing the two markers.
+export async function verifyPreparedMove(active, target) {
+  const root = await inside(target, path.join(target, 'data'));
+  await checkDatabasePaths(root);
+  const db = sourceDb(root);
+  try {
+    const m = JSON.parse(
+      db.prepare('SELECT value FROM kv WHERE key=?').get('folderMigration')?.value ?? 'null',
+    );
+    requireThat(
+      m?.portable &&
+        m.source === active.root &&
+        m.target === target &&
+        m.device === active.get('device').id &&
+        !m.progress,
+      'migration_invalid',
+    );
+    requireThat(
+      databaseSignature(active.db) === m.signature &&
+        databaseSignature(db) === m.copiedSignature &&
+        equal(await inventory(active.root, durable), m.before) &&
+        equal(await inventory(root, durable), m.before),
+      'migration_changed',
+    );
+  } finally {
+    db.close();
+  }
 }
 
 async function migrationSource(state, legacy) {
@@ -396,6 +464,20 @@ async function removeReviewed(root, files, dirs, allowed, copyRoot) {
   for (const f of files) {
     const first = f.name.split(path.sep)[0];
     requireThat(allowed.includes(first), 'unsafe_path');
+    if (Object.hasOwn(f, 'link')) {
+      requireThat(controlLinks.has(f.name), 'unsafe_path');
+      const entry = path.join(root, f.name);
+      if (path.dirname(entry) !== root) await inside(root, path.dirname(entry));
+      const link = await fs.readlink(entry).catch((e) => {
+        if (e.code !== 'ENOENT') throw e;
+        return null;
+      });
+      if (link !== null) {
+        requireThat(link === f.link, 'migration_changed');
+        await fs.unlink(entry);
+      }
+      continue;
+    }
     const file = await inside(root, path.join(root, f.name));
     if (!(await exists(file))) continue;
     requireThat((await digestFile(file)).hash === f.hash, 'migration_changed');
@@ -422,7 +504,8 @@ export async function cleanMigration(state, legacy, token, forget = async (_migr
   let m = await migrationSource(state, legacy);
   if (!m.progress?.retiredFiles)
     await withSourceLock(m.source, m.portable, async () => {
-      if (!m.progress) {
+      const resuming = !!m.progress;
+      if (!resuming) {
         const r = await review(state, m);
         requireThat(r.token === token, 'stale_plan');
         m = {
@@ -454,8 +537,7 @@ export async function cleanMigration(state, legacy, token, forget = async (_migr
       if (await exists(original)) {
         requireThat(!(await exists(retired)), 'migration_changed');
         // A cancelled keyring prompt must leave the original database usable.
-        const r = await review(state, m);
-        requireThat(r.token === token, 'migration_changed');
+        if (resuming) requireThat((await review(state, m)).token === token, 'migration_changed');
         await forget(m);
         const db = new DatabaseSync(original);
         try {

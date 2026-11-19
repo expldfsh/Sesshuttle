@@ -126,15 +126,16 @@ export async function protectLegacySecrets(state, password, read) {
     }
     fingerprints[method] = hash(records[method]);
   }
-  const saved = Object.values(records).map((raw) => JSON.parse(raw));
-  const active = saved.find((v) => state.get('connection') && matches(v, state.get('connection')));
-  if (m.connection && ['mac-keychain', 'secret-service', 'system'].includes(m.method))
-    requireThat(
-      saved.some((v) => matches(v, m.connection)),
-      'credential_changed',
-    );
+  const method = m.method ?? (m.methods.includes('system') ? 'system' : null);
+  const active = method && records[method] ? JSON.parse(records[method]) : null;
+  if (m.connection && ['mac-keychain', 'secret-service', 'system'].includes(method))
+    requireThat(matches(active, m.connection), 'credential_changed');
   const archive = await verifiedEnvelope(records, password);
-  const current = active && (await verifiedEnvelope(active, password));
+  // A user may already have reconnected with a rotated secret while migration was pending.
+  const current =
+    active && m.method === state.get('credentialMethod') && matches(active, state.get('connection'))
+      ? await verifiedEnvelope(active, password)
+      : null;
   state.db.exec('BEGIN IMMEDIATE');
   try {
     state.set('migratedSecrets', archive);

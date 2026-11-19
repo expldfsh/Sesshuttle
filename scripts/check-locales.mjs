@@ -99,9 +99,7 @@ async function files(dir) {
   return out;
 }
 const ui = (
-  await Promise.all(
-    (await files(path.join(repo, 'app/renderer'))).map((f) => fs.readFile(f, 'utf8')),
-  )
+  await Promise.all((await files(path.join(repo, 'app'))).map((f) => fs.readFile(f, 'utf8')))
 ).join('\n');
 const defined = (key) => Object.hasOwn(messages, key);
 for (const m of ui.matchAll(/\b(?:t|tn|has)\(\s*'([^']+)'\s*[,)]/g))

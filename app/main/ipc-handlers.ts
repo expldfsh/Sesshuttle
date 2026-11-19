@@ -30,13 +30,13 @@ import {
   publicError,
   id,
   atomic,
-  exists,
   canonical,
   inside,
 } from '../../core/util.mjs';
 import { getTheme } from '../shared/themes';
 import { isExclusive, isIpcMethod, type IpcMethod } from '../shared/ipc';
-import { credentialHealth, persistConnection, retrieveConnection } from './credentials';
+import { persistConnection, retrieveConnection } from '../../core/portable-credentials.mjs';
+import { folderHandlers, label } from './data-folder';
 import { continueEntry, protocolHandler } from './continue';
 import { applyAppearance } from './menu';
 import { rendererUrl } from './window';
@@ -164,17 +164,22 @@ async function holdEngine<T>(ctx: Context, work: () => Promise<T>) {
   }
 }
 
-async function loadSecrets(ctx: Context) {
+async function loadSecrets(ctx: Context, password: string) {
   const { state } = ctx;
   try {
-    if (ctx.testRoot || state.get('credentialMethod') === 'session') return;
-    const value = await retrieveConnection(state);
+    requireThat(state.get('credentialMethod') === 'password', 'credential_restore_failed');
+    const value = await retrieveConnection(state, password);
     if (!value) return;
     const cfg = state.get('connection');
-    const vault = new Vault(new R2Store({ ...cfg, ...value.credentials }), cfg.space, value.key, {
-      installation: state.get('device').id,
-      deviceName: state.get('device').name,
-    });
+    const vault = new Vault(
+      new R2Store({ ...cfg, ...value.credentials }, ctx.testRoot ? { allowLocal: true } : {}),
+      cfg.space,
+      value.key,
+      {
+        installation: state.get('device').id,
+        deviceName: state.get('device').name,
+      },
+    );
     await vault.open();
     ctx.secrets = value;
     ctx.engine.vault = vault;
@@ -185,11 +190,11 @@ async function loadSecrets(ctx: Context) {
   return { warning: state.get('credentialError') };
 }
 
-async function saveCurrentCredentials(ctx: Context) {
+async function saveCurrentCredentials(ctx: Context, password: string) {
   const { state } = ctx;
   requireThat(ctx.secrets && ctx.engine.vault, 'storage_not_connected');
   try {
-    await persistConnection(state, ctx.secrets, ctx.testRoot);
+    await persistConnection(state, ctx.secrets, password);
     state.set('credentialError', null);
     return { warning: null };
   } catch (e: any) {
@@ -346,10 +351,8 @@ async function connect(ctx: Context, input: any) {
   state.set('connection', { ...cfg, space, accessKeyId: credentials.accessKeyId });
   ctx.recovery = null;
   state.set('credentialMethod', 'session');
-  state.set(
-    'credentialError',
-    input.remember ? 'credential_save_pending' : 'credential_session_only',
-  );
+  state.remove('portableSecret');
+  state.set('credentialError', null);
   return { status: 'connected', space };
 }
 
@@ -375,22 +378,20 @@ async function projectInfo(project: string) {
 async function createWorkspace(ctx: Context, projectId: string) {
   const row = ctx.engine.rows?.find((r: any) => r.projectId === projectId);
   requireThat(row && /^[0-9a-f-]{36}$/i.test(projectId), 'invalid_selection');
-  const base = ctx.testRoot ?? app.getPath('documents');
-  if (!(await exists(base))) {
-    await inside(os.homedir(), base);
-    await fs.mkdir(base, { recursive: true, mode: 0o700 }).catch(() => {
-      throw new Fault('workspace_create_failed');
-    });
-  }
-  const documents = await canonical(base);
-  const dest = await inside(
-    documents,
-    path.join(
-      documents,
-      'Sesshuttle Workspaces',
-      workspaceFolderName(row.originProject?.name, projectId),
-    ),
-  );
+  const name = workspaceFolderName(row.originProject?.name, projectId);
+  const picked = await dialog.showOpenDialog(ctx.window!, {
+    title: label('workspaceParent', ctx.engine.config().language) + ' · ' + name,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (picked.canceled || !picked.filePaths[0]) return null;
+  const parent = await canonical(picked.filePaths[0]);
+  if (ctx.testRoot) await inside(ctx.testRoot, path.join(parent, 'check'));
+  if (ctx.dataFolder)
+    requireThat(
+      parent !== ctx.dataFolder && !parent.startsWith(ctx.dataFolder + path.sep),
+      'folder_overlap',
+    );
+  const dest = await inside(parent, path.join(parent, name));
   await fs.mkdir(dest, { recursive: true, mode: 0o700 }).catch(() => {
     throw new Fault('workspace_create_failed');
   });
@@ -429,13 +430,18 @@ export function createHandlers(ctx: Context): Handlers {
   const engine = () => ctx.engine;
   const pick = (options: Electron.OpenDialogOptions) => dialog.showOpenDialog(ctx.window!, options);
   return {
+    ...folderHandlers(ctx),
     init: () => ({
+      dataFolder: ctx.dataFolder ?? null,
+      migration: (() => {
+        const m = state.get('folderMigration');
+        return m ? { source: m.source, credentialsReady: m.credentialsReady } : null;
+      })(),
       config: engine().config(),
       device: state.get('device'),
       connection: connectionForSettings(state.get('connection'), ctx.secrets),
       connected: !!engine().vault,
-      canRestore:
-        !!state.get('connection') && !ctx.testRoot && state.get('credentialMethod') !== 'session',
+      canRestore: !!state.get('connection') && state.get('credentialMethod') === 'password',
       credentialMethod: state.get('credentialMethod'),
       credentialError: state.get('credentialError'),
       version: app.getVersion(),
@@ -513,12 +519,11 @@ export function createHandlers(ctx: Context): Handlers {
       return true;
     },
     createWorkspace: (args) => createWorkspace(ctx, args.projectId),
-    restoreConnection: () => {
+    restoreConnection: (args) => {
       requireThat(!ctx.secrets, 'invalid_action');
-      return loadSecrets(ctx);
+      return loadSecrets(ctx, args.password);
     },
-    credentialHealth: () => credentialHealth(),
-    retryCredentialSave: () => saveCurrentCredentials(ctx),
+    retryCredentialSave: (args) => saveCurrentCredentials(ctx, args.password),
     refresh: async (args) => {
       const result = await engine().refresh({ cloud: args.localOnly !== true });
       if (ctx.testRoot)
@@ -576,6 +581,8 @@ export function createHandlers(ctx: Context): Handlers {
       ctx.recovery = null;
       state.set('credentialError', null);
       state.set('connection', null);
+      state.set('credentialMethod', 'session');
+      state.remove('portableSecret');
       return { status: 'disconnected' };
     },
     importRecovery: async () => {
@@ -781,6 +788,7 @@ export function registerIpc(ctx: Context, handlers: Handlers) {
         'invalid_action',
       );
       requireThat(isIpcMethod(method) && JSON.stringify(args).length < 256000, 'invalid_action');
+      requireThat(!ctx.relocating, 'task_running');
       const guarded = isExclusive(method);
       if (guarded) {
         requireThat(!modifying, 'task_running');

@@ -824,7 +824,16 @@ function PageMessages() {
       {notice?.error && (notice.place === 'page' || !shown(notice.place)) && (
         <NoticeError notice={notice} />
       )}
-      {init?.credentialError && page !== 'settings' && (
+      {init?.migration && page !== 'settings' && (
+        <div className="banner" role="status">
+          <Icon name="folder" />
+          <span>{t('folderCopied')}</span>
+          <button onClick={() => app.setPage('settings', 'data-folder')}>
+            {t('folderReview')}
+          </button>
+        </div>
+      )}
+      {init?.credentialError && !init.migration && page !== 'settings' && (
         <div className="banner warning">
           <Icon name="alert" />
           <span>

@@ -189,12 +189,17 @@ async function secretSession(call: Call) {
   }
 }
 
-export async function linuxCredential(reference: string, input?: string): Promise<string> {
+export async function linuxCredential(
+  reference: string,
+  input?: string,
+  removeExpected?: string,
+): Promise<string> {
   return withProvider(async (call, prompt, collection) => {
     const attributes = { application: 'sesshuttle', profile: reference };
     const [open, locked] = await call(root, iface + 'Service', 'SearchItems', 'a{ss}', [
       attributes,
     ]);
+    requireThat(open.length + locked.length <= 1, 'credential_changed');
     const item = open[0] ?? locked[0];
     if (!item && input === undefined) throw new Fault('credential_item_missing');
     if (!item && collection === '/') {
@@ -213,12 +218,19 @@ export async function linuxCredential(reference: string, input?: string): Promis
           session.path,
         ]);
         requireThat(path === session.path, 'credential_restore_failed');
-        if (!session.key) return Buffer.from(ciphertext).toString();
-        const decipher = createDecipheriv('aes-128-cbc', session.key, Buffer.from(iv));
-        return Buffer.concat([
-          decipher.update(Buffer.from(ciphertext)),
-          decipher.final(),
-        ]).toString();
+        let data = Buffer.from(ciphertext);
+        if (session.key) {
+          const decipher = createDecipheriv('aes-128-cbc', session.key, Buffer.from(iv));
+          data = Buffer.concat([decipher.update(data), decipher.final()]);
+        }
+        const raw = data.toString();
+        data.fill(0);
+        if (removeExpected !== undefined) {
+          requireThat(raw === removeExpected, 'credential_changed');
+          const [dialog] = await call(item, iface + 'Item', 'Delete');
+          await prompt(dialog);
+        }
+        return raw;
       }
       const iv = session.key ? randomBytes(16) : Buffer.alloc(0);
       const cipher = session.key ? createCipheriv('aes-128-cbc', session.key, iv) : null;
