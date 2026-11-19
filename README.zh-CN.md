@@ -16,7 +16,7 @@
 | Arch 等 x86_64 Linux | `sesshuttle-0.8.0-linux-x64.tar.gz` |
 | Debian / Ubuntu x86_64 | `sesshuttle-0.8.0-linux-amd64.deb` |
 
-首次打开时选择保存位置。应用会显示即将创建的 `Sesshuttle Data` 完整路径。升级时可迁移旧版数据和凭据，核对后再从设置清理旧位置。[选择位置、迁移和卸载](docs/guides/zh-CN/quick-start.md#你的-sesshuttle-数据文件夹)
+首次打开时选择数据文件夹，以后直接点应用图标即可打开。选用 `~/Sesshuttle Data` 以外的位置时，应用会在个人主目录中用可见的 `Sesshuttle Location.json` 记住路径。升级时可迁移旧版数据和凭据，核对后再从设置清理旧位置。[选择位置、迁移和卸载](docs/guides/zh-CN/quick-start.md#你的-sesshuttle-数据文件夹)
 
 ## 第一次把对话从 Mac 带到 Linux
 

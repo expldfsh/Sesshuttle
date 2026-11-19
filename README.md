@@ -16,7 +16,7 @@ Local 0.8.0 builds are in `release/`. Published builds are available on [GitHub 
 | Arch and other x86_64 Linux distributions | `sesshuttle-0.8.0-linux-x64.tar.gz` |
 | Debian / Ubuntu x86_64 | `sesshuttle-0.8.0-linux-amd64.deb` |
 
-Choose a storage location on first launch. The app shows the full path of its dedicated `Sesshuttle Data` folder. When upgrading, you can copy existing data and credentials, check them and approve cleanup in Settings. [Choose, move or remove your data folder](docs/guides/en/quick-start.md#your-sesshuttle-data-folder)
+Choose a data folder once, then reopen it from the app icon. For a custom location, a visible `Sesshuttle Location.json` file in your home folder remembers the path. When upgrading, you can copy existing data and credentials, check them and approve cleanup in Settings. [Choose, move or remove your data folder](docs/guides/en/quick-start.md#your-sesshuttle-data-folder)
 
 ## Move your first chat from Mac to Linux
 
