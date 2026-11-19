@@ -45,10 +45,18 @@ test('choosing a parent creates a dedicated folder without adopting unrelated fi
 test('verified migration preserves identity and only cleans reviewed data on request', async (t) => {
   const { source, target, device } = await fixture(t);
   await fs.writeFile(path.join(source, 'personal.txt'), 'keep');
+  await fs.mkdir(path.join(source, 'launchers'));
+  await fs.writeFile(path.join(source, 'launchers', 'resume.command'), '#!/bin/sh\n', {
+    mode: 0o700,
+  });
   await migrateData(source, target);
   const state = new State(path.join(target, 'data'));
   t.after(() => state.close());
   assert.deepEqual(state.get('device'), device);
+  assert.ok(
+    (await fs.stat(path.join(state.root, 'launchers', 'resume.command'))).mode & 0o100,
+    'a copied CLI launcher stays executable',
+  );
   assert.deepEqual(state.get('baseline/saved'), { version: 'published' });
   assert.equal(await fs.readFile(path.join(source, 'backups', 'evidence'), 'utf8'), 'backup');
   const review = await migrationReview(state, source);

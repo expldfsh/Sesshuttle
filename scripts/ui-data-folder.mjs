@@ -38,6 +38,8 @@ try {
   const device = seed.get('device');
   seed.close();
   await fs.writeFile(path.join(source, 'keep.txt'), 'personal');
+  await fs.mkdir(path.join(source, 'launchers'));
+  await fs.writeFile(path.join(source, 'launchers/resume.sh'), '#!/bin/sh\n', { mode: 0o700 });
   await fs.mkdir(path.join(source, 'backups'));
   await fs.writeFile(path.join(source, 'backups', 'fixture'), 'verified');
   const parent = path.join(root, "中文 O'Brien");
@@ -116,6 +118,10 @@ try {
   const moved = path.join(nextParent, 'Sesshuttle Data');
   await launch(moved);
   assert.equal((await call('init')).dataFolder, moved);
+  assert.ok(
+    (await fs.stat(path.join(moved, 'data/launchers/resume.sh'))).mode & 0o100,
+    'CLI launchers remain executable after both copies',
+  );
   assert.equal((await call('restoreConnection', { password: 'only-a-fixture' })).warning, null);
   await confirmWith(1);
   assert.deepEqual(await call('cleanupDataFolder'), { remaining: null });

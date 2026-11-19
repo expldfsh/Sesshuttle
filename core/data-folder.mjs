@@ -131,7 +131,12 @@ async function inventory(root, names, skip = new Set()) {
       for (const child of (await fs.readdir(file)).sort()) await visit(path.join(name, child));
     } else {
       requireThat(stat.isFile(), 'unsafe_path');
-      files.push({ name, ...(await digestFile(file)) });
+      const executable = name.startsWith('launchers' + path.sep) && (stat.mode & 0o100) !== 0;
+      files.push({
+        name,
+        ...(await digestFile(file)),
+        ...(executable ? { executable: true } : {}),
+      });
     }
   }
   for (const name of names) {
@@ -244,8 +249,11 @@ export async function migrateData(source, target, { portable = false, ownedState
       const signature = databaseSignature(db);
       await backup(db, path.join(stage, database));
       for (const dir of before.dirs) await fs.mkdir(path.join(stage, dir), { mode: 0o700 });
-      for (const f of before.files)
-        await copyVerified(path.join(source, f.name), path.join(stage, f.name), f.hash);
+      for (const f of before.files) {
+        const destination = path.join(stage, f.name);
+        await copyVerified(path.join(source, f.name), destination, f.hash);
+        if (f.executable) await fs.chmod(destination, 0o700);
+      }
       requireThat(
         equal(await inventory(stage, durable), before) &&
           equal(await inventory(source, durable), before),
@@ -382,6 +390,12 @@ async function migrationSource(state, legacy) {
   else requireThat(m.progress?.retiredFiles, 'migration_invalid');
   return m;
 }
+async function matchesCopy(file, expected) {
+  return (
+    (await digestFile(file)).hash === expected.hash &&
+    (!expected.executable || ((await fs.stat(file)).mode & 0o100) !== 0)
+  );
+}
 async function review(state, m) {
   requireThat(m.credentialsReady, 'migration_credentials');
   if (m.protectedHash)
@@ -400,10 +414,7 @@ async function review(state, m) {
   requireThat(equal(originals, m.before), 'migration_changed');
   for (const f of originals.files) {
     const dest = await inside(state.root, path.join(state.root, f.name));
-    requireThat(
-      (await exists(dest)) && (await digestFile(dest)).hash === f.hash,
-      'migration_changed',
-    );
+    requireThat((await exists(dest)) && (await matchesCopy(dest, f)), 'migration_changed');
   }
   const disposable = await inventory(m.source, [...temporary, ...(m.portable ? [] : chromium)]);
   const names = [
@@ -480,10 +491,10 @@ async function removeReviewed(root, files, dirs, allowed, copyRoot) {
     }
     const file = await inside(root, path.join(root, f.name));
     if (!(await exists(file))) continue;
-    requireThat((await digestFile(file)).hash === f.hash, 'migration_changed');
+    requireThat(await matchesCopy(file, f), 'migration_changed');
     if (copyRoot && durable.includes(first))
       requireThat(
-        (await digestFile(await inside(copyRoot, path.join(copyRoot, f.name)))).hash === f.hash,
+        await matchesCopy(await inside(copyRoot, path.join(copyRoot, f.name)), f),
         'migration_changed',
       );
     await fs.unlink(file);
