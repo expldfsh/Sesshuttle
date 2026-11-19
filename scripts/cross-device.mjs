@@ -1,5 +1,5 @@
 // Cross-device check with real Codex programs on synthetic data: run "source" on
-// the Mac, "receive" on the Linux VM, then "return" on the Mac. The exchange file
+// the Mac, "receive" on the Linux or Windows VM, then "return" on the Mac. The exchange file
 // and the S3 endpoint are temporary, synthetic and loopback-only (forward the
 // port to the VM). Linux runs only inside the disposable VM marked with
 // /run/sesshuttle-isolated-vm.
@@ -26,7 +26,9 @@ assert.ok(['source', 'receive', 'return'].includes(mode) && path.isAbsolute(bina
 const tmp = await fs.realpath(os.tmpdir()),
   parent = await fs.realpath(path.dirname(exchange));
 assert.ok(
-  [tmp, await fs.realpath('/tmp')].includes(path.dirname(parent)) &&
+  [tmp, ...(process.platform === 'win32' ? [] : [await fs.realpath('/tmp')])].includes(
+    path.dirname(parent),
+  ) &&
     path.basename(parent).startsWith('sesshuttle-') &&
     path.basename(exchange) === 'exchange.json',
 );
@@ -39,7 +41,7 @@ const info =
 const lab = mode === 'return' ? await Lab.open(info.macRoot) : await Lab.create();
 const fixture = await startFixtureProvider();
 const options = { localPort: fixture.port };
-let state;
+let state, app;
 try {
   const home = await lab.directory('codex'),
     project = await lab.directory('working copy');
@@ -57,7 +59,7 @@ try {
     if (mode === 'receive') {
       projectId = (
         await client.rpc('project/create', {
-          name: 'linux',
+          name: process.platform,
           roots: [{ path: project }],
           idempotencyKey: id(),
         })
@@ -73,7 +75,7 @@ try {
   const continueHere = () =>
     withClient(lab, binary, home, project, options, async (client) => {
       const read = (await client.rpc('thread/read', { threadId: tid })).thread;
-      assert.equal(read.cwd, project);
+      assert.equal(await fs.realpath(read.cwd), project);
       if (projectId) {
         assert.equal(read.projectId, projectId);
         const listed = await client.rpc('thread/list', { projectId, modelProviders: [] });
@@ -87,8 +89,28 @@ try {
         excludeTurns: true,
       });
       const before = await turns(client, tid);
+      const imageHistory = before
+        .flatMap((t) => t.items)
+        .some(
+          (item) =>
+            item.type === 'userMessage' &&
+            item.content?.some((part) => part.type === 'image' || part.type === 'localImage'),
+        );
+      assert.ok(imageHistory, 'The original image is present in native history');
+      const replyMarker = 'handoff-' + info.marker;
+      if (mode === 'return')
+        assert.ok(
+          JSON.stringify(before).includes(replyMarker),
+          'The receiving computer’s message is present before continuing',
+        );
       await proveDirectory(client, tid, project, mode + '-LOCAL');
-      await turn(client, tid, 'I switched computers. Here is the working folder: ' + project);
+      await turn(
+        client,
+        tid,
+        'I switched computers. Here is the working folder: ' +
+          project +
+          (mode === 'receive' ? ' ' + replyMarker : ''),
+      );
       const after = await turns(client, tid);
       const body = JSON.stringify(fixture.requests.at(-1));
       assert.ok(body.includes(info.marker) && !body.includes('sesshuttle environment mapping'));
@@ -98,6 +120,8 @@ try {
         after: after.length,
         projectVerified: !!projectId,
         cwdVerified: true,
+        imageHistory,
+        returnedMessage: mode === 'return',
         manualHandoff: true,
       };
     });
@@ -131,30 +155,56 @@ try {
   const vault = new Vault(store, info.space, info.key);
   if (mode === 'source') await vault.create();
   else await vault.open();
-  state = new State(path.join(here.root, 'application'));
-  const entry = process.platform === 'linux' ? 'cli' : 'desktop';
+  const packaged = mode === 'receive' && process.env.SESSHUTTLE_ACCEPTANCE_APP;
+  state = new State(path.join(here.root, packaged ? 'app-data' : 'application'));
+  const entry = process.platform === 'darwin' ? 'desktop' : 'cli';
   state.set('config', {
     sourceHomes: [here.home],
     targets: { [entry]: { home: here.home, binary } },
     bindings: info.sourceProject ? { [info.sourceProject]: here.project } : {},
     nativeBindings: here.projectId ? { [info.sourceProject]: { [here.home]: here.projectId } } : {},
   });
-  if (mode !== 'source' && (await runtimeInfo(binary, state)).status === 'untested')
+  let request;
+  if (packaged) {
+    const { launchApp, invoke } = await import('./lib/test-app.mjs');
+    await lab.write('.sesshuttle-test.json', JSON.stringify({ format: 1 }));
+    const desktop = await launchApp(lab.root, { executablePath: packaged });
+    app = desktop.app;
+    await desktop.page.waitForSelector('.shell');
+    request = async (method, args) => {
+      const result = await invoke(desktop.page, method, args);
+      assert.ok(result.ok, method + ': ' + JSON.stringify(result.error));
+      return result.data;
+    };
+    await request('connect', {
+      mode: 'join',
+      endpoint: 'http://127.0.0.1:' + Number(port),
+      bucket: 'sesshuttle-ui',
+      accessKeyId: 'fixture',
+      secretAccessKey: 'fixture',
+      key: info.key,
+      space: info.space,
+    });
+    await request('verifyRuntime', { id: id(), binary });
+  } else if (mode !== 'source' && (await runtimeInfo(binary, state)).status === 'untested')
     await verifyRuntime(binary, state);
   const engine = new Engine(state, {
     vault,
     importer: new Importer(state, { testRoot: here.root, processGuard: async () => {} }),
   });
   async function sync(direction) {
-    const checked = await engine.refresh();
+    const checked = request ? await request('refresh', {}) : await engine.refresh();
     if (mode === 'receive' && process.env.SESSHUTTLE_DUPLICATE_TEST === '1')
       assert.ok(checked.errors.some((e) => e.code === 'duplicate_identity'));
-    const p = await engine.preview({
+    const selection = {
       ids: [here.tid],
       direction,
       targets: direction === 'upload' ? [] : [entry],
-    });
-    const job = await engine.execute(p.token);
+    };
+    const p = request ? await request('preview', selection) : await engine.preview(selection);
+    const job = request
+      ? await request('execute', { token: p.token })
+      : await engine.execute(p.token);
     assert.equal(job.status, 'completed', JSON.stringify(job));
   }
   if (mode === 'source') {
@@ -174,6 +224,7 @@ try {
   assert.equal(state.keys('backup/').length, 0, 'manual sync must not create a local backup');
   console.log('PASS ' + mode + ' on ' + process.platform + ' ' + process.arch);
 } finally {
+  if (app) await app.close();
   await fixture.close();
   state?.close();
 }

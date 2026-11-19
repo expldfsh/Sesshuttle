@@ -95,6 +95,25 @@ export class Lab {
   // Never inherits credentials, proxy settings or the user's CODEX_HOME.
   async environment(home) {
     this.checked(home);
+    if (process.platform === 'win32') {
+      const tmp = await this.directory('tmp');
+      const system = process.env.SystemRoot;
+      return {
+        SystemRoot: system,
+        ComSpec: path.join(system, 'System32', 'cmd.exe'),
+        PATH: [
+          path.join(system, 'System32'),
+          path.join(system, 'System32/WindowsPowerShell/v1.0'),
+        ].join(path.delimiter),
+        USERPROFILE: await this.directory('user'),
+        APPDATA: await this.directory('user/AppData/Roaming'),
+        LOCALAPPDATA: await this.directory('user/AppData/Local'),
+        TEMP: tmp,
+        TMP: tmp,
+        CODEX_HOME: home,
+        RUST_LOG: 'error',
+      };
+    }
     return {
       PATH: '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin',
       CODEX_HOME: home,
@@ -111,6 +130,16 @@ export class Lab {
   command(args, { localPort } = {}) {
     if (localPort !== undefined && !(Number.isInteger(localPort) && localPort >= 1024))
       refuse('Invalid fixture server port');
+    if (process.platform === 'win32') {
+      const marker = path.join(process.env.SystemDrive + path.sep, 'SesshuttleLab', 'isolated.txt');
+      if (
+        os.hostname().toUpperCase() !== 'SESSHUTTLE-QA' ||
+        !fs.existsSync(marker) ||
+        fs.readFileSync(marker, 'utf8').trim() !== 'loopback-only-fixture'
+      )
+        refuse('Windows native tests require the isolated disposable Windows desktop');
+      return args;
+    }
     if (process.platform === 'linux') {
       const marker = '/run/sesshuttle-isolated-vm';
       const stat = fs.statSync(marker, { throwIfNoEntry: false });
@@ -401,7 +430,10 @@ export async function proveDirectory(client, tid, project, marker) {
   completed.catch(() => {});
   await client.rpc('thread/shellCommand', {
     threadId: tid,
-    command: '/bin/pwd; /bin/cat proof.txt',
+    command:
+      process.platform === 'win32'
+        ? '(Get-Location).Path; Get-Content -LiteralPath proof.txt'
+        : '/bin/pwd; /bin/cat proof.txt',
     timeoutMs: 5000,
   });
   if ((await completed).turn.status !== 'completed') throw new Error('Shell command failed');
@@ -411,7 +443,7 @@ export async function proveDirectory(client, tid, project, marker) {
   const command = commands.at(-1);
   if (!command) throw new Error('No persisted command result');
   if (command.exitCode !== 0) throw new Error('Command failed: ' + JSON.stringify(command));
-  if (command.cwd !== project) throw new Error('Command ran in ' + command.cwd);
+  if (fs.realpathSync(command.cwd) !== project) throw new Error('Command ran in ' + command.cwd);
   if (!command.aggregatedOutput.includes(project) || !command.aggregatedOutput.includes(marker))
     throw new Error('Working folder proof missing: ' + command.aggregatedOutput);
 }

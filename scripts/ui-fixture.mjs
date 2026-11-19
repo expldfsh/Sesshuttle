@@ -23,7 +23,10 @@ const args = process.argv.slice(2);
 const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const lab = args.find((a) => !a.startsWith('--'));
 const synthetic = lab ? await fs.readFile(lab, 'utf8') : null;
-let binary = option('binary');
+let binary =
+  option('binary') || (process.platform === 'win32' && process.env.SESSHUTTLE_FIXTURE_CODEX);
+if (process.platform === 'win32' && !binary)
+  throw Error('Set SESSHUTTLE_FIXTURE_CODEX to the native Codex program for Windows UI tests');
 if (!binary) {
   binary = path.join(root, 'bin', 'codex');
   await fs.mkdir(path.dirname(binary));

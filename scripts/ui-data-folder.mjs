@@ -43,7 +43,9 @@ try {
   seed.close();
   await fs.writeFile(path.join(source, 'keep.txt'), 'personal');
   await fs.mkdir(path.join(source, 'launchers'));
-  await fs.writeFile(path.join(source, 'launchers/resume.sh'), '#!/bin/sh\n', { mode: 0o700 });
+  const launcher = process.platform === 'win32' ? 'launchers/resume.cmd' : 'launchers/resume.sh';
+  const script = process.platform === 'win32' ? '@echo off\r\n' : '#!/bin/sh\n';
+  await fs.writeFile(path.join(source, launcher), script, { mode: 0o700 });
   await fs.mkdir(path.join(source, 'backups'));
   await fs.writeFile(path.join(source, 'backups', 'fixture'), 'verified');
   const parent = path.join(root, "中文 O'Brien");
@@ -129,10 +131,13 @@ try {
   await launch(moved, true);
   assert.equal((await call('init')).dataFolder, moved);
   assert.equal((await readFolderLocation(root)).folder, moved);
-  assert.ok(
-    (await fs.stat(path.join(moved, 'data/launchers/resume.sh'))).mode & 0o100,
-    'CLI launchers remain executable after both copies',
-  );
+  const restored = path.join(moved, 'data', launcher);
+  assert.equal(await fs.readFile(restored, 'utf8'), script);
+  if (process.platform !== 'win32')
+    assert.ok(
+      (await fs.stat(restored)).mode & 0o100,
+      'CLI launchers remain executable after both copies',
+    );
   assert.equal((await call('restoreConnection', { password: 'only-a-fixture' })).warning, null);
   await confirmWith(1);
   assert.deepEqual(await call('cleanupDataFolder'), { remaining: null });

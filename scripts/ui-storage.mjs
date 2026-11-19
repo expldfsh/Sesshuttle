@@ -65,7 +65,7 @@ const server = http.createServer(async (req, res) => {
     res.end();
   }
 });
-server.listen(0, '127.0.0.1', () =>
+server.listen(Number(process.argv[3] ?? 0), '127.0.0.1', () =>
   console.log(
     JSON.stringify({
       endpoint: `http://127.0.0.1:${server.address().port}`,
