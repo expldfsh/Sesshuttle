@@ -8,9 +8,16 @@ import { Fault, atomic, exists, hash, id, inside, requireThat } from './util.mjs
 import { copyVerified, digestFile } from './stream.mjs';
 import { State } from './state.mjs';
 import { readMarker, markerName } from './profile-paths.mjs';
+import { reserveWindowsInstance } from './windows-instance.mjs';
 export { markerName };
 
 export const folderName = 'Sesshuttle Data';
+export const shortcutName =
+  process.platform === 'win32'
+    ? 'Open Sesshuttle.cmd'
+    : process.platform === 'darwin'
+      ? 'Open Sesshuttle.command'
+      : 'Open Sesshuttle.sh';
 
 const database = 'sesshuttle.sqlite';
 const uuid = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i;
@@ -56,11 +63,13 @@ export function legacyFolder(
   configHome = process.env.XDG_CONFIG_HOME,
 ) {
   return path.join(
-    platform === 'darwin'
-      ? path.join(home, 'Library', 'Application Support')
-      : configHome && path.isAbsolute(configHome)
-        ? configHome
-        : path.join(home, '.config'),
+    platform === 'win32'
+      ? process.env.APPDATA || path.join(home, 'AppData', 'Roaming')
+      : platform === 'darwin'
+        ? path.join(home, 'Library', 'Application Support')
+        : configHome && path.isAbsolute(configHome)
+          ? configHome
+          : path.join(home, '.config'),
     'sesshuttle',
   );
 }
@@ -155,10 +164,11 @@ export async function checkDatabasePaths(source) {
 }
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 export function disjoint(a, b) {
-  requireThat(
-    a !== b && !a.startsWith(b + path.sep) && !b.startsWith(a + path.sep),
-    'folder_overlap',
-  );
+  const outside = (root, file) => {
+    const rel = path.relative(root, file);
+    return rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel);
+  };
+  requireThat(outside(a, b) && outside(b, a), 'folder_overlap');
 }
 // Chromium encodes hostname and PID in this symlink. Never steal a live or remote lock.
 const ownedLocks = new Map();
@@ -166,6 +176,10 @@ export async function reserveSource(source, portable) {
   const dir = portable
     ? await inside(path.dirname(source), path.join(path.dirname(source), 'runtime', 'profile'))
     : source;
+  if (process.platform === 'win32') {
+    const stat = await fs.stat(dir, { bigint: true });
+    return reserveWindowsInstance('folder/' + stat.dev + '/' + stat.ino, 'folder_in_use');
+  }
   const lock = path.join(dir, 'SingletonLock'),
     owner = os.hostname() + '-' + process.pid;
   let lease = ownedLocks.get(lock);
@@ -429,12 +443,8 @@ async function review(state, m) {
   const extra = m.portable
     ? await inventory(
         path.dirname(m.source),
-        [
-          markerName,
-          process.platform === 'darwin' ? 'Open Sesshuttle.command' : 'Open Sesshuttle.sh',
-          'runtime',
-        ],
-        new Set(['runtime/profile/SingletonLock']),
+        [markerName, shortcutName, 'runtime'],
+        new Set([path.join('runtime', 'profile', 'SingletonLock')]),
       )
     : { files: [], dirs: [] };
   const display = m.portable
@@ -594,7 +604,13 @@ export async function cleanMigration(state, legacy, token, forget = async (_migr
       parent,
       extra.files,
       extra.dirs,
-      [markerName, 'Open Sesshuttle.command', 'Open Sesshuttle.sh', 'runtime'],
+      [
+        markerName,
+        'Open Sesshuttle.command',
+        'Open Sesshuttle.sh',
+        'Open Sesshuttle.cmd',
+        'runtime',
+      ],
       null,
     );
     await removeEmpty(parent);

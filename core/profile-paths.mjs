@@ -8,9 +8,10 @@ export function checkedTestRoot(root) {
   requireThat(
     fs.realpathSync(root) === root &&
       path.basename(root).startsWith('sesshuttle-') &&
-      [fs.realpathSync(os.tmpdir()), fs.realpathSync('/tmp')].some((base) =>
-        root.startsWith(base + path.sep),
-      ) &&
+      [
+        fs.realpathSync(os.tmpdir()),
+        ...(process.platform === 'win32' ? [] : [fs.realpathSync('/tmp')]),
+      ].some((base) => root.startsWith(base + path.sep)) &&
       JSON.parse(fs.readFileSync(path.join(root, '.sesshuttle-test.json'), 'utf8')).format === 1,
     'unsafe_path',
   );

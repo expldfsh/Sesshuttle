@@ -9,6 +9,7 @@ import {
   createDataFolder,
   disjoint,
   folderName,
+  shortcutName,
   legacyFolder,
   markerName,
   migrateData,
@@ -34,9 +35,10 @@ const oldFolder = (ctx: Context) =>
 const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
 export async function writeShortcut(folder: string) {
   const mac = process.platform === 'darwin';
-  const file = path.join(folder, mac ? 'Open Sesshuttle.command' : 'Open Sesshuttle.sh');
+  const windows = process.platform === 'win32';
+  const file = path.join(folder, shortcutName);
   const binary = app.isPackaged
-    ? path.join(path.dirname(process.execPath), 'sesshuttle')
+    ? path.join(path.dirname(process.execPath), windows ? 'Sesshuttle.exe' : 'sesshuttle')
     : process.execPath;
   // The shortcut locates its own folder even after that folder is renamed.
   let exec = quote(binary);
@@ -46,21 +48,29 @@ export async function writeShortcut(folder: string) {
     const bundle = path.dirname(path.dirname(path.dirname(binary)));
     exec = '/usr/bin/open -n -a ' + quote(bundle) + ' --args';
   }
-  const content =
-    '#!/bin/sh\n# Sesshuttle data folder launcher\nfolder=$(CDPATH= cd -P -- "$(dirname -- "$0")" && pwd -P) || exit 1\nexec ' +
-    exec +
-    ' "--sesshuttle-folder=$folder"\n';
+  const header = windows
+    ? '@echo off\r\nrem Sesshuttle data folder launcher\r\n'
+    : '#!/bin/sh\n# Sesshuttle data folder launcher\n';
+  const windowsCommand = app.isPackaged
+    ? '"' + binary.replaceAll('%', '%%') + '"'
+    : 'node "' + path.join(app.getAppPath(), 'scripts', 'start.mjs').replaceAll('%', '%%') + '"';
+  const content = windows
+    ? header +
+      'setlocal DisableDelayedExpansion\r\nstart "" ' +
+      windowsCommand +
+      ' "--sesshuttle-folder=%~dp0."\r\n'
+    : header +
+      'folder=$(CDPATH= cd -P -- "$(dirname -- "$0")" && pwd -P) || exit 1\nexec ' +
+      exec +
+      ' "--sesshuttle-folder=$folder"\n';
   if (await exists(file)) {
     await inside(folder, file);
     const old = await fs.readFile(file, 'utf8');
     if (old === content) return;
-    requireThat(
-      old.startsWith('#!/bin/sh\n# Sesshuttle data folder launcher\n'),
-      'folder_not_empty',
-    );
+    requireThat(old.startsWith(header), 'folder_not_empty');
   }
   await atomic(file, content);
-  await fs.chmod(file, 0o700);
+  if (!windows) await fs.chmod(file, 0o700);
 }
 export async function initializeFolder(ctx: Context) {
   const folder = ctx.dataFolder!;
@@ -83,7 +93,10 @@ export async function initializeFolder(ctx: Context) {
     requireThat(existing && !marker.movedTo, 'folder_invalid');
   } else {
     const old = oldFolder(ctx);
-    if (await exists(path.join(old, 'sesshuttle.sqlite'))) {
+    if (
+      (process.platform !== 'win32' || ctx.testRoot) &&
+      (await exists(path.join(old, 'sesshuttle.sqlite')))
+    ) {
       const r =
         ctx.testRoot && process.env.SESSHUTTLE_TEST_COPY === '1'
           ? { response: 0 }
@@ -197,7 +210,10 @@ export function folderHandlers(ctx: Context) {
           JSON.stringify({ ...readMarker(source), movedTo: dest, movedId: readMarker(dest).id }),
         );
         const execPath = app.isPackaged
-          ? path.join(path.dirname(process.execPath), 'sesshuttle')
+          ? path.join(
+              path.dirname(process.execPath),
+              process.platform === 'win32' ? 'Sesshuttle.exe' : 'sesshuttle',
+            )
           : process.execPath;
         app.relaunch({
           execPath,

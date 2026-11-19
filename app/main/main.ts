@@ -4,6 +4,8 @@ import fs from 'node:fs/promises';
 import net from 'node:net';
 import { checkedTestRoot, readMarker, runtimePaths } from '../../core/profile-paths.mjs';
 import { locationFile, rememberFolderLocation } from '../../core/folder-location.mjs';
+import { reserveWindowsInstance } from '../../core/windows-instance.mjs';
+import { reserveSource } from '../../core/data-folder.mjs';
 import { initializeFolder, label } from './data-folder';
 import path from 'node:path';
 import os from 'node:os';
@@ -104,6 +106,19 @@ async function recoverLocalState(state: any, trash: any) {
 }
 
 async function reserveInstance() {
+  if (process.platform === 'win32') {
+    const account = await fs.realpath(os.homedir());
+    const release = await reserveWindowsInstance(
+      'user/' + (testRoot || account).toLowerCase(),
+      'folder_another_instance',
+    );
+    app.once('will-quit', release);
+    if (dataFolder) {
+      const releaseFolder = await reserveSource(path.join(dataFolder, 'data'), true);
+      app.once('will-quit', releaseFolder);
+    }
+    return;
+  }
   const name =
     'com.expldfsh.sesshuttle.' +
     (process.getuid?.() ?? 0) +

@@ -40,16 +40,54 @@ export const exists = async (p) => {
     throw e;
   }
 };
+export function absoluteLocalPath(value, paths = path) {
+  if (typeof value !== 'string' || !paths.isAbsolute(value)) return false;
+  if (paths.sep !== '\\') return true;
+  // A drive-relative path or device namespace is not a filesystem location to adopt.
+  return /^[a-z]:[\\/]/i.test(value) || /^\\\\(?![?.]\\)[^\\]+\\[^\\]+(?:\\|$)/.test(value);
+}
+
+export function childPath(root, candidate, paths = path) {
+  const relative = paths.relative(root, candidate);
+  requireThat(
+    relative &&
+      relative !== '..' &&
+      !relative.startsWith('..' + paths.sep) &&
+      !paths.isAbsolute(relative),
+    'unsafe_path',
+  );
+  if (paths.sep === '\\') {
+    for (const name of relative.split('\\')) {
+      requireThat(
+        !/[<>:"|?*]|[. ]$/.test(name) &&
+          !Array.from(name).some((c) => c.charCodeAt(0) < 32) &&
+          !/^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(name),
+        'unsafe_path',
+      );
+    }
+  }
+  return relative;
+}
+
+export function portableBasename(value) {
+  return (/^(?:[a-z]:[\\/]|\\\\)/i.test(value) ? path.win32 : path.posix).basename(value);
+}
+
 export async function canonical(p) {
-  requireThat(typeof p === 'string' && path.isAbsolute(p), 'invalid_path');
+  if (process.platform === 'win32' && typeof p === 'string') {
+    // Native programs can report the extended spelling returned by GetFinalPathNameByHandle.
+    if (/^\\\\\?\\[a-z]:\\/i.test(p)) p = p.slice(4);
+    else if (/^\\\\\?\\UNC\\/i.test(p)) p = '\\\\' + p.slice(8);
+  }
+  requireThat(absoluteLocalPath(p), 'invalid_path');
   return fs.realpath(p);
 }
 export async function inside(root, p) {
   const base = await canonical(root);
   const target = path.resolve(p);
-  requireThat(target !== base && target.startsWith(base + path.sep), 'unsafe_path');
+  const relative = childPath(base, target);
   let current = base;
-  for (const part of path.relative(base, target).split(path.sep)) {
+  for (const part of relative.split(path.sep)) {
     current = path.join(current, part);
     try {
       const s = await fs.lstat(current);
@@ -58,7 +96,7 @@ export async function inside(root, p) {
       if (e.code !== 'ENOENT') throw e;
     }
   }
-  return target;
+  return current;
 }
 export async function stableRead(file, limit = LIMIT) {
   const handle = await fs.open(

@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { exists, requireThat } from './util.mjs';
+import { exists, portableBasename, requireThat } from './util.mjs';
 export const TABLES = {
   state: ['threads', 'thread_dynamic_tools', 'thread_spawn_edges', 'thread_attachments'],
   history: [
@@ -315,5 +315,5 @@ export function projectFor(catalog, thread, cwd) {
         match: 'ambiguous',
         candidates: candidates.map((p) => ({ id: p.id, name: p.name })),
       }
-    : { name: path.basename(cwd ?? '') || null, match: 'directory' };
+    : { name: portableBasename(cwd ?? '') || null, match: 'directory' };
 }

@@ -214,7 +214,9 @@ export async function scanHistory(homes, { sourceOf }) {
           historyBytes: raw?.historyBytes ?? 0,
           compressed: file?.endsWith('.zst') ?? false,
           databaseBytes: summary?.bytes ?? 0,
-          archived: thread ? !!thread.archived : (file?.includes('/archived_sessions/') ?? false),
+          archived: thread
+            ? !!thread.archived
+            : !!file && path.relative(home, file).split(path.sep)[0] === 'archived_sessions',
           issues: [
             ...(issue ? [issue] : []),
             ...(!file && !summary?.count ? ['history_unavailable'] : []),
