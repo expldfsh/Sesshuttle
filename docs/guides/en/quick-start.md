@@ -1,4 +1,4 @@
-# Sesshuttle 0.8.0
+# Sesshuttle 0.9.0
 
 If your Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
 
@@ -6,14 +6,17 @@ Terms used here and in the app: an **app** is the GPT desktop app, the CLI or th
 
 ## Install or upgrade
 
-- On Apple Silicon, open `sesshuttle-0.8.0-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
+- On Windows 11 x64, extract all of `sesshuttle-0.9.0-win-x64.zip` into a folder you can keep. Double-click **Sesshuttle.exe**. Keep the files together. You may create a shortcut to that executable. The local build is unsigned.
+- On Apple Silicon, open `sesshuttle-0.9.0-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session. Keep the extracted folder intact.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.8.0-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.8.0-linux-amd64.deb`.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.9.0-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.9.0-linux-amd64.deb`.
 
 ```sh
-tar -xzf sesshuttle-0.8.0-linux-x64.tar.gz
-./sesshuttle-0.8.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.9.0-linux-x64.tar.gz
+./sesshuttle-0.9.0-linux-x64/sesshuttle
 ```
+
+On Windows, select the native Windows `codex.exe` or the official npm `codex.cmd` for the CLI. The desktop and VS Code Continue actions use their registered links. For a separately configured Codex home, open that client directly using the path shown in Sesshuttle.
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
 
@@ -21,12 +24,13 @@ The **Getting started** list at the top of Conversations shows four steps: detec
 
 ## Your Sesshuttle data folder
 
-1. Open the app and choose the parent for a dedicated `Sesshuttle Data` folder. Check the full path before confirming. To reopen an existing folder, select it in the same picker. The Linux archive uses the desktop's `zenity` or `kdialog` picker. The Debian package depends on one of them.
+1. Open the app and choose the parent for a dedicated `Sesshuttle Data` folder. Check the full path before confirming. To reopen an existing folder, select it in the same picker. On Windows the default location is `%USERPROFILE%\Sesshuttle Data`. Choosing another location creates the visible `%USERPROFILE%\Sesshuttle Location.json` after the first successful launch. The Linux archive uses the desktop's `zenity` or `kdialog` picker. The Debian package depends on one of them.
 2. Quit the old version before upgrading. If the previous installation is found, choose **Copy previous data**. Open **Settings → Local settings** and check your device, backups, trash and new location. If a connection was saved, choose **Migrate saved credentials…**, set a local password and authorize access to the previous credentials.
 3. Choose **Review old files…** when ready. The confirmation shows the previous path, the items to remove and the new location. Cancel to keep the originals. A change to the old data, an incomplete copy or unverified credentials stops cleanup. Personal files left alongside app files stay in place and the app shows their location.
 4. Reopen from the app icon. Sesshuttle can find `Sesshuttle Data` directly in your home folder. For other locations, a visible `Sesshuttle Location.json` in your home folder stores only the path and folder ID. **Settings → Local settings** shows both paths. If you used a custom folder with the previous preview build, select it once after updating, or open it once with `Open Sesshuttle.command` (Mac) or `Open Sesshuttle.sh` (Linux) inside that folder.
 5. Connect external drives before opening the app. If the app asks for the drive, reconnect it and press OK to retry. If you moved the folder manually, you can select the original folder at its new location in the next window. To move it from Settings, choose **Move data folder…**, verify the new location and review cleanup of the old one. If you deliberately deleted your custom data folder and want to start over, quit, delete the location file from your home folder and open the app again.
-6. Before uninstalling, keep any device backups or recycled copies you still need. Quit the app and remove the application, your data folder and, for custom locations, `Sesshuttle Location.json` in your home folder. You can check the full paths in **Settings → Local settings**. For a Debian installation use the software manager to remove the program. Exported connection files, project folders, native Codex conversations and your cloud space are managed separately. The operating system manages its own recent items and installation records.
+   On Windows the shortcut inside a data folder is `Open Sesshuttle.cmd`. You can use it to reopen that folder after moving it.
+6. Before uninstalling, keep any device backups or recycled copies you still need. Quit the app and remove the application, your data folder and, for custom locations, `Sesshuttle Location.json` in your home folder. You can check the full paths in **Settings → Local settings**. For Windows, remove the entire extracted ZIP folder and any shortcut you created. For a Debian installation use the software manager to remove the program. Exported connection files, project folders, native Codex conversations and your cloud space are managed separately. The operating system manages its own recent items and installation records.
 
 ## Connect both computers
 
@@ -125,7 +129,7 @@ A removal task that changed nothing, or has nothing left to finish, can be dropp
 
 ## Linux acceptance checklist
 
-Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.8.0 and keep their sync space, application data and connection file.
+Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.9.0 and keep their sync space, application data and connection file.
 
 1. **Detect the desktop app.** On Linux, open the Codex page of the GPT desktop app. In Sesshuttle, open **Apps & projects → Detect local Codex apps**, check the runtime, data folder and evidence under **GPT desktop**, and apply them. `/usr/lib/chatgpt/ChatGPT` is one known location of the desktop program itself, which is not the runtime. Check that the detected runtime is a real program: `file <path>` should report an ELF executable, not a shell script. If it is a script, the app shows “Choose a Codex runtime”; report the path and the `file` output.
 2. **Choose the chat.** In Conversations, open your uploaded title and choose **Import to this computer…**. If it is missing, choose **Settings → View cloud chats** and refresh. Select **GPT desktop**.
@@ -137,4 +141,4 @@ Use this when a chat uploaded from the Mac is visible on Linux. Both computers r
 
 To check the connection hand-over, export the connection file on the connected Mac, import it on an unconnected Linux installation, enter the Secret Access Key and connect. To check removal, use a dedicated test chat: recycle one cloud version on the Mac, confirm the imported Linux chat still opens, and restore the version from the Linux cloud recycle bin. Open a permanent deletion review and cancel it to check its two-sided list and final button.
 
-[Verification report](../../validation/0.8.0.md)
+[Verification report](../../validation/0.9.0.md)

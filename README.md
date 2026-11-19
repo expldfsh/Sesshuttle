@@ -2,19 +2,22 @@
 
 English · [简体中文](README.zh-CN.md)
 
-Continue the same Codex conversation on another computer. Choose a chat on your Mac, upload its encrypted history to your own Cloudflare R2 bucket, then import it on Linux and pick up where you left off. You choose which chats to transfer and when. Sesshuttle supports Codex in the GPT desktop app, CLI and VS Code.
+Continue the same Codex conversation on another computer. Choose a chat on your Mac, upload its encrypted history to your own Cloudflare R2 bucket, then import it on Windows or Linux and pick up where you left off. You choose which chats to transfer and when. Sesshuttle supports Codex in the GPT desktop app, CLI and VS Code.
 
 ![Tick a chat, then choose Upload to cloud in the action bar](docs/images/en-upload.png)
 
 ## Install
 
-Local 0.8.0 builds are in `release/`. Published builds are available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
+Local 0.9.0 builds are in `release/`. Published builds are available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
 
 | Platform | Package |
 | --- | --- |
-| Apple Silicon Mac | `sesshuttle-0.8.0-mac-arm64.dmg` |
-| Arch and other x86_64 Linux distributions | `sesshuttle-0.8.0-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.8.0-linux-amd64.deb` |
+| Windows 11 x64 | `sesshuttle-0.9.0-win-x64.zip` |
+| Apple Silicon Mac | `sesshuttle-0.9.0-mac-arm64.dmg` |
+| Arch and other x86_64 Linux distributions | `sesshuttle-0.9.0-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.9.0-linux-amd64.deb` |
+
+On Windows, choose **Extract All** and double-click **Sesshuttle.exe** inside the extracted folder.
 
 Choose a data folder once, then reopen it from the app icon. For a custom location, a visible `Sesshuttle Location.json` file in your home folder remembers the path. When upgrading, you can copy existing data and credentials, check them and approve cleanup in Settings. [Choose, move or remove your data folder](docs/guides/en/quick-start.md#your-sesshuttle-data-folder)
 
@@ -33,4 +36,4 @@ On each computer, the **Getting started** list at the top of Conversations shows
 - **Sync activity** is one timeline of transfers and removals. Filter to what needs attention, retry unfinished work, or clear finished records; your chats and sync status stay.
 - **Backups & recovery** has three tabs: manual device backups, the local trash and the cloud recycle bin. Importing and restoring do not create backups automatically.
 
-[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.8.0.md)
+[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.9.0.md)

@@ -2,19 +2,22 @@
 
 [English](README.md) · 简体中文
 
-在另一台电脑上继续同一个 Codex 对话。在 Mac 上选中对话，把历史加密上传到自己的 Cloudflare R2，再在 Linux 导入，接着聊。同步哪些对话、何时传输都由你决定。支持 GPT 桌面端中的 Codex、CLI 和 VS Code。
+在另一台电脑上继续同一个 Codex 对话。在 Mac 上选中对话，把历史加密上传到自己的 Cloudflare R2，再在 Windows 或 Linux 导入，接着聊。同步哪些对话、何时传输都由你决定。支持 GPT 桌面端中的 Codex、CLI 和 VS Code。
 
 ![勾选对话后，在操作栏点击标出的「上传到云端」](docs/images/zh-CN-upload.png)
 
 ## 安装
 
-本地构建的 0.8.0 安装包在 `release/`。已发布版本可从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载。
+本地构建的 0.9.0 安装包在 `release/`。已发布版本可从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载。
 
 | 平台 | 安装包 |
 | --- | --- |
-| Apple Silicon Mac | `sesshuttle-0.8.0-mac-arm64.dmg` |
-| Arch 等 x86_64 Linux | `sesshuttle-0.8.0-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.8.0-linux-amd64.deb` |
+| Windows 11 x64 | `sesshuttle-0.9.0-win-x64.zip` |
+| Apple Silicon Mac | `sesshuttle-0.9.0-mac-arm64.dmg` |
+| Arch 等 x86_64 Linux | `sesshuttle-0.9.0-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.9.0-linux-amd64.deb` |
+
+Windows 上先右键 ZIP 选择「全部解压缩」，再双击解压目录里的 **Sesshuttle.exe**。
 
 首次打开时选择数据文件夹，以后直接点应用图标即可打开。选用 `~/Sesshuttle Data` 以外的位置时，应用会在个人主目录中用可见的 `Sesshuttle Location.json` 记住路径。升级时可迁移旧版数据和凭据，核对后再从设置清理旧位置。[选择位置、迁移和卸载](docs/guides/zh-CN/quick-start.md#你的-sesshuttle-数据文件夹)
 
@@ -33,4 +36,4 @@
 - **同步记录** 把传输和删除任务排成一条时间线。可筛选「需处理」、重试未完成的部分，或清除已结束的记录；对话和同步状态都会保留。
 - **备份与恢复** 分为本机手动备份、本机回收站和云端回收站三个标签页。导入和恢复都不会自动创建备份。
 
-[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.8.0.md)
+[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.9.0.md)
