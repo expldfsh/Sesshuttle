@@ -26,6 +26,10 @@ before(async () => {
   const lines = readline.createInterface({ input: child.stdout }),
     line = await lines[Symbol.asyncIterator]().next();
   lines.close();
+  // The server reports every request on this pipe, and on Windows a program writes
+  // to a pipe synchronously: once the pipe is full, output that nobody reads stops
+  // the server in the middle of a request.
+  child.stdout.resume();
   store = new R2Store(JSON.parse(line.value), { allowLocal: true });
 });
 after(async () => {

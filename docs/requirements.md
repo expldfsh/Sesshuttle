@@ -301,8 +301,9 @@ Windows 11 x64 采用免安装 ZIP。用户首次选定数据目录，普通账�
 - Windows 运行组件的图标和版本信息由 `scripts/package-launcher.cjs` 用 `resedit` 写入。electron-builder 自带的编辑步骤按改名前的文件名查找，对这个布局不起作用，所以 `signAndEditExecutable: false` 保持不变。启动器的版本信息写在 `scripts/windows-launcher.mjs` 生成的资源脚本里。
 - 存储请求经 `core/proxy-agent.mjs` 跟随系统代理：主进程用 `session.resolveProxy` 回答，每个新连接询问一次，所以中途开关代理不需要重新连接。测试模式不使用代理。
 - GitHub 的 Windows 运行器把临时目录写成短文件名（`RUNNER~1`），测试模式的根目录校验和部分用例不接受；工作流在这些步骤里把 `TEMP`、`TMP` 改到 `RUNNER_TEMP`。
-- `npm run test:windows` 列出已在 Windows 上核对过的测试文件。其余用例里还有权限位、`sh` 脚本替身、符号链接和用 `/` 拼接路径等 POSIX 假设，第一次在 Windows 运行器上运行时 122 项中有 26 项失败，移植之前不要把它们设为发布的前提。
-- 工作流里只报告结果的步骤必须有自己的 `timeout-minutes`。`continue-on-error` 只容忍失败，不容忍任务超时：一个卡住的步骤会让整个任务被取消，依赖它的发布也就不会进行。失败后留下监听端口的测试文件不会自行结束，所以这一步用 `node --test --test-force-exit` 运行。
+- `npm run test:windows` 列出已在 Windows 上核对过的测试文件。其余用例里还有权限位、`sh` 脚本替身、符号链接和用 `/` 拼接路径等 POSIX 假设，在 Windows 运行器上得出结果的 121 项中有 26 项失败（逐项原因见[验收记录](validation/0.9.1.md)），移植之前不要把它们设为发布的前提。
+- 工作流里只报告结果的步骤必须有自己的 `timeout-minutes`。`continue-on-error` 只容忍失败，不容忍任务超时：一个卡住的步骤会让整个任务被取消，依赖它的发布也就不会进行。`node --test --test-force-exit` 只能结束「测试已经跑完、但还留着打开的东西」的文件，结束不了一个永远不返回的测试，所以它不能代替时限。
+- 测试或脚本启动的子进程，它的输出必须一直有人读。Node 在 Windows 上同步写 stdout 和 stderr 管道，在 Mac 和 Linux 上异步写：没人读的管道写满后，Windows 上的子进程会停在 `console.log` 里，不再响应任何请求，而同样的代码在 Mac 上照常通过。`scripts/ui-storage.mjs` 每个请求写一行，`tests/core/removals.test.mjs` 曾经只读第一行，在 Windows 上跑到第七个用例就卡死。只取第一行时，读完后对管道调用 `resume()`。
 
 **界面（0.9.1）**
 - 界面回归必须中文、英文各跑一遍（`--lang=en`）。英文文案更长，0.9.0 发布时详情面板的「⋯」菜单在英文下超出面板、最后一项点不到，只跑中文发现不了。

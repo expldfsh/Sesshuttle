@@ -79,9 +79,11 @@ jobs:
       - name: Run the tests verified on Windows
         if: runner.os == 'Windows'
         run: npm run test:windows
-      # A test that fails on Windows can leave a server open and keep its file from
-      # ending. The run is told to end such files, and the step has its own limit so
-      # that a hang here can never cancel the job a release waits for.
+      # These files are not verified on Windows yet, so one of them may fail there or
+      # never end. The step has its own limit: without it a hang runs into the limit of
+      # the job, which cancels the job a release waits for instead of failing this step.
+      # --test-force-exit ends a file whose tests are over but which left something
+      # open. It cannot end a test that never finishes; only the limit does that.
       - name: Report the whole suite on Windows
         if: runner.os == 'Windows'
         continue-on-error: true
