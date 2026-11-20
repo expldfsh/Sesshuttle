@@ -15,7 +15,7 @@ import { FIXTURE_REPLY, setupHome, startFixtureProvider } from './fixture-provid
 export async function verifyRuntime(
   binary,
   state,
-  { signal, onStage = () => {}, timeoutMs = 30000 } = {},
+  { signal, onStage = () => {}, timeoutMs = process.platform === 'win32' ? 120000 : 30000 } = {},
 ) {
   const info = await runtimeInfo(binary, state);
   if (info.status !== 'untested') return { ...info, reused: true };

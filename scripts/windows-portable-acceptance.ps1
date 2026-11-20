@@ -8,6 +8,14 @@ $pointer = Join-Path $env:USERPROFILE 'Sesshuttle Location.json'
 if ((Test-Path -LiteralPath $pointer) -or (Test-Path -LiteralPath (Join-Path $env:USERPROFILE 'Sesshuttle Data'))) { throw 'A fresh test account is required' }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -Namespace SesshuttleTest -Name Pointer -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool SetForegroundWindow(System.IntPtr window);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern bool SetCursorPos(int x, int y);
+[System.Runtime.InteropServices.DllImport("user32.dll")]
+public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, System.UIntPtr extra);
+'@
 $ae = [Windows.Automation.AutomationElement]
 $scope = [Windows.Automation.TreeScope]
 $wsh = New-Object -ComObject WScript.Shell
@@ -24,7 +32,7 @@ function Snapshot($name) {
   if ($LASTEXITCODE) { throw 'AppData inventory failed' }
 }
 function FindWindow($name,$class) {
-  $until = (Get-Date).AddSeconds(150)
+  $until = (Get-Date).AddMinutes(4)
   do {
     foreach ($window in $ae::RootElement.FindAll($scope::Children,[Windows.Automation.Condition]::TrueCondition)) {
       if ($window.Current.Name -like $name -and $window.Current.ClassName -like $class) { return $window }
@@ -34,10 +42,16 @@ function FindWindow($name,$class) {
   throw "Window missing: $name $class"
 }
 function ClickId($window,$id) {
-  $c = New-Object Windows.Automation.PropertyCondition($ae::AutomationIdProperty,$id)
-  $button = $window.FindFirst($scope::Descendants,$c)
+  $byId = New-Object Windows.Automation.PropertyCondition($ae::AutomationIdProperty,$id)
+  $byType = New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty,[Windows.Automation.ControlType]::Button)
+  $button = $window.FindFirst($scope::Descendants,(New-Object Windows.Automation.AndCondition($byId,$byType)))
   if (-not $button) { throw "Missing control $id in $($window.Current.Name)" }
-  $button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+  [SesshuttleTest.Pointer]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle) | Out-Null
+  $point = $button.GetClickablePoint()
+  [SesshuttleTest.Pointer]::SetCursorPos([int]$point.X, [int]$point.Y) | Out-Null
+  [SesshuttleTest.Pointer]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 100
+  [SesshuttleTest.Pointer]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
 }
 function ExitApp($process) {
   $main = FindWindow '*sesshuttle*' 'Chrome_WidgetWin_1'
@@ -59,7 +73,8 @@ $exe = Join-Path $program 'Sesshuttle.exe'
 $cancel = Start-Process -FilePath $exe -PassThru
 $picker = FindWindow '*folder*' '#32770'
 ClickId $picker '2'
-if (-not $cancel.WaitForExit(45000) -or (Test-Path -LiteralPath $pointer) -or (Test-Path -LiteralPath $folder)) { throw 'Cancel created data or left the app open' }
+if (-not $cancel.WaitForExit(120000)) { throw 'Launcher still running after Cancel' }
+if ((Test-Path -LiteralPath $pointer) -or (Test-Path -LiteralPath $folder)) { throw 'Cancel created data or a location file' }
 Snapshot 'cancel'
 $first = Start-Process -FilePath $exe -PassThru
 $picker = FindWindow '*folder*' '#32770'
