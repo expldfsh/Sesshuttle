@@ -198,6 +198,8 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 ### 7.3 发版收尾
 
+- 任何分支推送后，[GitHub 工作流](../.github/workflows/release.yml) 会运行核心和静态检查，并在 Windows、Mac、Linux 上分别打包。默认分支 `main` 上尚未发布的版本会自动打上 `v<package.json 版本号>` 标签。工作流核对三个平台提供的校验值，将四个安装包和 SHA-256 清单上传到草稿，再核对 GitHub 返回的五个附件校验值，全部一致后公开。运行中断时可以在 Actions 重跑原提交。同一版本发布后的常规推送继续生成验收包。
+- 准备下一个补丁版本时，可用 `npm version patch --no-git-tag-version` 同时更新 `package.json` 和 `package-lock.json`。线上下载的校验值见该次 Release 的附件。
 - 更新 `package.json` 版本号、README（中英文）、用户指南中的版本与链接。
 - 新建 `docs/validation/<版本号>.md`，删除上一版的验收记录，并更新所有指向它的链接。
 - `npm run package:mac`、`npm run package:linux` 和 `npm run package:win` 打包，生成 `release/SHA256SUMS-<版本号>.txt`。`release/` 中只保留当前版本和上一版的安装包，并删除 electron-builder 的中间产物（`linux-unpacked/`、`mac-arm64/`、`win-unpacked/`、`*.yml`）。

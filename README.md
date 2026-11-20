@@ -37,3 +37,7 @@ On each computer, the **Getting started** list at the top of Conversations shows
 - **Backups & recovery** has three tabs: manual device backups, the local trash and the cloud recycle bin. Importing and restoring do not create backups automatically.
 
 [Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.9.0.md)
+
+## Publishing a release
+
+Each branch push builds the four installers. You can download them from the workflow run in **Actions → Build and release** for seven days. Push a new `package.json` version to `main` to publish it. After all checks and builds pass, the workflow creates the version tag and uploads the installers and their SHA-256 checksums to GitHub Releases. Versions in the 0.x series and versions with a prerelease suffix are marked as prereleases. Later pushes with the same version keep the published downloads intact.
