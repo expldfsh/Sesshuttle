@@ -1,7 +1,7 @@
 {
   "release": "0.9.0",
   "file": "sesshuttle-0.9.0-win-x64.zip",
-  "sha256": "f3050076717f6541d3c983fb3da1a36afcf72a0f3dd0b9b5bbdd10a8f61daa47",
+  "sha256": "f96d63929eb96df1255c33fabcfd8b7c6a7354fc1570fcda547502fdcef12b0c",
   "operatingSystem": "Windows 11 Enterprise Evaluation",
   "windowsBuild": "10.0.26300.0",
   "architecture": "AMD64",
@@ -26,8 +26,8 @@
     "cancel": {
       "added": [],
       "changed": [
-        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0215.1220.1.aodl",
-        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_021538_1220-1228.log",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0252.8040.1.aodl",
+        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_025250_8040-8044.log",
         "Local/Microsoft/Windows/WebCache/V01.log",
         "Local/Microsoft/Windows/WebCache/WebCacheV01.jfm",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/Cache/Cache_Data/data_1",
@@ -39,16 +39,16 @@
       ],
       "candidates": [],
       "unreadable": [],
-      "before": 7417,
-      "after": 7417
+      "before": 7431,
+      "after": 7430
     },
     "first": {
       "added": [],
       "changed": [
         "Roaming/Microsoft/Spelling/en-US/default.acl",
         "Roaming/Microsoft/Spelling/en-US/default.exc",
-        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0215.1220.1.aodl",
-        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_021538_1220-1228.log",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0252.8040.1.aodl",
+        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_025250_8040-8044.log",
         "Local/Microsoft/Windows/WebCache/V01.log",
         "Local/Microsoft/Windows/WebCache/WebCacheV01.jfm",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/Cache/Cache_Data/data_1",
@@ -60,16 +60,18 @@
       ],
       "candidates": [],
       "unreadable": [],
-      "before": 7417,
-      "after": 7417
+      "before": 7431,
+      "after": 7430
     },
     "after": {
-      "added": [],
+      "added": [
+        "Local/Microsoft/TokenBroker/Cache/01c5cb21ab1d4fd56e65159d6c36cd5db1f647e1.tbres"
+      ],
       "changed": [
         "Roaming/Microsoft/Spelling/en-US/default.acl",
         "Roaming/Microsoft/Spelling/en-US/default.exc",
-        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0215.1220.1.aodl",
-        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_021538_1220-1228.log",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0252.8040.1.aodl",
+        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_025250_8040-8044.log",
         "Local/Microsoft/Windows/WebCache/V01.log",
         "Local/Microsoft/Windows/WebCache/WebCacheV01.jfm",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/Cache/Cache_Data/data_1",
@@ -81,35 +83,122 @@
       ],
       "candidates": [],
       "unreadable": [],
-      "before": 7417,
-      "after": 7417
+      "before": 7431,
+      "after": 7431
     },
     "after-workflow": {
       "added": [
-        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0142.7276.2.odl",
-        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0223.2340.1.odl",
-        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0223.2340.2.aodl"
+        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0223.2340.2.odl",
+        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0300.5824.1.odl",
+        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0300.5824.2.aodl",
+        "Local/Microsoft/TokenBroker/Cache/763a4c110743476a25511a41168628a48392b9b6.tbres",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/AC/INetCache/container.dat",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/AC/INetCookies/ESE",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/AC/INetCookies/ESE/container.dat",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/AC/INetHistory/History.IE5",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/blob_storage/6fedfb34-dfd9-4ea4-8650-49051b9f1550",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/lockfile",
+        "Local/Temp/b0e65275-3e79-4f36-a86d-fc81644f8808.tmp"
       ],
       "changed": [
         "Roaming/Microsoft/Spelling/en-US/default.acl",
         "Roaming/Microsoft/Spelling/en-US/default.exc",
-        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0215.1220.1.aodl",
-        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_021538_1220-1228.log",
-        "Local/Microsoft/TokenBroker/Cache/01c5cb21ab1d4fd56e65159d6c36cd5db1f647e1.tbres",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0252.8040.1.aodl",
+        "Local/Microsoft/OneDrive/setup/logs/Update_2026-11-20_025250_8040-8044.log",
+        "Local/Microsoft/Windows/Notifications/wpndatabase.db-wal",
         "Local/Microsoft/Windows/UsrClass.dat.LOG1",
         "Local/Microsoft/Windows/WebCache/V01.log",
+        "Local/Microsoft/Windows/WebCache/WebCacheV01.dat",
         "Local/Microsoft/Windows/WebCache/WebCacheV01.jfm",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/Cache/Cache_Data/data_1",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnGraphiteCache/data_1",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnWebGPUCache/data_1",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/GPUCache/data_1",
         "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/GrShaderCache/data_1",
-        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/ShaderCache/data_1"
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/ShaderCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Crashpad/settings.dat",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/AutofillAiModelCache/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/AutofillAiModelCache/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/AutofillStrikeDatabase/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/AutofillStrikeDatabase/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/BookmarkMergedSurfaceOrdering",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/BudgetDatabase/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/BudgetDatabase/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/ClientCertificates/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/ClientCertificates/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Code Cache/js/index-dir/the-real-index",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/commerce_subscription_db/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/commerce_subscription_db/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/discounts_db/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/discounts_db/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/discount_infos_db/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/discount_infos_db/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/EdgeSessions/SessionRestoreLog",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Extension State/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Extension State/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/favorites_diagnostic.log",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/History",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/History-journal",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Local Storage/leveldb/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Local Storage/leveldb/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Network/SCT Auditing Pending Reports",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Network/Sdch Dictionaries",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/optimization_guide_hint_cache_store/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/optimization_guide_hint_cache_store/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/parcel_tracking_db/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/parcel_tracking_db/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/PersistentOriginTrials/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/PersistentOriginTrials/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Preferences",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Secure Preferences",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Session Storage/000003.log",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Session Storage/CURRENT",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Session Storage/LOCK",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Session Storage/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Session Storage/MANIFEST-000001",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/shared_proto_db/000003.log",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/shared_proto_db/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/shared_proto_db/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/shared_proto_db/metadata/000003.log",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/shared_proto_db/metadata/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/shared_proto_db/metadata/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Site Characteristics Database/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Site Characteristics Database/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Sync Data/LevelDB/LOG",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/Sync Data/LevelDB/LOG.old",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Last Version",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Local State",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Variations",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/VariationsSeedV2"
       ],
-      "candidates": [],
+      "candidates": [
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Crashpad/settings.dat"
+      ],
       "unreadable": [],
-      "before": 7417,
-      "after": 7419
+      "before": 7431,
+      "after": 7438
     }
+  },
+  "controlledRunRemoved": {
+    "after": [
+      "Local/Temp/BIT9CE8.tmp"
+    ],
+    "after-workflow": [
+      "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0223.2340.2.aodl",
+      "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/BrowserMetrics-spare.pma",
+      "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/blob_storage/bdb849fb-afdf-43d0-9843-af6f5ceadbcb",
+      "Local/Temp/BIT9CE8.tmp"
+    ]
+  },
+  "workflowTempCheck": {
+    "path": "Local/Temp/b0e65275-3e79-4f36-a86d-fc81644f8808.tmp",
+    "bytes": 0,
+    "observedHolder": {
+      "pid": 4,
+      "name": "System"
+    },
+    "source": "Windows file-handle query and process snapshot"
   }
 }

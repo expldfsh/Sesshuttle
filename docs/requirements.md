@@ -23,7 +23,7 @@
 Sesshuttle 是一个可安装的桌面应用。用户连接自己的 Cloudflare R2 Bucket，选择本机的 Codex 对话加密上传，然后在另一台电脑导入到 Codex 桌面端、CLI 或 VS Code 扩展，在正确的本机项目文件夹里继续同一条原生对话。
 
 - 用户自备存储，不注册本产品账号，不部署数据库或服务器。
-- 只有实际验证过的平台和 Codex 版本才能声明支持。当前支持：Apple Silicon Mac（dmg）、x86_64 Linux（tar.gz、deb，重点是 Arch）。Windows 尚未验收。
+- 只有实际验证过的平台和 Codex 版本才能声明支持。当前支持 Apple Silicon Mac（dmg）、x86_64 Linux（tar.gz、deb，重点是 Arch）和 Windows 11 x64（免安装 ZIP）。
 - 不负责：项目源码同步、依赖安装、终端进程迁移、Codex 登录迁移、运行中任务迁移。
 
 ## 2 不可违反的约束
@@ -212,7 +212,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 ## 0.9.0 Windows 11 x64 免安装版
 
 - [x] 解压双击，首次选择位置，重开和迁移后直接从图标进入同一份数据。
-- [ ] 普通 Windows 账户可检测 Codex 程序，并通过现有桌面、CLI、编辑器入口继续对话。
+- [x] 普通 Windows 账户可检测 Codex 程序，并通过现有桌面、CLI、编辑器入口继续对话。
 - [x] 用最终 ZIP、隔离数据以及实际 Codex 程序验证跨平台往返、卸载和 AppData 中的应用残留。
 
 ## 0.8.0 Mac 和 Linux 本机数据文件夹
@@ -225,6 +225,10 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 ---
 
 # 第三部分 进度与决策记录
+
+### 0.9.0 决策与验收
+
+Windows 11 x64 采用免安装 ZIP。用户首次选定数据目录，普通账户从原图标或搬动后的程序目录重开均读到同一数据库。商店桌面端通过注册的链接打开。VS Code 缺少链接关联时，也可以把同一会话交给标准安装位置的编辑器。CLI 从原生终端续聊。Windows 与 macOS 原生续聊往返、程序卸载及 AppData 清单已核对。详细版本、测试边界与结果见本轮验收报告。
 
 ### 0.8.0 决策与验收
 
