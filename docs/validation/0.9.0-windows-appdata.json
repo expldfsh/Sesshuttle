@@ -259,5 +259,44 @@
       "name": "System"
     },
     "source": "Windows file-handle query and process snapshot"
+  },
+  "finalClientRun": {
+    "nativeImports": [
+      "cli",
+      "desktop",
+      "ide"
+    ],
+    "openedThread": {
+      "cli": "01a1f6d7-e376-7910-ab93-df1669043e42",
+      "desktop": "01a1f6d7-e376-7910-ab93-df1669043e42",
+      "ide": "01a1f6d7-e376-7910-ab93-df1669043e42"
+    },
+    "visibleClientExecutables": [
+      "C:\\Program Files\\WindowsApps\\OpenAI.Codex_26.1111.9664.0_x64__2p2nqsd0c76g0\\app\\ChatGPT.exe",
+      "C:\\Users\\SesshuttleQA\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
+    ],
+    "appDataComparedWith": "after-workflow",
+    "before": 7438,
+    "after": 8454,
+    "added": 1019,
+    "changed": 19,
+    "newByParent": {
+      "Roaming/Code": 186,
+      "Roaming/Microsoft/Windows": 1,
+      "Local/D3DSCache": 4,
+      "Local/Microsoft/TokenBroker": 1,
+      "Local/OpenAI": 1,
+      "Local/Packages/cr.sb.odm658684D938D046962C4EE647441271941AA72F0E": 3,
+      "Local/Packages/OpenAI.Codex_2p2nqsd0c76g0": 822,
+      "Local/Temp": 1
+    },
+    "changedByParent": {
+      "Roaming/Microsoft/Spelling": 2,
+      "Local/Microsoft/OneDrive": 1,
+      "Local/Microsoft/Windows": 6,
+      "Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe": 1,
+      "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy": 9
+    },
+    "unreadable": []
   }
 }
