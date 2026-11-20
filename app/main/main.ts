@@ -17,7 +17,7 @@ import { Removals } from '../../core/removals.mjs';
 import { requireThat, publicError, exists, canonical, inside, hash } from '../../core/util.mjs';
 import { DEFAULT_THEME_ID } from '../shared/themes';
 import { applyAppearance } from './menu';
-import { createWindow } from './window';
+import { createWindow, rendererUrl } from './window';
 import { createHandlers, registerIpc } from './ipc-handlers';
 import type { Context } from './context';
 
@@ -189,7 +189,7 @@ async function start() {
   };
   window.on('close', onClose);
   try {
-    await window.loadFile(ctx.rendererFile);
+    await window.loadURL(rendererUrl(ctx));
   } catch (error) {
     // Closing a cold window can cancel its initial navigation before it is painted.
     if (!closing && !window.isDestroyed()) throw error;

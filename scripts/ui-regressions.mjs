@@ -14,7 +14,9 @@
 //   only changing the unsaved path; the file chooser can enter app bundles.
 //   Removal records (0.7.3 §11): a removal that cannot be finished can be given up or
 //   cleared, and one with work left says why and where to continue.
-// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep,records,retarget]
+//   App location (0.9.1): the app answers from a folder whose name has characters
+//   that a file URL escapes.
+// Usage: node scripts/ui-regressions.mjs [--lang=zh-CN|en] [--only=transfer,removal,native,bins,activity,paths,sweep,records,retarget,location]
 //   [--app=<packaged executable>]   by default the development build runs
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -22,7 +24,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
 import { openSession, setSize } from './lib/ui-session.mjs';
-import { invoke, launchApp, chooseFixtureDirectory } from './lib/test-app.mjs';
+import { invoke, launchApp, makeFixture, chooseFixtureDirectory } from './lib/test-app.mjs';
 import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-in.mjs';
 
 const option = (name, fallback) =>
@@ -30,9 +32,10 @@ const option = (name, fallback) =>
 const language = option('lang', 'zh-CN');
 const only = option(
   'only',
-  'transfer,removal,native,bins,activity,paths,sweep,records,retarget',
+  'transfer,removal,native,bins,activity,paths,sweep,records,retarget,location',
 ).split(',');
 const executablePath = option('app', undefined);
+const repo = path.resolve(import.meta.dirname, '..');
 
 // Interface text in both languages, so the checks do not depend on the language.
 const TEXT = {
@@ -1103,14 +1106,69 @@ async function retargetChecks(session) {
   }
 }
 
+// 0.9.1: a file URL escapes some characters of a folder name. The app is copied into
+// such a folder and must still load its window and answer requests from it.
+async function locationChecks() {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'sesshuttle-location-'));
+  const folder = path.join(base, 'App 中文 100% [x] ~ #1 %41');
+  const root = makeFixture();
+  let launched;
+  try {
+    const options = {};
+    if (executablePath) {
+      // A macOS bundle is copied whole; elsewhere the program's own folder is.
+      const bundle = executablePath.match(/^(.*\.app)\//)?.[1] ?? path.dirname(executablePath);
+      const copy = path.join(folder, path.basename(bundle));
+      await fs.cp(bundle, copy, { recursive: true, verbatimSymlinks: true });
+      options.executablePath = path.join(copy, path.relative(bundle, executablePath));
+    } else {
+      await fs.cp(path.join(repo, 'dist'), path.join(folder, 'dist'), {
+        recursive: true,
+        filter: (file) => !/\.(?:map|exe)$/.test(file) && path.basename(file) !== 'windows-build',
+      });
+      const { version } = JSON.parse(await fs.readFile(path.join(repo, 'package.json'), 'utf8'));
+      await fs.writeFile(
+        path.join(folder, 'package.json'),
+        JSON.stringify({ name: 'sesshuttle', version, main: 'dist/main.cjs' }),
+      );
+      options.appDir = folder;
+    }
+    await check('the app works from a folder whose name a file URL escapes', async () => {
+      launched = await launchApp(root, options);
+      current = launched.page;
+      const init = await invoke(launched.page, 'init');
+      assert.equal(init.ok, true, 'requests are refused: ' + init.error?.code);
+      await launched.page.waitForSelector('.shell', { timeout: 15000 });
+      await launched.page.reload();
+      await launched.page.waitForSelector('.shell', { timeout: 15000 });
+      assert.equal((await invoke(launched.page, 'init')).ok, true, 'after reloading');
+    });
+  } finally {
+    await launched?.app.close().catch(() => {});
+    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(base, { recursive: true, force: true });
+  }
+}
+
 const groups = { transfer: transferChecks, removal: removalChecks, native: nativeChecks };
 Object.assign(groups, { bins: binChecks, activity: activityChecks, paths: pathChecks });
 groups.sweep = sweepChecks;
 groups.records = recordChecks;
 groups.retarget = retargetChecks;
+// Groups that start the app themselves instead of using a prepared session.
+const standalone = { location: locationChecks };
 // Each group runs in its own test-mode session; a failed step outside a check is
 // reported as a failed setup with a screenshot.
 for (const name of only) {
+  if (standalone[name]) {
+    try {
+      await standalone[name]();
+    } catch (e) {
+      results.push({ name: name + ' setup', ok: false, error: e.message.split('\n')[0] });
+      console.log('FAIL ' + name + ' setup — ' + e.message.split('\n')[0]);
+    }
+    continue;
+  }
   const session = await openSession({ language, executablePath });
   current = session.page;
   session.page.on('pageerror', (e) => pageErrors.push(e.message));

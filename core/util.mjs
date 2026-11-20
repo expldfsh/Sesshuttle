@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 export const LIMIT = 64 * 1024 * 1024;
 // Items by a field; like Array.find, the first item with a value wins.
@@ -79,6 +80,20 @@ export function ordinaryWindowsPath(p) {
   if (/^\\\\\?\\[a-z]:\\/i.test(p)) return p.slice(4);
   if (/^\\\\\?\\UNC\\/i.test(p)) return '\\\\' + p.slice(8);
   return p;
+}
+
+// Whether a file: URL names this local file. Chromium and Node spell one path
+// differently (which characters are escaped, the case of a drive letter or share),
+// so the decoded paths are compared instead of the two spellings.
+export function fileUrlNames(url, file, windows = process.platform === 'win32') {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'file:' || parsed.search || parsed.hash) return false;
+    const named = fileURLToPath(parsed, { windows });
+    return windows ? named.toLowerCase() === file.toLowerCase() : named === file;
+  } catch {
+    return false;
+  }
 }
 
 export async function canonical(p) {

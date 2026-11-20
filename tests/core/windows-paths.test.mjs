@@ -6,7 +6,46 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { projectFor } from '../../core/catalog.mjs';
 import { scan } from '../../core/codex.mjs';
-import { childPath, absoluteLocalPath, id, portableBasename } from '../../core/util.mjs';
+import { pathToFileURL } from 'node:url';
+import {
+  childPath,
+  absoluteLocalPath,
+  fileUrlNames,
+  id,
+  portableBasename,
+} from '../../core/util.mjs';
+
+test('the bundled page is recognised by its file, however its address is spelled', () => {
+  // Chromium leaves some characters as they are that Node escapes, and the reverse.
+  const page = '/Applications/App 中文 100% [x] ~ #1 %41/dist/renderer/index.html';
+  const url = pathToFileURL(page, { windows: false }).href;
+  assert.equal(fileUrlNames(url, page, false), true);
+  assert.equal(fileUrlNames(url.replaceAll('[', '%5B').replaceAll(']', '%5D'), page, false), true);
+  assert.equal(fileUrlNames(url.replaceAll('~', '%7E'), page, false), true);
+  for (const other of [
+    url + '?x=1',
+    url + '#top',
+    url.replace('index.html', 'other.html'),
+    url.replace('file:', 'https:'),
+    url.replace('file:///', 'file://host/'),
+    // A bare path used as an address: its percent signs are not escaped.
+    'file://' + page.replaceAll(' ', '%20'),
+    'not a url',
+  ])
+    assert.equal(fileUrlNames(other, page, false), false, other);
+
+  // Windows: the window reports an upper-case drive and a lower-case share.
+  const win = 'c:\\Tools\\App 100%\\resources\\app.asar\\dist\\renderer\\index.html';
+  const reported = 'file:///C:/Tools/App%20100%25/resources/app.asar/dist/renderer/index.html';
+  assert.equal(fileUrlNames(reported, win, true), true);
+  assert.equal(fileUrlNames(pathToFileURL(win, { windows: true }).href, win, true), true);
+  assert.equal(
+    fileUrlNames('file://nas/apps/S/index.html', '\\\\NAS\\Apps\\S\\index.html', true),
+    true,
+  );
+  assert.equal(fileUrlNames(reported.replace('C:', 'D:'), win, true), false);
+  assert.equal(fileUrlNames(reported + '?x', win, true), false);
+});
 
 test('Windows filesystem operations require a qualified drive or share and ordinary filenames', () => {
   const win = path.win32;

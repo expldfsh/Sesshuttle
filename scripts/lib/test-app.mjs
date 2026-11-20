@@ -34,12 +34,13 @@ export async function startStorage(root) {
 }
 
 // `executablePath` selects a packaged app; by default the development build runs.
+// `appDir` runs a copy of the development build from another folder.
 // `args` are extra Chromium switches, such as --force-device-scale-factor=2.
-export async function launchApp(root, { executablePath, env = {}, args = [] } = {}) {
+export async function launchApp(root, { executablePath, appDir = repo, env = {}, args = [] } = {}) {
   if (!args.some((arg) => arg.startsWith('--user-data-dir=')))
     args = [...args, '--user-data-dir=' + path.join(root, 'runtime', 'profile')];
   const app = await electron.launch({
-    ...(executablePath ? { executablePath, args } : { args: [repo, ...args] }),
+    ...(executablePath ? { executablePath, args } : { args: [appDir, ...args] }),
     cwd: repo,
     env: { ...process.env, SESSHUTTLE_TEST_ROOT: root, ...env },
   });

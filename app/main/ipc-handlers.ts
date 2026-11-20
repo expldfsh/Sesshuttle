@@ -40,7 +40,7 @@ import { persistConnection, retrieveConnection } from '../../core/portable-crede
 import { folderHandlers, label } from './data-folder';
 import { continueEntry, protocolHandler } from './continue';
 import { applyAppearance } from './menu';
-import { rendererUrl } from './window';
+import { isRenderer } from './window';
 import type { Context } from './context';
 
 const exec = promisify(execFile);
@@ -791,7 +791,7 @@ export function registerIpc(ctx: Context, handlers: Handlers) {
         window &&
           event.sender === window.webContents &&
           event.senderFrame === window.webContents.mainFrame &&
-          event.senderFrame.url === rendererUrl(ctx),
+          isRenderer(ctx, event.senderFrame.url),
         'invalid_action',
       );
       requireThat(isIpcMethod(method) && JSON.stringify(args).length < 256000, 'invalid_action');
