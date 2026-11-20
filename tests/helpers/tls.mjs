@@ -1,6 +1,7 @@
 // A certificate for a loopback HTTPS server, made for one test run and never saved in
 // the repository. Tests that need it are skipped where no openssl program is installed.
 import { execFileSync } from 'node:child_process';
+import { X509Certificate } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,7 +20,9 @@ export function temporaryCertificate() {
       ],
       { stdio: 'ignore' },
     );
-    return { key: fs.readFileSync(key, 'utf8'), cert: fs.readFileSync(cert, 'utf8') };
+    const made = { key: fs.readFileSync(key, 'utf8'), cert: fs.readFileSync(cert, 'utf8') };
+    // An older program may leave out the address the tests connect to.
+    return new X509Certificate(made.cert).subjectAltName?.includes('127.0.0.1') ? made : null;
   } catch {
     return null;
   } finally {
