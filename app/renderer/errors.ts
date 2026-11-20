@@ -54,7 +54,7 @@ const RULES: Record<string, ErrorRule> = {
     'error',
     `entry_home_missing runtime_check_needed working_folder_missing project_required
      destination_project_missing project_assignment_unsupported custom_home_launcher
-     no_protocol_handler terminal_required`,
+     no_protocol_handler terminal_required import_settings_changed`,
   ),
   ...rules(
     'refreshRetry',

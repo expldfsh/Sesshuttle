@@ -46,6 +46,8 @@ const TEXT = {
   nothingRemoved: /没有删除或恢复任何内容|Nothing was deleted or restored/,
   reviewRemovalAgain: /重新查看删除清单|Review the removal list again/,
   appNotOpened: /应用没有打开|The app did not open/,
+  settingsChanged: /设置改过|setting changed/,
+  appsPage: /本机应用与项目|Apps & projects/,
   upload: /上传到云端|Upload to cloud/,
   importHere: /导入到此应用|Import into this app/,
   historyOnly: /仅导入历史（不指定原生项目）|Import history only \(no native project\)/,
@@ -391,6 +393,9 @@ async function nativeChecks(session) {
     await confirmQuestion(page);
     const notice = page.locator('.detail .error-notice', { hasText: TEXT.appNotOpened });
     await notice.waitFor({ timeout: 10000 });
+    // The import was made under other settings: the notice says so and where to look.
+    assert.match(await notice.innerText(), TEXT.settingsChanged);
+    assert.equal(await notice.locator('button', { hasText: TEXT.appsPage }).count(), 1);
     await notice.locator('.icon-button').click();
     await page.waitForTimeout(200);
     assert.equal(await page.locator('.detail .error-notice').count(), 0, 'dismissed');

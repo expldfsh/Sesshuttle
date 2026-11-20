@@ -1521,6 +1521,10 @@ export const messages = {
     '历史分页位置不匹配，已停止导入，原始备份保留。',
     'History pagination offsets do not match. Import stopped; the original backup is retained.',
   ],
+  import_settings_changed: [
+    '导入这条对话后，这个应用的 Codex 数据目录、Codex 程序或项目文件夹设置改过，不能从这里直接打开。请在{@projects}核对设置；确实要使用新设置时，用{@importLocal}把这条对话重新导入到这个应用。',
+    'After this chat was imported, this app’s Codex data folder, Codex runtime or project folder setting changed, so the chat cannot be opened from here. Check the settings in {@projects}. To use the new settings, import the chat into this app again with {@importLocal}.',
+  ],
   incomplete_history: [
     '关键历史不完整或包含尚未支持的资源，暂不能导入。',
     'This format or resource is not supported for import. Backup only is available.',

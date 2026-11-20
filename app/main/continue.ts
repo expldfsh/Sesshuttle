@@ -8,6 +8,7 @@ import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { liveLinuxTargets } from '../../core/discovery.mjs';
 import { runtimeProgram } from '../../core/runtime.mjs';
+import { importMatchesSettings } from '../../core/continue-rules.mjs';
 import { Fault, requireThat, atomic, exists, canonical } from '../../core/util.mjs';
 import type { Context } from './context';
 
@@ -81,10 +82,13 @@ export async function continueEntry(ctx: Context, { logicalId, entry }: any) {
   const cfg = engine.config(),
     target = cfg.targets[entry];
   requireThat(
-    target?.home === record.home &&
-      target.binary === record.binary &&
-      cfg.bindings[state.get('association/' + logicalId)?.projectId] === record.project,
-    'stale_plan',
+    await importMatchesSettings(
+      entry,
+      record,
+      target,
+      cfg.bindings[state.get('association/' + logicalId)?.projectId],
+    ),
+    'import_settings_changed',
   );
   if (entry === 'desktop' || entry === 'ide') {
     const home = await canonical(record.home);
