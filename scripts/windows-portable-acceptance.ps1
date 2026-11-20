@@ -61,8 +61,10 @@ function ExitApp($process, [switch]$DuringLoad) {
     $until = (Get-Date).AddMinutes(3)
     do {
       $page = $main.FindFirst($scope::Descendants,$doc)
-      if ($page -and $page.FindFirst($scope::Descendants,$button)) { break }
-      if ((Get-Date) -ge $until) { throw 'The main window did not display its actions' }
+      # A start that failed shows one line with a single button. The app itself has
+      # its navigation and more, so one button is not enough to pass.
+      if ($page -and $page.FindAll($scope::Descendants,$button).Count -ge 5) { break }
+      if ((Get-Date) -ge $until) { throw 'The main window did not display the app' }
       Start-Sleep -Milliseconds 500
     } while ($true)
   }
@@ -116,7 +118,8 @@ ExitApp $again
 if ((ReadDevice) -ne $id) { throw 'Second icon launch opened a different profile' }
 if ($OnStep) { & $OnStep 'Original icon reopened the selected database' }
 if (-not (Test-Path -LiteralPath (Join-Path $folder 'Open Sesshuttle.cmd'))) { throw 'Missing data folder shortcut' }
-$relocated = Join-Path $work ('App ' + [char]0x4e2d + [char]0x6587 + ' 100%')
+# Characters that a file address escapes; a percent sign alone once kept the app from answering.
+$relocated = Join-Path $work ('App ' + [char]0x4e2d + [char]0x6587 + ' 100% [x] ~ #1 %41')
 Move-Item -LiteralPath $program -Destination $relocated
 $program = $relocated
 $third = Start-Process -FilePath (Join-Path $program 'Sesshuttle.exe') -PassThru

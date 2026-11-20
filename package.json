@@ -14,6 +14,7 @@
     "build": "vite build && node scripts/build.mjs",
     "start": "node scripts/start.mjs",
     "test": "node --test tests/core/*.test.mjs",
+    "test:windows": "node --test tests/core/windows-paths.test.mjs tests/core/connection-rules.test.mjs tests/core/history-items.test.mjs tests/core/workspace.test.mjs tests/core/recovery-file.test.mjs tests/core/activity.test.mjs tests/core/storage.test.mjs tests/core/shown-paths.test.mjs",
     "check": "node node_modules/typescript-native/bin/tsc --noEmit && node scripts/check-locales.mjs",
     "format": "prettier --write app core scripts tests eslint.config.mjs vite.config.ts",
     "format:check": "prettier --check app core scripts tests eslint.config.mjs vite.config.ts",

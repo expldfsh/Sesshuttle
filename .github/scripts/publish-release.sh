@@ -4,6 +4,8 @@ set -euo pipefail
 tag="v${VERSION:?Missing package version}"
 marker="<!-- Sesshuttle release build: ${GITHUB_SHA:?Missing commit} -->"
 manifest="SHA256SUMS-$VERSION.txt"
+notes="../docs/releases/$VERSION.md"
+test -s "$notes" || { echo "Missing release notes: docs/releases/$VERSION.md" >&2; exit 1; }
 installers=(
   "sesshuttle-$VERSION-linux-amd64.deb"
   "sesshuttle-$VERSION-linux-x64.tar.gz"
@@ -40,7 +42,8 @@ if [[ "$releases" == '[]' ]]; then
   prerelease=false
   if [[ "$VERSION" == 0.* || "${VERSION%%+*}" == *-* ]]; then prerelease=true; fi
   gh release create "$tag" --draft --verify-tag --target "$GITHUB_SHA" \
-    --title "Sesshuttle $tag" --generate-notes --notes "$marker" --prerelease="$prerelease"
+    --title "Sesshuttle $tag" --generate-notes --notes "$marker"$'\n\n'"$(cat "$notes")" \
+    --prerelease="$prerelease"
 fi
 gh release upload "$tag" "${installers[@]}" "$manifest" --clobber
 uploaded=$(gh release view "$tag" --json assets \
