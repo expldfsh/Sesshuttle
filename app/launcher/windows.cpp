@@ -151,9 +151,13 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR tail, int) {
     std::wstring exe = dir + L"sesshuttle-runtime.exe";
     std::wstring script = dir + L"resources\\sesshuttle-start.cjs";
     // An incomplete extraction or a quarantined file would otherwise end without a word.
-    for (const std::wstring* part : {&exe, &script})
-        if (GetFileAttributesW(part->c_str()) == INVALID_FILE_ATTRIBUTES)
-            return startFailed(*part, GetLastError());
+    // Any other doubt about a file is left to the start itself.
+    for (const std::wstring* part : {&exe, &script}) {
+        if (GetFileAttributesW(part->c_str()) != INVALID_FILE_ATTRIBUTES) continue;
+        DWORD missing = GetLastError();
+        if (missing == ERROR_FILE_NOT_FOUND || missing == ERROR_PATH_NOT_FOUND)
+            return startFailed(*part, missing);
+    }
     SetEnvironmentVariableW(L"ELECTRON_RUN_AS_NODE", L"1");
     // The display language of Windows, for the questions asked before the window opens.
     if (!GetEnvironmentVariableW(L"SESSHUTTLE_LANG", nullptr, 0))
