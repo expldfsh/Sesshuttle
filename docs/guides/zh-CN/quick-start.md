@@ -20,7 +20,7 @@ tar -xzf sesshuttle-0.9.0-linux-x64.tar.gz
 
 「对话」页顶部的「开始使用」清单列出四步：检测本机 Codex 应用、连接云端存储、刷新对话列表、完成第一次上传或导入。前三步可通过对应按钮操作；最后一步需选中对话后上传或导入。全部完成后清单自动收起，也可以点「隐藏」。
 
-Windows 的 CLI 可选择原生 `codex.exe` 或官方 npm 安装的 `codex.cmd`。桌面端和 VS Code 的「继续」使用对应应用注册的链接。单独设置了 Codex 数据目录时，按 Sesshuttle 显示的路径从对应应用打开。
+Windows 的 CLI 可选择原生 `codex.exe` 或官方 npm 安装的 `codex.cmd`。桌面端和 VS Code 的「继续」打开对应会话。Windows 已登记应用链接时，使用系统关联。若 VS Code 尚未登记，Sesshuttle 也能把同一链接交给安装在标准用户或系统目录中的 VS Code。单独设置了 Codex 数据目录时，按 Sesshuttle 显示的路径从对应应用打开。
 
 ## 你的 Sesshuttle 数据文件夹
 

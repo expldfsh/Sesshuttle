@@ -13,18 +13,44 @@ import type { Context } from './context';
 
 const exec = promisify(execFile);
 
-// Ask the desktop which application owns the registered URL scheme.
-export function protocolHandler(entry: string, timeout: number) {
+// Store apps can own a link without exposing an executable path to Electron.
+export async function protocolHandler(
+  entry: string,
+  timeout: number,
+): Promise<{ name: string; executable?: string } | null> {
   const scheme = entry === 'desktop' ? 'codex' : 'vscode';
-  if (process.platform === 'win32')
-    return app.getApplicationInfoForProtocol(scheme + '://').then(
-      (handler) => handler.path || handler.name,
-      () => '',
-    );
-  return exec('xdg-mime', ['query', 'default', 'x-scheme-handler/' + scheme], { timeout }).then(
+  if (process.platform === 'win32') {
+    const name = app.getApplicationNameForProtocol(scheme + '://');
+    if (name) return { name };
+    if (entry === 'ide') {
+      const { LOCALAPPDATA, ProgramFiles } = process.env;
+      for (const parent of [LOCALAPPDATA && path.join(LOCALAPPDATA, 'Programs'), ProgramFiles]) {
+        if (!parent || !path.isAbsolute(parent)) continue;
+        const executable = path.join(parent, 'Microsoft VS Code', 'Code.exe');
+        if ((await fs.stat(executable).catch(() => null))?.isFile())
+          return { name: 'Visual Studio Code', executable };
+      }
+    }
+    return null;
+  }
+  const name = await exec('xdg-mime', ['query', 'default', 'x-scheme-handler/' + scheme], {
+    timeout,
+  }).then(
     (v) => v.stdout.trim(),
     () => '',
   );
+  return name ? { name } : null;
+}
+
+function launchDetached(file: string, args: string[]) {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(file, args, { detached: true, stdio: 'ignore' });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
 }
 
 async function launchInTerminal(file: string) {
@@ -39,14 +65,7 @@ async function launchInTerminal(file: string) {
     const found = (process.env.PATH ?? '').split(path.delimiter).map((p) => path.join(p, command));
     for (const bin of found)
       if (await exists(bin)) {
-        await new Promise<void>((resolve, reject) => {
-          const child = spawn(bin, args, { detached: true, stdio: 'ignore' });
-          child.once('error', reject);
-          child.once('spawn', () => {
-            child.unref();
-            resolve();
-          });
-        });
+        await launchDetached(bin, args);
         return;
       }
   }
@@ -83,15 +102,17 @@ export async function continueEntry(ctx: Context, { logicalId, entry }: any) {
         home === (await canonical(path.join(os.homedir(), '.codex'))),
         'custom_home_launcher',
       );
-    if (process.platform === 'win32' || process.platform === 'linux')
-      requireThat(!!(await protocolHandler(entry, 3000)), 'no_protocol_handler');
-  }
-  if (entry === 'desktop') {
-    await shell.openExternal('codex://threads/' + encodeURIComponent(logicalId));
-    return { status: 'opened' };
-  }
-  if (entry === 'ide') {
-    await shell.openExternal('vscode://openai.chatgpt/local/' + encodeURIComponent(logicalId));
+    const url =
+      (entry === 'desktop' ? 'codex://threads/' : 'vscode://openai.chatgpt/local/') +
+      encodeURIComponent(logicalId);
+    let executable: string | undefined;
+    if (process.platform === 'win32' || process.platform === 'linux') {
+      const handler = await protocolHandler(entry, 3000);
+      requireThat(handler, 'no_protocol_handler');
+      executable = handler?.executable;
+    }
+    if (executable) await launchDetached(executable, ['--open-url', '--', url]);
+    else await shell.openExternal(url);
     return { status: 'opened' };
   }
   // A launcher script contains only individually quoted paths and a UUID. The user

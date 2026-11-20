@@ -16,7 +16,7 @@ tar -xzf sesshuttle-0.9.0-linux-x64.tar.gz
 ./sesshuttle-0.9.0-linux-x64/sesshuttle
 ```
 
-On Windows, select the native Windows `codex.exe` or the official npm `codex.cmd` for the CLI. The desktop and VS Code Continue actions use their registered links. For a separately configured Codex home, open that client directly using the path shown in Sesshuttle.
+On Windows, select the native Windows `codex.exe` or the official npm `codex.cmd` for the CLI. The desktop and VS Code Continue actions open the conversation through their registered links. If Windows has no VS Code link association, Sesshuttle passes the same link to VS Code in its standard per-user or system install folder. For a separately configured Codex home, open that client directly using the path shown in Sesshuttle.
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
 

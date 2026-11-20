@@ -226,7 +226,12 @@ async function destinationInfo(ctx: Context, targets: any) {
         }
         checked.supported = checked.supported && checked.proof.projects;
         if (entry !== 'cli') {
-          checked.manualOpen = (await canonical(home)) !== path.join(os.homedir(), '.codex');
+          const defaultHome = path.join(os.homedir(), '.codex');
+          checked.manualOpen =
+            (await canonical(home)) !==
+            (process.platform === 'win32'
+              ? await fs.realpath(defaultHome).catch(() => defaultHome)
+              : defaultHome);
           if (process.platform === 'linux' || process.platform === 'win32')
             checked.manualOpen ||= !(await protocolHandler(entry, 2500));
         }

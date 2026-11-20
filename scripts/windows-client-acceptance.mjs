@@ -1,10 +1,11 @@
 // Desktop, CLI and VS Code must use their installed programs and registered
 // handlers. No personal account is used in the isolated Windows test machine.
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { setTimeout as pause } from 'node:timers/promises';
+import { promisify } from 'node:util';
 import { Lab, withClient } from './lib/native-lab.mjs';
 import { invoke, launchApp } from './lib/test-app.mjs';
 import { createDataFolder } from '../core/data-folder.mjs';
@@ -27,6 +28,32 @@ const home = await lab.directory('codex'),
 const fixture = await startFixtureProvider();
 const defaultHome = path.join(os.homedir(), '.codex');
 const previousHome = path.join(lab.root, 'preinstalled-client-home');
+async function checkClientWindows() {
+  const script = `$until=(Get-Date).AddMinutes(2)
+    do {
+      $windows=@(Get-Process -Name ChatGPT,Codex,Code -ErrorAction SilentlyContinue |
+        Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object Path,MainWindowTitle)
+      $desktop=$windows | Where-Object { $_.Path -like '*\\WindowsApps\\OpenAI.*\\*' }
+      $editor=$windows | Where-Object { $_.Path -like '*\\Microsoft VS Code\\*' }
+      if ($desktop -and $editor) {
+        @($desktop[0],$editor[0]) | ConvertTo-Json -Compress
+        exit 0
+      }
+      Start-Sleep -Seconds 2
+    } until ((Get-Date) -gt $until)
+    $windows | ConvertTo-Json -Compress
+    exit 1`;
+  const ps = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
+  const { stdout } = await promisify(execFile)(
+    ps,
+    ['-NoProfile', '-NonInteractive', '-Command', script],
+    {
+      windowsHide: true,
+      timeout: 180000,
+    },
+  );
+  console.log('Visible client windows', stdout.trim());
+}
 async function detectInstalled() {
   const account = os.homedir();
   assert.equal(await readFolderLocation(account), null);
@@ -173,16 +200,17 @@ try {
       problems.push(entry + ': ' + error.message);
     }
   }
+  const destinations = await call('destinationInfo');
   for (const entry of verified) {
     try {
       if (entry !== 'cli') {
+        assert.equal(destinations[entry].manualOpen, false, JSON.stringify(destinations[entry]));
         const owner = await app.evaluate(
-          ({ app }, scheme) =>
-            app.getApplicationInfoForProtocol(scheme + '://').then((r) => r.path || r.name),
+          ({ app }, scheme) => app.getApplicationNameForProtocol(scheme + '://'),
           entry === 'ide' ? 'vscode' : 'codex',
         );
-        assert.ok(owner);
-        console.log('Registered handler', entry, owner);
+        if (entry === 'desktop') assert.ok(owner);
+        console.log('Link target', entry, owner || 'installed Visual Studio Code');
       }
       assert.equal((await call('continue', { entry, logicalId: info.tid })).status, 'opened');
       console.log('Opened', entry, info.tid);
@@ -190,8 +218,8 @@ try {
       problems.push(entry + ': ' + error.message);
     }
   }
-  await pause(8000);
   assert.deepEqual(problems, []);
+  await checkClientWindows();
 } finally {
   try {
     try {
