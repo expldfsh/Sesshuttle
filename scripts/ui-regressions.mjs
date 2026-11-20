@@ -23,6 +23,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { State } from '../core/state.mjs';
+import { discardFolder } from '../core/util.mjs';
 import { openSession, setSize } from './lib/ui-session.mjs';
 import { invoke, launchApp, makeFixture, chooseFixtureDirectory } from './lib/test-app.mjs';
 import { canCompile, compileStandIn, fakeBundle } from '../tests/helpers/stand-in.mjs';
@@ -1143,15 +1144,16 @@ async function locationChecks() {
       current = launched.page;
       const init = await invoke(launched.page, 'init');
       assert.equal(init.ok, true, 'requests are refused: ' + init.error?.code);
-      await launched.page.waitForSelector('.shell', { timeout: 15000 });
+      await launched.page.waitForSelector('.shell', { timeout: 30000 });
       await launched.page.reload();
-      await launched.page.waitForSelector('.shell', { timeout: 15000 });
+      await launched.page.waitForSelector('.shell', { timeout: 30000 });
       assert.equal((await invoke(launched.page, 'init')).ok, true, 'after reloading');
     });
   } finally {
     await launched?.app.close().catch(() => {});
-    await fs.rm(root, { recursive: true, force: true });
-    await fs.rm(base, { recursive: true, force: true });
+    // Windows can hold a file of the closed app for a moment; that is no failed check.
+    await discardFolder(root);
+    await discardFolder(base);
   }
 }
 

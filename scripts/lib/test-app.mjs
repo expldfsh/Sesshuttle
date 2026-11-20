@@ -39,12 +39,16 @@ export async function startStorage(root) {
 export async function launchApp(root, { executablePath, appDir = repo, env = {}, args = [] } = {}) {
   if (!args.some((arg) => arg.startsWith('--user-data-dir=')))
     args = [...args, '--user-data-dir=' + path.join(root, 'runtime', 'profile')];
+  // A build runner that opens a freshly extracted app for the first time can ask for
+  // more than the usual thirty seconds.
+  const timeout = Number(process.env.SESSHUTTLE_LAUNCH_TIMEOUT) || 30000;
   const app = await electron.launch({
     ...(executablePath ? { executablePath, args } : { args: [appDir, ...args] }),
     cwd: repo,
     env: { ...process.env, SESSHUTTLE_TEST_ROOT: root, ...env },
+    timeout,
   });
-  const page = await app.firstWindow();
+  const page = await app.firstWindow({ timeout });
   await page.waitForLoadState('domcontentloaded');
   return { app, page };
 }

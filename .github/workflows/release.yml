@@ -187,6 +187,8 @@ jobs:
           # spells its default one with a short name (RUNNER~1).
           "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
           "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          # The first start of a freshly extracted program is slow on a runner.
+          "SESSHUTTLE_LAUNCH_TIMEOUT=120000" >> $env:GITHUB_ENV
           # A Windows fixture names a program for each app. These checks never run it.
           "SESSHUTTLE_FIXTURE_CODEX=$env:SystemRoot\System32\where.exe" >> $env:GITHUB_ENV
       - name: Open the app and list the synthetic conversations

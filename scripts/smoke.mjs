@@ -5,7 +5,7 @@
 // opens the three-step import dialog for a cloud chat and closes it.
 // Usage: node scripts/smoke.mjs [packaged executable] [--ui]
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
+import { discardFolder } from '../core/util.mjs';
 import { invoke, launchApp, makeFixture, startStorage } from './lib/test-app.mjs';
 
 const args = process.argv.slice(2);
@@ -40,7 +40,8 @@ try {
 } finally {
   await app.close();
   storage?.stop();
-  await fs.rm(root, { recursive: true, force: true });
+  // Windows can hold a file of the closed app for a moment; that is no failed check.
+  await discardFolder(root);
 }
 
 async function interfacePass(row) {
