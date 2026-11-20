@@ -1,6 +1,6 @@
 # Sesshuttle 0.9.0
 
-If your Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
+If your Windows or Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
 
 Terms used here and in the app: an **app** is the GPT desktop app, the CLI or the VS Code extension; its **Codex runtime** is the `codex` program it runs; its **Codex data folder** (`CODEX_HOME`, often `~/.codex`) holds the history; the **project folder** is where your project files are when you continue; the **connection file** lets another computer join your **sync space**.
 

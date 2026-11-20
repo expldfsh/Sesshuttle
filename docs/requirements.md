@@ -77,7 +77,7 @@ Sesshuttle 是一个可安装的桌面应用。用户连接自己的 Cloudflare 
 - 测试只使用临时目录中的合成数据、本机模拟 S3（只监听回环地址）和本机应答服务。**绝不**读写用户真实的 `~/.codex`、真实项目或真实 R2。
 - 应用测试模式由 `SESSHUTTLE_TEST_ROOT` 开启。该目录必须位于系统临时目录、以 `sesshuttle-` 开头，并带 `.sesshuttle-test.json`。
 
-## 3 功能清单（截至 0.8.0）
+## 3 功能清单（截至 0.9.0）
 
 | 区域 | 已有能力 |
 | --- | --- |
@@ -86,7 +86,7 @@ Sesshuttle 是一个可安装的桌面应用。用户连接自己的 Cloudflare 
 | 对话页 | 「开始使用」清单；位置、来源、后台子会话、项目、搜索、可点击的状态标签筛选；排序；虚拟滚动表格；底部悬浮多选操作栏；详情面板（主操作、⋯ 菜单、可折叠区块、对话气泡预览）；快捷键 |
 | 传输 | 步骤式传输弹窗（导入三步、上传两步）：上传、导入到一个或多个应用、双向；检查清单（范围、依赖、附件、容量、上限、大批量确认）；附件授权、重新指定、逐项确认省略；冲突版本比较与选择；仅下载副本到普通文件夹 |
 | 任务 | 顶栏任务指示器（确定性进度）与任务浮层；按条目和应用报告结果；修复入口；任务未能开始时保留失败记录并提供恢复入口（刷新并重新预览、重新查看删除清单等） |
-| 继续 | 打开原生应用中的对应对话（Desktop/VS Code 用 URL scheme，CLI 生成启动脚本）；可选「以后不再提示」；Git 状态查看 |
+| 继续 | 打开原生应用中的对应对话（Desktop/VS Code 用 URL scheme，Mac 和 Linux CLI 生成启动脚本，Windows 启动原生终端）；可选「以后不再提示」；Git 状态查看 |
 | Codex 程序验证 | 对名单外版本做本机「快速验证」：在临时目录用合成对话完成导入和续聊，通过后记住结果；选择或编辑路径后立即检查（存在、可执行、是否脚本、版本），实际运行的程序不同时显示「实际使用」；失败时就地显示路径和修复按钮（「选择 Codex 程序…」「改用 <路径>」），文件选择可进入 `.app` |
 | 删除 | 本机 / 当前空间 / 两处 × 回收站 / 永久删除，共六种组合；本机和云端回收站的恢复与永久清理；中断后只重试未完成的一侧；原对话已不在时，「重新查看删除清单」列出缺失项，可只为仍在的对话重新生成，或「放弃此删除任务」 |
 | 备份与恢复 | 本机备份、本机回收站、云端回收站三个标签页；本机部分直接显示已保存状态，云端回收站手动刷新 |
@@ -123,7 +123,7 @@ Sesshuttle 是一个可安装的桌面应用。用户连接自己的 Cloudflare 
 ## 5 架构概览
 
 ```
-app/launcher/        Mac / Linux 首次目录选择与启动入口，在 Electron 启动前运行
+app/launcher/        macOS、Linux 和 Windows 首次目录选择与启动入口，在 Electron 启动前运行
 app/main/            Electron 主进程
   main.ts            启动流程
   ipc-handlers.ts    全部 IPC 方法实现（方法表见 app/shared/ipc.ts）
@@ -200,7 +200,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 
 - 更新 `package.json` 版本号、README（中英文）、用户指南中的版本与链接。
 - 新建 `docs/validation/<版本号>.md`，删除上一版的验收记录，并更新所有指向它的链接。
-- `npm run package:mac`、`npm run package:linux` 打包，生成 `release/SHA256SUMS-<版本号>.txt`。`release/` 中只保留当前版本和上一版的安装包，并删除 electron-builder 的中间产物（`linux-unpacked/`、`mac-arm64/`、`*.yml`、`builder-debug.yml`）。
+- `npm run package:mac`、`npm run package:linux` 和 `npm run package:win` 打包，生成 `release/SHA256SUMS-<版本号>.txt`。`release/` 中只保留当前版本和上一版的安装包，并删除 electron-builder 的中间产物（`linux-unpacked/`、`mac-arm64/`、`win-unpacked/`、`*.yml`）。
 - 用 `scripts/smoke.mjs <安装包中的程序> --ui` 做冒烟检查。
 - 在对话中给用户一份验收报告：完成内容、偏差、测试结果、安装包位置、需要用户亲自验收的步骤。
 

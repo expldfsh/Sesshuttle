@@ -21,14 +21,14 @@ On Windows, choose **Extract All** and double-click **Sesshuttle.exe** inside th
 
 Choose a data folder once, then reopen it from the app icon. For a custom location, a visible `Sesshuttle Location.json` file in your home folder remembers the path. When upgrading, you can copy existing data and credentials, check them and approve cleanup in Settings. [Choose, move or remove your data folder](docs/guides/en/quick-start.md#your-sesshuttle-data-folder)
 
-## Move your first chat from Mac to Linux
+## Move your first chat from Mac to Windows or Linux
 
 On each computer, the **Getting started** list at the top of Conversations shows what is left before its first transfer: detect Codex apps, connect cloud storage, refresh the list, and finish a first upload or import. It disappears once every step is done.
 
-1. **Connect both computers.** On the Mac, open Settings and choose **This is my first computer: create a sync space** with your private R2 bucket, then export the connection file. On Linux, choose **I already have a sync space: import its connection file** and enter your R2 Secret Access Key. [Set up R2 and connect both computers](docs/guides/en/quick-start.md#connect-both-computers)
+1. **Connect both computers.** On the Mac, open Settings and choose **This is my first computer: create a sync space** with your private R2 bucket, then export the connection file. On the second computer, choose **I already have a sync space: import its connection file** and enter your R2 Secret Access Key. [Set up R2 and connect both computers](docs/guides/en/quick-start.md#connect-both-computers)
 2. **Upload on the Mac.** Click **Refresh**, tick your chat, then **Upload to cloud…**. Check the options, then the review list, and click **Confirm upload of …**. [See the marked review](docs/guides/en/quick-start.md#upload-from-the-first-computer)
-3. **Import on Linux.** Click **Refresh**, open the cloud chat and choose **Import to this computer…**. The dialog takes you through three steps: the app, the project and its project folder, then the review list. Once verified, click **Continue**. Keep a copy of your project files on Linux for Codex to work on. [See the import steps](docs/guides/en/quick-start.md#import-and-continue)
-4. **Bring your reply back.** After chatting on Linux, upload the updated chat. On the Mac, refresh and import it into the same app. If both computers changed the chat independently, compare versions before choosing which to import.
+3. **Import on Windows or Linux.** Click **Refresh**, open the cloud chat and choose **Import to this computer…**. The dialog takes you through three steps: the app, the project and its project folder, then the review list. Once verified, click **Continue**. Keep a copy of your project files in the working folder on that computer. [See the import steps](docs/guides/en/quick-start.md#import-and-continue)
+4. **Bring your reply back.** After continuing on the second computer, upload the updated chat. On the Mac, refresh and import it into the same app. If both computers changed the chat independently, compare versions before choosing which to import.
 
 ## Manage your history
 
