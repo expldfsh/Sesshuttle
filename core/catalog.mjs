@@ -95,6 +95,10 @@ export async function openCatalog(home) {
           .all()
       : [];
     requireThat(threads.length <= 20000, 'space_too_large');
+    // Windows Codex can index the same rollout with an extended drive or UNC
+    // prefix. Use its ordinary spelling for local file checks and deduplication.
+    if (process.platform === 'win32')
+      for (const thread of threads) thread.rollout_path = ordinaryWindowsPath(thread.rollout_path);
     const infos = new Map();
     return {
       paths,
