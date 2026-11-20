@@ -8,14 +8,14 @@ Continue the same Codex conversation on another computer. Choose a chat on your 
 
 ## Install
 
-Local 0.9.0 builds are in `release/`. Published builds are available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
+Local 0.9.1 builds are in `release/`. Published builds are available on [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases).
 
 | Platform | Package |
 | --- | --- |
-| Windows 11 x64 | `sesshuttle-0.9.0-win-x64.zip` |
-| Apple Silicon Mac | `sesshuttle-0.9.0-mac-arm64.dmg` |
-| Arch and other x86_64 Linux distributions | `sesshuttle-0.9.0-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.9.0-linux-amd64.deb` |
+| Windows 11 x64 | `sesshuttle-0.9.1-win-x64.zip` |
+| Apple Silicon Mac | `sesshuttle-0.9.1-mac-arm64.dmg` |
+| Arch and other x86_64 Linux distributions | `sesshuttle-0.9.1-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.9.1-linux-amd64.deb` |
 
 On Windows, choose **Extract All** and double-click **Sesshuttle.exe** inside the extracted folder. The package is not code-signed: if “Windows protected your PC” appears the first time, choose **More info**, then **Run anyway**. [Other first-start situations on Windows](docs/guides/en/quick-start.md#opening-it-on-windows-for-the-first-time)
 
@@ -36,8 +36,8 @@ On each computer, the **Getting started** list at the top of Conversations shows
 - **Sync activity** is one timeline of transfers and removals. Filter to what needs attention, retry unfinished work, or clear finished records; your chats and sync status stay.
 - **Backups & recovery** has three tabs: manual device backups, the local trash and the cloud recycle bin. Importing and restoring do not create backups automatically.
 
-[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.9.0.md)
+[Full guide and troubleshooting](docs/guides/en/quick-start.md) · [Validation notes](docs/validation/0.9.1.md)
 
 ## Publishing a release
 
-Each branch push builds the four installers. You can download them from the workflow run in **Actions → Build and release** for seven days. Push a new `package.json` version to `main` to publish it. After all checks and builds pass, the workflow creates the version tag and uploads the installers and their SHA-256 checksums to GitHub Releases. Versions in the 0.x series and versions with a prerelease suffix are marked as prereleases. Later pushes with the same version keep the published downloads intact.
+Each branch push builds the four installers. You can download them from the workflow run in **Actions → Build and release** for seven days. To publish, write `docs/releases/<version>.md` (the notes shown on the release page), then push a new `package.json` version to `main`. The workflow runs the core tests on all three systems, and on Windows it extracts the ZIP and opens the app. After all checks and builds pass, it creates the version tag and uploads the installers and their SHA-256 checksums to GitHub Releases. Versions in the 0.x series and versions with a prerelease suffix are marked as prereleases. Later pushes with the same version keep the published downloads intact.

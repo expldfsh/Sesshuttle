@@ -1,4 +1,4 @@
-# Sesshuttle 0.9.0 使用指南
+# Sesshuttle 0.9.1 使用指南
 
 两台电脑都已连上 R2，并且接收端已经能看到云端对话时，可以直接从导入步骤开始。升级时保留原同步空间、应用数据和连接文件。
 
@@ -6,14 +6,14 @@
 
 ## 安装或升级
 
-- **Windows 11 x64** 右键 `sesshuttle-0.9.0-win-x64.zip` 选择「全部解压缩」，双击解压目录里的 **Sesshuttle.exe**。保持解压目录完整，也可以给这个程序创建桌面快捷方式。同目录的 `sesshuttle-runtime.exe` 是运行组件，不用单独打开。安装包没有代码签名，第一次打开时的系统提示见下方[「Windows 第一次打开」](#windows-第一次打开)。
-- **Mac Apple Silicon** 打开 `sesshuttle-0.9.0-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
+- **Windows 11 x64** 右键 `sesshuttle-0.9.1-win-x64.zip` 选择「全部解压缩」，双击解压目录里的 **Sesshuttle.exe**。保持解压目录完整，也可以给这个程序创建桌面快捷方式。同目录的 `sesshuttle-runtime.exe` 是运行组件，不用单独打开。安装包没有代码签名，第一次打开时的系统提示见下方[「Windows 第一次打开」](#windows-第一次打开)。
+- **Mac Apple Silicon** 打开 `sesshuttle-0.9.1-mac-arm64.dmg`，将应用拖到“应用程序”。本地包未做 Developer ID 签名和公证。若系统提示拦截，核对文件来源后在系统“隐私与安全性”中处理。
 - **Arch Linux x86_64** 在安装包所在目录运行下面两行，保持解压出的目录完整，在自己的图形桌面会话中启动。
-- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.9.0-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.9.0-linux-amd64.deb`。
+- **Debian / Ubuntu x86_64** 用软件安装器打开 `sesshuttle-0.9.1-linux-amd64.deb`，或在包所在目录运行 `sudo apt install ./sesshuttle-0.9.1-linux-amd64.deb`。
 
 ```sh
-tar -xzf sesshuttle-0.9.0-linux-x64.tar.gz
-./sesshuttle-0.9.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.9.1-linux-x64.tar.gz
+./sesshuttle-0.9.1-linux-x64/sesshuttle
 ```
 
 升级时退出旧版，保留原有应用数据。两台电脑分别安装并登录要使用的 Codex 应用。项目代码通过 Git 或自己的文件传输方式准备。
@@ -116,7 +116,7 @@ Windows 也使用下面的三步导入流程。选项目文件夹时，请选 Wi
 
 旧版凭据保存在 Linux 系统密钥环时，迁移需在原用户的图形桌面会话中解锁原密钥环。取消后可再次从设置开始，旧位置会保留。如果原系统密码库也无法解开旧凭据，可用连接文件和 R2 Secret Access Key 重新加入；应用会继续保留未能验证的原件。
 
-[用已有云端对话在 Arch 验收](linux-acceptance.md) · [验收记录](../../validation/0.9.0.md)
+[用已有云端对话在 Arch 验收](linux-acceptance.md) · [验收记录](../../validation/0.9.1.md)
 
 ## 手动备份和同步记录
 

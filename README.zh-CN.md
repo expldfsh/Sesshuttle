@@ -8,14 +8,14 @@
 
 ## 安装
 
-本地构建的 0.9.0 安装包在 `release/`。已发布版本可从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载。
+本地构建的 0.9.1 安装包在 `release/`。已发布版本可从 [GitHub Releases](https://github.com/expldfsh/Sesshuttle/releases) 下载。
 
 | 平台 | 安装包 |
 | --- | --- |
-| Windows 11 x64 | `sesshuttle-0.9.0-win-x64.zip` |
-| Apple Silicon Mac | `sesshuttle-0.9.0-mac-arm64.dmg` |
-| Arch 等 x86_64 Linux | `sesshuttle-0.9.0-linux-x64.tar.gz` |
-| Debian / Ubuntu x86_64 | `sesshuttle-0.9.0-linux-amd64.deb` |
+| Windows 11 x64 | `sesshuttle-0.9.1-win-x64.zip` |
+| Apple Silicon Mac | `sesshuttle-0.9.1-mac-arm64.dmg` |
+| Arch 等 x86_64 Linux | `sesshuttle-0.9.1-linux-x64.tar.gz` |
+| Debian / Ubuntu x86_64 | `sesshuttle-0.9.1-linux-amd64.deb` |
 
 Windows 上先右键 ZIP 选择「全部解压缩」，再双击解压目录里的 **Sesshuttle.exe**。安装包没有代码签名，第一次打开时如果看到「Windows 已保护你的电脑」，点「更多信息 → 仍要运行」。[Windows 第一次打开时的其他情况](docs/guides/zh-CN/quick-start.md#windows-第一次打开)
 
@@ -36,8 +36,8 @@ Windows 上先右键 ZIP 选择「全部解压缩」，再双击解压目录里�
 - **同步记录** 把传输和删除任务排成一条时间线。可筛选「需处理」、重试未完成的部分，或清除已结束的记录；对话和同步状态都会保留。
 - **备份与恢复** 分为本机手动备份、本机回收站和云端回收站三个标签页。导入和恢复都不会自动创建备份。
 
-[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.9.0.md)
+[完整指南与常见问题](docs/guides/zh-CN/quick-start.md) · [验收记录](docs/validation/0.9.1.md)
 
 ## 发布新版本
 
-每次推送分支都会编译四个安装包，可在 **Actions → Build and release** 里下载验收，保留七天。要对外发布，把带有新 `package.json` 版本号的提交推送到 `main` 即可。检查和打包全部通过后，工作流会打上版本标签，并将四个安装包和 SHA-256 校验清单上传到 GitHub Releases。0.x 版本和带预发布后缀的版本会标记为预发布。同一版本再次推送时，已发布的下载文件会保留。
+每次推送分支都会编译四个安装包，可在 **Actions → Build and release** 里下载验收，保留七天。要对外发布，先写好 `docs/releases/<版本号>.md`（显示在 Release 页面的发布说明），再把带有新 `package.json` 版本号的提交推送到 `main`。工作流会在三个系统上运行核心测试，并在 Windows 上解压 ZIP、实际打开应用。检查和打包全部通过后，它会打上版本标签，并将四个安装包和 SHA-256 校验清单上传到 GitHub Releases。0.x 版本和带预发布后缀的版本会标记为预发布。同一版本再次推送时，已发布的下载文件会保留。

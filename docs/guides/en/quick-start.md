@@ -1,4 +1,4 @@
-# Sesshuttle 0.9.0
+# Sesshuttle 0.9.1
 
 If your Windows or Linux computer already shows the cloud chat, go straight to **Import and continue**. When upgrading, keep the existing sync space, application data and connection file.
 
@@ -6,14 +6,14 @@ Terms used here and in the app: an **app** is the GPT desktop app, the CLI or th
 
 ## Install or upgrade
 
-- On Windows 11 x64, extract all of `sesshuttle-0.9.0-win-x64.zip` into a folder you can keep. Double-click **Sesshuttle.exe**. Keep the files together. You may create a shortcut to that executable. `sesshuttle-runtime.exe` in the same folder is a component and is not opened on its own. The package is not code-signed; see [Opening it on Windows for the first time](#opening-it-on-windows-for-the-first-time).
-- On Apple Silicon, open `sesshuttle-0.9.0-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
+- On Windows 11 x64, extract all of `sesshuttle-0.9.1-win-x64.zip` into a folder you can keep. Double-click **Sesshuttle.exe**. Keep the files together. You may create a shortcut to that executable. `sesshuttle-runtime.exe` in the same folder is a component and is not opened on its own. The package is not code-signed; see [Opening it on Windows for the first time](#opening-it-on-windows-for-the-first-time).
+- On Apple Silicon, open `sesshuttle-0.9.1-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session. Keep the extracted folder intact.
-- On Debian or Ubuntu x86_64, install `sesshuttle-0.9.0-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.9.0-linux-amd64.deb`.
+- On Debian or Ubuntu x86_64, install `sesshuttle-0.9.1-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.9.1-linux-amd64.deb`.
 
 ```sh
-tar -xzf sesshuttle-0.9.0-linux-x64.tar.gz
-./sesshuttle-0.9.0-linux-x64/sesshuttle
+tar -xzf sesshuttle-0.9.1-linux-x64.tar.gz
+./sesshuttle-0.9.1-linux-x64/sesshuttle
 ```
 
 On Windows, select the native Windows `codex.exe` or the official npm `codex.cmd` for the CLI. **Continue** for the CLI opens a terminal window that runs Codex; if Codex cannot start, the window stays on the error until you press a key. The desktop and VS Code Continue actions open the conversation through their registered links. If Windows has no VS Code link association, Sesshuttle passes the same link to VS Code in its standard per-user or system install folder. For a separately configured Codex home, open that client directly using the path shown in Sesshuttle.
@@ -140,7 +140,7 @@ A removal task that changed nothing, or has nothing left to finish, can be dropp
 
 ## Linux acceptance checklist
 
-Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.9.0 and keep their sync space, application data and connection file.
+Use this when a chat uploaded from the Mac is visible on Linux. Both computers run Sesshuttle 0.9.1 and keep their sync space, application data and connection file.
 
 1. **Detect the desktop app.** On Linux, open the Codex page of the GPT desktop app. In Sesshuttle, open **Apps & projects → Detect local Codex apps**, check the runtime, data folder and evidence under **GPT desktop**, and apply them. `/usr/lib/chatgpt/ChatGPT` is one known location of the desktop program itself, which is not the runtime. Check that the detected runtime is a real program: `file <path>` should report an ELF executable, not a shell script. If it is a script, the app shows “Choose a Codex runtime”; report the path and the `file` output.
 2. **Choose the chat.** In Conversations, open your uploaded title and choose **Import to this computer…**. If it is missing, choose **Settings → View cloud chats** and refresh. Select **GPT desktop**.
@@ -152,4 +152,4 @@ Use this when a chat uploaded from the Mac is visible on Linux. Both computers r
 
 To check the connection hand-over, export the connection file on the connected Mac, import it on an unconnected Linux installation, enter the Secret Access Key and connect. To check removal, use a dedicated test chat: recycle one cloud version on the Mac, confirm the imported Linux chat still opens, and restore the version from the Linux cloud recycle bin. Open a permanent deletion review and cancel it to check its two-sided list and final button.
 
-[Verification report](../../validation/0.9.0.md)
+[Verification report](../../validation/0.9.1.md)
