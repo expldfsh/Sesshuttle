@@ -79,10 +79,14 @@ jobs:
       - name: Run the tests verified on Windows
         if: runner.os == 'Windows'
         run: npm run test:windows
+      # A test that fails on Windows can leave a server open and keep its file from
+      # ending. The run is told to end such files, and the step has its own limit so
+      # that a hang here can never cancel the job a release waits for.
       - name: Report the whole suite on Windows
         if: runner.os == 'Windows'
         continue-on-error: true
-        run: npm test
+        timeout-minutes: 5
+        run: node --test --test-force-exit tests/core/*.test.mjs
 
   build:
     needs: check
