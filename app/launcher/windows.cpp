@@ -20,22 +20,54 @@ static std::wstring quoted(const std::wstring& value) {
     return text + L"\"";
 }
 
-static int start(const std::wstring& exe, std::wstring command, const wchar_t* cwd,
-                 bool terminal) {
+// False when the program could not be started; `result` then holds the system error.
+// Otherwise it holds the exit code of a program that was waited for.
+static bool start(const std::wstring& exe, std::wstring command, const wchar_t* cwd,
+                  bool terminal, DWORD* result) {
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION process{};
     if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, !terminal,
-                        terminal ? CREATE_NEW_CONSOLE : 0, nullptr, cwd, &startup, &process))
-        return 2;
+                        terminal ? CREATE_NEW_CONSOLE : 0, nullptr, cwd, &startup, &process)) {
+        *result = GetLastError();
+        return false;
+    }
     CloseHandle(process.hThread);
-    DWORD result = 0;
+    *result = 0;
     if (!terminal) {
         WaitForSingleObject(process.hProcess, INFINITE);
-        GetExitCodeProcess(process.hProcess, &result);
+        GetExitCodeProcess(process.hProcess, result);
     }
     CloseHandle(process.hProcess);
-    return static_cast<int>(result);
+    return true;
+}
+
+static bool chinese() {
+    return PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_CHINESE;
+}
+
+// The app cannot explain this itself: it is the app that did not start.
+static int startFailed(const std::wstring& file, DWORD error) {
+    std::wstring text = chinese()
+        ? L"无法启动 Sesshuttle。\n\n请把下载的 ZIP 完整解压到一个文件夹，再打开其中的 "
+          L"Sesshuttle.exe。如果安全软件移走了下面的文件，请先恢复它。\n\n"
+        : L"Sesshuttle could not start.\n\nExtract the whole ZIP into one folder, then open "
+          L"Sesshuttle.exe from it. If security software removed the file below, restore it "
+          L"first.\n\n";
+    text += file;
+    wchar_t reason[512];
+    DWORD length = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                  nullptr, error, 0, reason, 512, nullptr);
+    if (length) text += L"\n\n" + std::wstring(reason, length);
+    MessageBoxW(nullptr, text.c_str(), L"Sesshuttle", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+    return 2;
+}
+
+static std::wstring systemProgram(const wchar_t* name) {
+    wchar_t directory[MAX_PATH];
+    UINT length = GetSystemDirectoryW(directory, MAX_PATH);
+    if (!length || length >= MAX_PATH) return L"";
+    return std::wstring(directory, length) + L"\\" + name;
 }
 
 static bool output(const wchar_t* value) {
@@ -94,10 +126,22 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR tail, int) {
                                                             : MB_OK | MB_ICONERROR));
         return picked == IDOK ? 0 : picked == IDCANCEL ? 1 : 2;
     }
+    DWORD code = 0;
     if (count == 6 && args[1] == L"--resume-cli") {
         if (!SetEnvironmentVariableW(L"CODEX_HOME", args[3].c_str())) return 2;
-        return start(args[2], quoted(args[2]) + L" --cd " + quoted(args[4]) + L" resume " +
-                     quoted(args[5]), args[4].c_str(), true);
+        // The language handed to the app is no setting of Codex.
+        SetEnvironmentVariableW(L"SESSHUTTLE_LANG", nullptr);
+        std::wstring codex = quoted(args[2]) + L" --cd " + quoted(args[4]) + L" resume " +
+                             quoted(args[5]);
+        // Started by the command interpreter, a failure stays on screen until a key is
+        // pressed instead of closing with its window. The interpreter expands %NAME%
+        // even inside quotes, so a command with a percent sign starts Codex directly.
+        std::wstring shell = systemProgram(L"cmd.exe");
+        if (!shell.empty() && codex.find(L'%') == std::wstring::npos &&
+            start(shell, quoted(shell) + L" /d /v:off /s /c \"" + codex + L" || pause\"",
+                  args[4].c_str(), true, &code))
+            return 0;
+        return start(args[2], codex, args[4].c_str(), true, &code) ? 0 : 2;
     }
     std::vector<wchar_t> file(32768);
     DWORD length = GetModuleFileNameW(nullptr, file.data(), static_cast<DWORD>(file.size()));
@@ -106,9 +150,18 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR tail, int) {
     dir.resize(dir.rfind(L'\\') + 1);
     std::wstring exe = dir + L"sesshuttle-runtime.exe";
     std::wstring script = dir + L"resources\\sesshuttle-start.cjs";
+    // An incomplete extraction or a quarantined file would otherwise end without a word.
+    for (const std::wstring* part : {&exe, &script})
+        if (GetFileAttributesW(part->c_str()) == INVALID_FILE_ATTRIBUTES)
+            return startFailed(*part, GetLastError());
     SetEnvironmentVariableW(L"ELECTRON_RUN_AS_NODE", L"1");
-    if (!GetEnvironmentVariableW(L"LANG", nullptr, 0))
-        SetEnvironmentVariableW(L"LANG", PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_CHINESE
-                                            ? L"zh-CN" : L"en");
-    return start(exe, quoted(exe) + L" " + quoted(script) + L" " + tail, nullptr, false);
+    // The display language of Windows, for the questions asked before the window opens.
+    if (!GetEnvironmentVariableW(L"SESSHUTTLE_LANG", nullptr, 0))
+        SetEnvironmentVariableW(L"SESSHUTTLE_LANG", chinese() ? L"zh-CN" : L"en");
+    // This program has no window of its own. The folder questions and the app window
+    // belong to processes it starts, which may come to the front in its place.
+    AllowSetForegroundWindow(ASFW_ANY);
+    if (!start(exe, quoted(exe) + L" " + quoted(script) + L" " + tail, nullptr, false, &code))
+        return startFailed(exe, code);
+    return static_cast<int>(code);
 }

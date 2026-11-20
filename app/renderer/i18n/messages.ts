@@ -40,8 +40,12 @@ export const messages = {
     'A dedicated folder could not be created here. Choose another writable location or select an existing Sesshuttle data folder.',
   ],
   folderRelocate: [
-    '无法打开原数据文件夹。请接回原磁盘再点确定重试。如果文件夹已移动，请在接下来的窗口选择它。',
-    'Your original data folder could not be opened. Reconnect its drive and press OK to retry. If you moved the folder, select it in the next window.',
+    '无法打开原数据文件夹。请接回原磁盘再点确定重试。如果文件夹已移动，请在接下来的窗口选择它；如果它已被删除，在那个窗口点取消，可以改用空白数据文件夹。',
+    'Your original data folder could not be opened. Reconnect its drive and press OK to retry. If you moved the folder, select it in the next window. If it was deleted, cancel that window to start with an empty folder.',
+  ],
+  folderStartFreshAsk: [
+    '要改用新的空白数据文件夹吗？原数据文件夹里的设置、备份和回收站不会带过来。如果它在外接磁盘上，请取消，接回磁盘后再打开 Sesshuttle。以后找回原文件夹，可以用其中的 Open Sesshuttle 打开。',
+    'Start with a new, empty data folder instead? The settings, backups and trash in your original folder will not be carried over. If it is on an external drive, cancel, reconnect the drive and open Sesshuttle again. If you find the original folder later, open it with Open Sesshuttle inside it.',
   ],
   folder_location_invalid: [
     '无法读取下方的位置记录。请选择要打开的数据文件夹。如果该文件另有用途，可以先将它改名。',
@@ -50,6 +54,10 @@ export const messages = {
   folder_location_mismatch: [
     '请选择上次使用的完整数据文件夹。如果它在外接盘上，请先连接原磁盘。',
     'Select the same complete data folder you used last time. If it is on an external drive, reconnect the original drive first.',
+  ],
+  launcherRequired: [
+    '这个文件是 Sesshuttle 的运行组件，不能单独打开。请改为打开下面这个程序：',
+    'This file is a component of Sesshuttle and cannot be opened on its own. Open this program instead:',
   ],
   folderLinuxPicker: [
     '请安装 zenity 或 kdialog 后重新打开 Sesshuttle，以选择数据文件夹。',

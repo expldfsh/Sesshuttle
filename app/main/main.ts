@@ -6,7 +6,7 @@ import { checkedTestRoot, readMarker, runtimePaths } from '../../core/profile-pa
 import { locationFile, rememberFolderLocation } from '../../core/folder-location.mjs';
 import { reserveWindowsInstance } from '../../core/windows-instance.mjs';
 import { reserveSource } from '../../core/data-folder.mjs';
-import { initializeFolder, label } from './data-folder';
+import { initializeFolder, label, launcherFile } from './data-folder';
 import path from 'node:path';
 import os from 'node:os';
 import { State } from '../../core/state.mjs';
@@ -26,6 +26,13 @@ const dataFolder = process.argv
   .find((a) => a.startsWith('--sesshuttle-folder='))
   ?.slice('--sesshuttle-folder='.length);
 const testFixture = testRoot && !dataFolder;
+// The language of a failure before the window exists. The launcher passes the one it
+// used for its own questions; opened without it, the system setting decides.
+const earlyLanguage =
+  process.env.SESSHUTTLE_LANG ||
+  process.env.LC_ALL ||
+  process.env.LANG ||
+  Intl.DateTimeFormat().resolvedOptions().locale;
 try {
   if (!testFixture) {
     requireThat(dataFolder, 'folder_invalid');
@@ -38,8 +45,12 @@ try {
   const code = publicError(e).code;
   dialog.showErrorBox(
     'Sesshuttle',
-    label(code === 'folder_relocated' ? code : 'folder_invalid', process.env.LANG ?? 'en') +
-      (dataFolder ? '\n' + dataFolder : ''),
+    // Without a folder, the runtime itself was opened instead of the program that
+    // chooses the folder for it.
+    !dataFolder && app.isPackaged
+      ? label('launcherRequired', earlyLanguage) + '\n' + launcherFile()
+      : label(code === 'folder_relocated' ? code : 'folder_invalid', earlyLanguage) +
+          (dataFolder ? '\n' + dataFolder : ''),
   );
   process.exit(1);
 }

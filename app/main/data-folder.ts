@@ -30,6 +30,13 @@ export function label(key: string, language?: string) {
     ] ?? key,
   );
 }
+// What the user opens to start the packaged app: the application on macOS, elsewhere
+// the program beside the runtime that chooses the data folder before starting it.
+export function launcherFile() {
+  const folder = path.dirname(process.execPath);
+  if (process.platform === 'darwin') return path.dirname(path.dirname(folder));
+  return path.join(folder, process.platform === 'win32' ? 'Sesshuttle.exe' : 'sesshuttle');
+}
 const oldFolder = (ctx: Context) =>
   ctx.testRoot ? path.join(ctx.testRoot, 'legacy') : legacyFolder();
 const quote = (s: string) => "'" + s.replaceAll("'", "'\\''") + "'";
