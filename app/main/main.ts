@@ -180,9 +180,22 @@ async function start() {
     }
   }
   applyAppearance(null, state.get('config'));
-  ctx.window = createWindow(ctx);
+  const window = createWindow(ctx);
+  ctx.window = window;
   registerIpc(ctx, createHandlers(ctx));
-  await ctx.window.loadFile(ctx.rendererFile);
+  let closing = false;
+  const onClose = (event: Electron.Event) => {
+    closing = !event.defaultPrevented;
+  };
+  window.on('close', onClose);
+  try {
+    await window.loadFile(ctx.rendererFile);
+  } catch (error) {
+    // Closing a cold window can cancel its initial navigation before it is painted.
+    if (!closing && !window.isDestroyed()) throw error;
+  } finally {
+    window.removeListener('close', onClose);
+  }
 }
 
 const primaryInstance = app.requestSingleInstanceLock();

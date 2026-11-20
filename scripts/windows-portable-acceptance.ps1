@@ -1,5 +1,5 @@
 # Run on the disposable Windows 11 desktop as its ordinary test user.
-param([Parameter(Mandatory=$true)][string]$Archive, [Parameter(Mandatory=$true)][string]$Node, [string]$DataParent)
+param([Parameter(Mandatory=$true)][string]$Archive, [Parameter(Mandatory=$true)][string]$Node, [string]$DataParent, [scriptblock]$OnStep)
 $ErrorActionPreference = 'Stop'
 if ($env:COMPUTERNAME -ne 'SESSHUTTLE-QA' -or $env:USERNAME -ne 'SesshuttleQA') { throw 'Disposable test desktop required' }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -8,14 +8,16 @@ $pointer = Join-Path $env:USERPROFILE 'Sesshuttle Location.json'
 if ((Test-Path -LiteralPath $pointer) -or (Test-Path -LiteralPath (Join-Path $env:USERPROFILE 'Sesshuttle Data'))) { throw 'A fresh test account is required' }
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
-Add-Type -Namespace SesshuttleTest -Name Pointer -MemberDefinition @'
+if (-not ('SesshuttleTest.NativeDialog' -as [type])) {
+Add-Type -Namespace SesshuttleTest -Name NativeDialog -MemberDefinition @'
 [System.Runtime.InteropServices.DllImport("user32.dll")]
 public static extern bool SetForegroundWindow(System.IntPtr window);
 [System.Runtime.InteropServices.DllImport("user32.dll")]
-public static extern bool SetCursorPos(int x, int y);
+public static extern System.IntPtr GetDlgItem(System.IntPtr window, int id);
 [System.Runtime.InteropServices.DllImport("user32.dll")]
-public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, System.UIntPtr extra);
+public static extern bool PostMessage(System.IntPtr window, uint message, System.IntPtr wParam, System.IntPtr lParam);
 '@
+}
 $ae = [Windows.Automation.AutomationElement]
 $scope = [Windows.Automation.TreeScope]
 $wsh = New-Object -ComObject WScript.Shell
@@ -30,6 +32,7 @@ New-Item -ItemType Directory -Path $work,$parent -Force | Out-Null
 function Snapshot($name) {
   & $Node $audit snapshot (Join-Path $work ($name + '.json'))
   if ($LASTEXITCODE) { throw 'AppData inventory failed' }
+  if ($OnStep) { & $OnStep ("AppData inventory: " + $name) }
 }
 function FindWindow($name,$class) {
   $until = (Get-Date).AddMinutes(4)
@@ -42,19 +45,27 @@ function FindWindow($name,$class) {
   throw "Window missing: $name $class"
 }
 function ClickId($window,$id) {
-  $byId = New-Object Windows.Automation.PropertyCondition($ae::AutomationIdProperty,$id)
-  $byType = New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty,[Windows.Automation.ControlType]::Button)
-  $button = $window.FindFirst($scope::Descendants,(New-Object Windows.Automation.AndCondition($byId,$byType)))
-  if (-not $button) { throw "Missing control $id in $($window.Current.Name)" }
-  [SesshuttleTest.Pointer]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle) | Out-Null
-  $point = $button.GetClickablePoint()
-  [SesshuttleTest.Pointer]::SetCursorPos([int]$point.X, [int]$point.Y) | Out-Null
-  [SesshuttleTest.Pointer]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
-  Start-Sleep -Milliseconds 100
-  [SesshuttleTest.Pointer]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+  $handle = [IntPtr]$window.Current.NativeWindowHandle
+  [SesshuttleTest.NativeDialog]::SetForegroundWindow($handle) | Out-Null
+  # Common dialogs and message boxes receive IDOK/IDCANCEL through WM_COMMAND.
+  $button = [SesshuttleTest.NativeDialog]::GetDlgItem($handle,[int]$id)
+  if (-not [SesshuttleTest.NativeDialog]::PostMessage($handle,0x0111,[IntPtr][int]$id,$button)) {
+    throw "Could not press button $id in $($window.Current.Name)"
+  }
 }
-function ExitApp($process) {
+function ExitApp($process, [switch]$DuringLoad) {
   $main = FindWindow '*sesshuttle*' 'Chrome_WidgetWin_1'
+  if (-not $DuringLoad) {
+    $doc = New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty,[Windows.Automation.ControlType]::Document)
+    $button = New-Object Windows.Automation.PropertyCondition($ae::ControlTypeProperty,[Windows.Automation.ControlType]::Button)
+    $until = (Get-Date).AddMinutes(3)
+    do {
+      $page = $main.FindFirst($scope::Descendants,$doc)
+      if ($page -and $page.FindFirst($scope::Descendants,$button)) { break }
+      if ((Get-Date) -ge $until) { throw 'The main window did not display its actions' }
+      Start-Sleep -Milliseconds 500
+    } while ($true)
+  }
   $main.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Close()
   if (-not $process.WaitForExit(60000) -or $process.ExitCode -ne 0) { throw 'App did not close normally' }
 }
@@ -78,18 +89,20 @@ if ((Test-Path -LiteralPath $pointer) -or (Test-Path -LiteralPath $folder)) { th
 Snapshot 'cancel'
 $first = Start-Process -FilePath $exe -PassThru
 $picker = FindWindow '*folder*' '#32770'
-$editor = $picker.FindFirst($scope::Descendants,(New-Object Windows.Automation.PropertyCondition($ae::AutomationIdProperty,'1148')))
-if ($editor -and $editor.GetCurrentPropertyValue($ae::IsValuePatternAvailableProperty)) {
-  $editor.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue($parent)
-  ClickId $picker '1'
-} else {
-  $picker.SetFocus()
-  $wsh.SendKeys('%n')
-  Start-Sleep -Milliseconds 300
-  Set-Clipboard -Value $parent
-  $wsh.SendKeys('^v')
-  $wsh.SendKeys('{ENTER}')
-}
+if ($OnStep) { & $OnStep ("Selecting " + $parent) }
+# Navigate the address bar of the native chooser. Its shell controls may not
+# expose an editable UI Automation element, particularly while loading a drive.
+Set-Clipboard -Value $parent
+[SesshuttleTest.NativeDialog]::SetForegroundWindow([IntPtr]$picker.Current.NativeWindowHandle) | Out-Null
+Start-Sleep -Milliseconds 500
+$wsh.SendKeys('%d')
+Start-Sleep -Milliseconds 500
+$wsh.SendKeys('^a')
+$wsh.SendKeys('^v')
+Start-Sleep -Milliseconds 400
+$wsh.SendKeys('{ENTER}')
+Start-Sleep -Seconds 3
+ClickId $picker '1'
 $confirm = FindWindow 'Sesshuttle' '#32770'
 ClickId $confirm '1'
 ExitApp $first
@@ -101,6 +114,7 @@ Snapshot 'first'
 $again = Start-Process -FilePath $exe -PassThru
 ExitApp $again
 if ((ReadDevice) -ne $id) { throw 'Second icon launch opened a different profile' }
+if ($OnStep) { & $OnStep 'Original icon reopened the selected database' }
 if (-not (Test-Path -LiteralPath (Join-Path $folder 'Open Sesshuttle.cmd'))) { throw 'Missing data folder shortcut' }
 $relocated = Join-Path $work ('App ' + [char]0x4e2d + [char]0x6587 + ' 100%')
 Move-Item -LiteralPath $program -Destination $relocated
@@ -108,6 +122,10 @@ $program = $relocated
 $third = Start-Process -FilePath (Join-Path $program 'Sesshuttle.exe') -PassThru
 ExitApp $third
 if ((ReadDevice) -ne $id) { throw 'Moving the program changed the profile' }
+if ($OnStep) { & $OnStep 'Relocated icon reopened the selected database' }
+$early = Start-Process -FilePath (Join-Path $program 'Sesshuttle.exe') -PassThru
+ExitApp $early -DuringLoad
+if ((ReadDevice) -ne $id) { throw 'Closing a loading window changed the profile' }
 Remove-Item -LiteralPath $program,$folder -Recurse -Force
 if ((Get-Content -LiteralPath $pointer -Encoding UTF8 -Raw | ConvertFrom-Json).id -ne $marker.id) { throw 'Location ownership changed' }
 Remove-Item -LiteralPath $pointer
@@ -118,4 +136,4 @@ foreach ($stage in 'cancel','first','after') {
   if ($LASTEXITCODE) { throw 'Inventory comparison failed' }
   Set-Content -LiteralPath (Join-Path $work ($stage + '-diff.json')) -Value $diff -Encoding UTF8
 }
-[pscustomobject]@{ archiveSHA256=(Get-FileHash -Algorithm SHA256 $Archive).Hash; account=$identity.Name; build=[Environment]::OSVersion.Version.ToString(); architecture=$env:PROCESSOR_ARCHITECTURE; device=$id; profile=$folder; audit=$work; cancel=$true; twoLaunches=$true; relocatedExecutable=$true; uninstalled=$true } | ConvertTo-Json -Compress
+[pscustomobject]@{ archiveSHA256=(Get-FileHash -Algorithm SHA256 $Archive).Hash; account=$identity.Name; build=[Environment]::OSVersion.Version.ToString(); architecture=$env:PROCESSOR_ARCHITECTURE; device=$id; profile=$folder; audit=$work; cancel=$true; twoLaunches=$true; relocatedExecutable=$true; closeDuringLoad=$true; uninstalled=$true } | ConvertTo-Json -Compress
