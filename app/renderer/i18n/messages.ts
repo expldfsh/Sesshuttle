@@ -711,6 +711,10 @@ export const messages = {
     '还没识别到桌面端的 Codex 程序。打开 GPT 桌面端的 Codex 页面后重新检测，或手动选择 Codex 程序。',
     'The desktop app’s Codex runtime was not identified. Open Codex in the desktop app and detect again, or choose its runtime manually.',
   ],
+  desktopNotDetected: [
+    '还没识别到桌面端的 Codex 程序。确认已安装 GPT 桌面端后点{@restartDetection}，或手动选择其中的 Codex 程序。',
+    'The desktop app’s Codex runtime was not identified. Make sure the desktop app is installed and use {@restartDetection}, or choose its Codex runtime manually.',
+  ],
   launchManualHint: [
     '此应用可能需要手动打开，再按项目或标题查找对话。',
     'This app may need to be opened manually. Find the chat by project or title.',

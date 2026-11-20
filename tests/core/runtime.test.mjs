@@ -267,7 +267,10 @@ test('inspecting a path reports what it is without touching any data', async (t)
   await inspectRuntime(once, state);
   assert.equal((await fs.readFile(marker, 'utf8')).trim().split('\n').length, 1);
 
-  assert.equal((await inspectRuntime('relative/codex', state)).error, 'binary_required');
+  assert.equal((await inspectRuntime('', state)).error, 'binary_required');
+  // A path that is not absolute, such as one still in the quotes it was copied with.
+  assert.equal((await inspectRuntime('relative/codex', state)).error, 'invalid_path');
+  assert.equal((await inspectRuntime('"' + once + '"', state)).error, 'invalid_path');
   assert.equal(state.keys('runtime-proof/').length, 1, 'only the proof set above exists');
 });
 

@@ -8,6 +8,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState } from '../components/EmptyState';
 import { UnsavedBar } from '../components/UnsavedBar';
 import { Icon } from '../components/Icon';
+import { unquoted } from '../../../core/shown-paths.mjs';
 import { useLocalSettings } from './SettingsPage';
 import { ENTRIES, projectLabel } from './rows';
 
@@ -151,7 +152,7 @@ export function ProjectsPage() {
                   aria-label={t('projectPath') + ' · ' + projectLabel(value, t)}
                   placeholder={t('chooseProject')}
                   onChange={(e) =>
-                    update('bindings', { ...cfg.bindings, [projectId]: e.target.value })
+                    update('bindings', { ...cfg.bindings, [projectId]: unquoted(e.target.value) })
                   }
                 />
                 {folder && state && (

@@ -8,6 +8,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { UnsavedBar } from '../components/UnsavedBar';
 import { Icon } from '../components/Icon';
 import { Select } from '../Select';
+import { unquoted } from '../../../core/shown-paths.mjs';
 
 export const SHORTCUTS = [
   ['⌘/Ctrl + R', 'shortcutRefresh'],
@@ -315,7 +316,7 @@ export function SettingsPage() {
           <textarea
             rows={3}
             value={cfg.sourceHomes.join('\n')}
-            onChange={(e) => update('sourceHomes', e.target.value.split('\n'))}
+            onChange={(e) => update('sourceHomes', e.target.value.split('\n').map(unquoted))}
           />
         </label>
         <div className="actions">

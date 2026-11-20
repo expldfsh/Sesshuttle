@@ -7,6 +7,7 @@ import { knownRuntimeVersion } from './codex.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { isScript, resolveLauncher, runtimeProgram } from './runtime.mjs';
+import { within } from './util.mjs';
 
 const entries = ['desktop', 'cli', 'ide'];
 const directories = async (name) => await fs.readdir(name, { withFileTypes: true }).catch(() => []);
@@ -86,9 +87,18 @@ export async function liveLinuxTargets(proc = '/proc', uid = process.getuid?.())
 
 // Where to open the file chooser for the desktop app when no path is set: the
 // resources of an installed app bundle, found with a stat at the moment of choosing.
-export async function installedAppResources({ platform = process.platform, testRoot = null } = {}) {
+export async function installedAppResources({
+  platform = process.platform,
+  testRoot = null,
+  wait = 3000,
+} = {}) {
   if (platform === 'win32' && !testRoot) {
-    const roots = await windowsAppRoots(process.env);
+    // The chooser opens after a few seconds at most. A Store query that takes longer
+    // finishes on its own and serves the next time.
+    const roots = [
+      ...windowsProgramRoots(process.env),
+      ...(await within(windowsStoreRoots(process.env), wait, [])),
+    ];
     for (const root of roots) if (await directory(root)) return root;
     return undefined;
   }
@@ -101,14 +111,19 @@ export async function installedAppResources({ platform = process.platform, testR
   return undefined;
 }
 
-// Ask the OS for per-user Store installations. WindowsApps is not enumerable by ordinary users.
-async function windowsAppRoots(env) {
+// Where an installer for all users or for this user puts the desktop app.
+function windowsProgramRoots(env) {
   const roots = [];
   for (const base of [
     env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Programs'),
     env.ProgramFiles,
   ].filter(Boolean))
     for (const name of ['Codex', 'ChatGPT']) roots.push(path.join(base, name, 'resources'));
+  return roots;
+}
+// Ask the OS for per-user Store installations. WindowsApps is not enumerable by ordinary users.
+async function queryWindowsStoreRoots(env) {
+  const roots = [];
   if (!env.SystemRoot) return roots;
   const powershell = path.join(
     env.SystemRoot,
@@ -134,6 +149,13 @@ async function windowsAppRoots(env) {
   }
   return roots;
 }
+// The query starts PowerShell, which can take tens of seconds the first time. Its last
+// answer is kept for the file chooser; a detection the user starts always asks again.
+let storeRoots = null;
+function windowsStoreRoots(env, fresh = false) {
+  if (fresh || !storeRoots) storeRoots = queryWindowsStoreRoots(env);
+  return storeRoots;
+}
 
 export async function detectEnvironment({
   config = {},
@@ -157,7 +179,8 @@ export async function detectEnvironment({
   if (!testRoot) {
     const home = path.isAbsolute(env.CODEX_HOME ?? '') ? env.CODEX_HOME : defaultHome;
     const windows = platform === 'win32';
-    if (windows && !appRoots.length) appRoots = await windowsAppRoots(env);
+    if (windows && !appRoots.length)
+      appRoots = [...windowsProgramRoots(env), ...(await windowsStoreRoots(env, true))];
     for (const dir of [
       ...(env.PATH ?? '').split(path.delimiter),
       ...(windows
@@ -283,6 +306,8 @@ export async function detectEnvironment({
     ]),
   ];
   return {
+    // Only Linux can read the paths of an app that is running.
+    liveDetection: platform === 'linux',
     launchers,
     candidates: [...unique.values()],
     sourceHomes: await Promise.all(

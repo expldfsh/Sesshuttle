@@ -365,7 +365,7 @@ async function connect(ctx: Context, input: any) {
 async function projectInfo(project: string) {
   await canonical(project);
   try {
-    const options = { cwd: project, timeout: 5000, maxBuffer: 65536 };
+    const options = { cwd: project, timeout: 5000, maxBuffer: 65536, windowsHide: true };
     const [branch, commit, dirty] = await Promise.all([
       exec('git', ['branch', '--show-current'], options),
       exec('git', ['rev-parse', 'HEAD'], options),

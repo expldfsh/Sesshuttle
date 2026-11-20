@@ -12,6 +12,7 @@ import { ENTRIES } from '../pages/rows';
 import { errorRule } from '../errors';
 import { ReviewStep } from './ReviewStep';
 import { DirectionIcon } from './DirectionIcon';
+import { unquoted } from '../../../core/shown-paths.mjs';
 
 type Step = 'apps' | 'projects' | 'options' | 'review';
 
@@ -755,7 +756,7 @@ function ProjectChoice({ row: r, homeGroups, targets, draft, databases, setDraft
         <input
           value={draft.bindings[r.projectId] ?? ''}
           placeholder={t('workingFolderHint')}
-          onChange={(e) => setBinding(e.target.value)}
+          onChange={(e) => setBinding(unquoted(e.target.value))}
         />
       </label>
       <div className="actions">

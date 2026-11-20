@@ -5,6 +5,7 @@ import { useI18n } from './i18n/I18n';
 import { ErrorNotice } from './components/ErrorNotice';
 import { errorRule, fixLabel, type FixAction } from './errors';
 import { removalNotStarted } from './failures';
+import { joinShown } from '../../core/shown-paths.mjs';
 
 const dateLabel = (v: string | undefined, locale: string) =>
   v ? new Date(v).toLocaleString(locale) : '—';
@@ -466,7 +467,7 @@ export function RemovalFlow({
                   .map((f: any) => (
                     <div key={f.path}>
                       <code>
-                        {g.binPath && q.mode === 'purge' ? g.binPath + '/' + f.saved : f.path}
+                        {g.binPath && q.mode === 'purge' ? joinShown(g.binPath, f.saved) : f.path}
                       </code>
                       <small>
                         {size(f.bytes)}
@@ -485,7 +486,10 @@ export function RemovalFlow({
                   <div className="removal-resource" key={a.path}>
                     <code>
                       {g.binPath && q.mode === 'purge' && a.disposition === 'remove'
-                        ? g.binPath + '/' + g.files.find((f: any) => f.path === a.path)?.saved
+                        ? joinShown(
+                            g.binPath,
+                            g.files.find((f: any) => f.path === a.path)?.saved ?? '',
+                          )
                         : a.path}
                     </code>
                     <small>

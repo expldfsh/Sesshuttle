@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Modal } from './components/Modal';
 import { call } from './hooks/useApi';
+import { unquoted } from '../../core/shown-paths.mjs';
 
 const folderOf = (file: string) =>
   /^([a-zA-Z]:)?[\\/]/.test(file) ? file.replace(/[\\/][^\\/]*$/, '') || '/' : '';
@@ -153,7 +154,7 @@ export function EntryFields({ target, entry, t, pick, change, paths, saved }: Pr
             <input
               aria-label={t(entry) + ' ' + t(key === 'binary' ? 'kernelProgram' : 'historyFolder')}
               value={target?.[key] ?? ''}
-              onChange={(e) => change({ ...target, [key]: e.target.value })}
+              onChange={(e) => change({ ...target, [key]: unquoted(e.target.value) })}
               onFocus={(e) => {
                 if (key === 'binary') focused.current = e.target.value;
               }}
@@ -284,7 +285,13 @@ export function DetectionPanel({
           )}
           {!report.candidates.some((c: any) => c.entry === entry) && (
             <p className="warning-box">
-              {t(entry === 'desktop' ? 'launchDesktopToDetect' : 'noCandidate')}
+              {t(
+                entry === 'desktop'
+                  ? report.liveDetection
+                    ? 'launchDesktopToDetect'
+                    : 'desktopNotDetected'
+                  : 'noCandidate',
+              )}
             </p>
           )}
           {report.candidates.map((c: any, i: number) => {

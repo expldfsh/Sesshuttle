@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { ensureFreeSpace } from './guards.mjs';
 import { checkScope } from './scan-scope.mjs';
 import { scan } from './codex.mjs';
@@ -210,7 +211,7 @@ export class Removals {
         'trash_recovery_required',
       );
       local.push({
-        binPath: this.state.root + '/trash/' + record.id,
+        binPath: path.join(this.state.root, 'trash', record.id),
         token: q.binId,
         home: record.home,
         ids: record.ids,

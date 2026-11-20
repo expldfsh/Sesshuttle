@@ -60,7 +60,9 @@ export async function resolveLauncher(binary) {
 // installations may keep the JS launcher across native package upgrades. Both are
 // followed to the file that actually runs; the configured path stays as the user set it.
 async function executable(binary) {
-  requireThat(absoluteLocalPath(binary), 'binary_required');
+  requireThat(binary, 'binary_required');
+  // Something was entered, but it is not a full path on this computer.
+  requireThat(absoluteLocalPath(binary), 'invalid_path');
   let file = await fs.realpath(binary);
   if (process.platform === 'win32' && /^codex(?:\.cmd|\.ps1)?$/i.test(path.basename(file))) {
     const entry = path.join(
@@ -225,7 +227,10 @@ export async function inspectRuntime(binary, state) {
   try {
     file = await executable(binary);
   } catch (e) {
-    return { ...report, error: e.code === 'binary_required' ? e.code : 'binary_missing' };
+    return {
+      ...report,
+      error: ['binary_required', 'invalid_path'].includes(e.code) ? e.code : 'binary_missing',
+    };
   }
   const stat = await fs.stat(file).catch(() => null);
   if (!stat?.isFile()) return { ...report, error: 'binary_missing' };
