@@ -1,4 +1,4 @@
-import { app, clipboard, dialog, ipcMain, shell } from 'electron';
+import { app, clipboard, dialog, ipcMain, session, shell } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -45,6 +45,13 @@ import type { Context } from './context';
 
 const exec = promisify(execFile);
 type Handlers = { [M in IpcMethod]: (args: any) => unknown };
+
+// Storage requests follow the proxy the system is set to use, as a browser does. Test
+// mode only ever talks to its loopback server.
+const storeOptions = (ctx: Context) =>
+  ctx.testRoot
+    ? { allowLocal: true }
+    : { proxy: (url: string) => session.defaultSession.resolveProxy(url) };
 
 // Settings can display the identifier of the credentials already unlocked on this device.
 function connectionForSettings(connection: any, activeSecrets: any) {
@@ -173,7 +180,7 @@ async function loadSecrets(ctx: Context, password: string) {
     if (!value) return;
     const cfg = state.get('connection');
     const vault = new Vault(
-      new R2Store({ ...cfg, ...value.credentials }, ctx.testRoot ? { allowLocal: true } : {}),
+      new R2Store({ ...cfg, ...value.credentials }, storeOptions(ctx)),
       cfg.space,
       value.key,
       {
@@ -327,7 +334,7 @@ async function connect(ctx: Context, input: any) {
     secretAccessKey: String(input.secretAccessKey ?? ''),
   };
   requireThat(credentials.accessKeyId && credentials.secretAccessKey, 'credentials_required');
-  const store = new R2Store({ ...cfg, ...credentials }, ctx.testRoot ? { allowLocal: true } : {});
+  const store = new R2Store({ ...cfg, ...credentials }, storeOptions(ctx));
   await store.test();
   if (input.mode === 'test') return { status: 'connected' };
   const loaded = input.mode === 'join' && input.recoveryToken ? ctx.recovery : null;
@@ -605,7 +612,7 @@ export function createHandlers(ctx: Context): Handlers {
         connectionForSettings(state.get('connection'), ctx.secrets),
       );
       // Validate the destination with the same endpoint policy as the connection before showing it.
-      new R2Store(x, ctx.testRoot ? { allowLocal: true } : {});
+      new R2Store(x, storeOptions(ctx));
       const token = id();
       ctx.recovery = { ...x, token };
       return {

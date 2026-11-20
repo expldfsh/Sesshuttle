@@ -1753,8 +1753,8 @@ export const messages = {
     'Storage access denied. Check credentials and Bucket permissions.',
   ],
   storage_unavailable: [
-    '暂时无法连接存储，请检查网络和地址。',
-    'Storage is unavailable. Check network and endpoint.',
+    '暂时无法连接存储，请检查网络、系统代理设置和地址。',
+    'Storage is unavailable. Check your network, system proxy settings and the endpoint.',
   ],
   storage_write_permission: [
     '存储没有写入或删除测试对象的权限。请检查 R2 凭据的权限后重新测试。',

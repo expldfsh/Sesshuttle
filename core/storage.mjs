@@ -8,8 +8,15 @@ import {
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Fault, requireThat, id, LIMIT } from './util.mjs';
 import { bucketProblem, endpointProblem } from './connection-rules.mjs';
+import { ProxyAwareAgent } from './proxy-agent.mjs';
 export class R2Store {
-  constructor(config, { allowLocal = false } = {}) {
+  /**
+   * `proxy(url)` answers which proxy the system uses for an address; without it every
+   * request connects directly. `ca` adds certificate authorities for a test endpoint.
+   * @param {any} config
+   * @param {{ allowLocal?: boolean, proxy?: ((url: string) => Promise<string>) | null, ca?: string }} [options]
+   */
+  constructor(config, { allowLocal = false, proxy = null, ca } = {}) {
     requireThat(!endpointProblem(config.endpoint, { allowLocal }), 'invalid_endpoint');
     requireThat(!bucketProblem(config.bucket), 'invalid_bucket');
     const url = new URL(config.endpoint);
@@ -23,7 +30,11 @@ export class R2Store {
       credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey },
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
-      requestHandler: new NodeHttpHandler({ connectionTimeout: 6000, requestTimeout: 30000 }),
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: 6000,
+        requestTimeout: 30000,
+        ...(proxy ? { httpsAgent: new ProxyAwareAgent(proxy, ca ? { ca } : {}) } : {}),
+      }),
     });
   }
   async call(command) {
