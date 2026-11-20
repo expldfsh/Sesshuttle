@@ -100,6 +100,8 @@ export class Lab {
       const system = process.env.SystemRoot;
       return {
         SystemRoot: system,
+        WINDIR: system,
+        SystemDrive: path.parse(system).root.slice(0, 2),
         ComSpec: path.join(system, 'System32', 'cmd.exe'),
         PATH: [
           path.join(system, 'System32'),
@@ -426,14 +428,33 @@ export function historyEqual(left, right) {
 // shell API (outside Codex's own sandbox, still inside the lab's process sandbox).
 // This shows the working folder, not model reasoning.
 export async function proveDirectory(client, tid, project, marker) {
+  if (process.platform === 'win32') {
+    const { thread } = await client.rpc('thread/read', { threadId: tid, includeTurns: false });
+    const cwd = await canonical(thread.cwd);
+    if (cwd !== project) throw new Error('Thread working folder mismatch: ' + cwd);
+    const result = await client.rpc(
+      'command/exec',
+      {
+        command: [
+          path.join(process.env.SystemRoot, 'System32', 'cmd.exe'),
+          '/d',
+          '/c',
+          'cd & type proof.txt',
+        ],
+        cwd,
+        timeoutMs: 30000,
+      },
+      45000,
+    );
+    if (result.exitCode !== 0 || !result.stdout.includes(cwd) || !result.stdout.includes(marker))
+      throw new Error('Windows working folder proof failed: ' + JSON.stringify(result));
+    return { method: 'command/exec', recordedTurns: 0 };
+  }
   const completed = client.waitEvent('turn/completed');
   completed.catch(() => {});
   await client.rpc('thread/shellCommand', {
     threadId: tid,
-    command:
-      process.platform === 'win32'
-        ? '(Get-Location).Path; Get-Content -LiteralPath proof.txt'
-        : '/bin/pwd; /bin/cat proof.txt',
+    command: '/bin/pwd; /bin/cat proof.txt',
     timeoutMs: 5000,
   });
   if ((await completed).turn.status !== 'completed') throw new Error('Shell command failed');
@@ -446,6 +467,7 @@ export async function proveDirectory(client, tid, project, marker) {
   if ((await canonical(command.cwd)) !== project) throw new Error('Command ran in ' + command.cwd);
   if (!command.aggregatedOutput.includes(project) || !command.aggregatedOutput.includes(marker))
     throw new Error('Working folder proof missing: ' + command.aggregatedOutput);
+  return { method: 'thread/shellCommand', recordedTurns: 1 };
 }
 
 // A random marker that must reach the provider again after a transfer.

@@ -103,7 +103,7 @@ try {
           JSON.stringify(before).includes(replyMarker),
           'The receiving computer’s message is present before continuing',
         );
-      await proveDirectory(client, tid, project, mode + '-LOCAL');
+      const directoryProof = await proveDirectory(client, tid, project, mode + '-LOCAL');
       await turn(
         client,
         tid,
@@ -114,12 +114,13 @@ try {
       const after = await turns(client, tid);
       const body = JSON.stringify(fixture.requests.at(-1));
       assert.ok(body.includes(info.marker) && !body.includes('sesshuttle environment mapping'));
-      assert.equal(after.length, before.length + 2);
+      assert.equal(after.length, before.length + directoryProof.recordedTurns + 1);
       return {
         before: before.length,
         after: after.length,
         projectVerified: !!projectId,
         cwdVerified: true,
+        directoryMethod: directoryProof.method,
         imageHistory,
         returnedMessage: mode === 'return',
         manualHandoff: true,
