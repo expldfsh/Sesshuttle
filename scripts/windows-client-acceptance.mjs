@@ -8,6 +8,7 @@ import { setTimeout as pause } from 'node:timers/promises';
 import { Lab, withClient } from './lib/native-lab.mjs';
 import { invoke, launchApp } from './lib/test-app.mjs';
 import { detectEnvironment } from '../core/discovery.mjs';
+import { assertCodexClosed } from '../core/native.mjs';
 import { startFixtureProvider, writeFixtureConfig } from '../core/fixture-provider.mjs';
 import { State } from '../core/state.mjs';
 import { id } from '../core/util.mjs';
@@ -33,14 +34,16 @@ try {
     home,
     project,
     { localPort: fixture.port },
-    async (c) =>
-      (
+    async (c) => {
+      await assert.rejects(assertCodexClosed(home), { code: 'codex_running' });
+      return (
         await c.rpc('project/create', {
           name: 'Windows entry acceptance',
           roots: [{ path: project }],
           idempotencyKey: id(),
         })
-      ).project.id,
+      ).project.id;
+    },
   );
   await fs.symlink(home, defaultHome, 'junction');
   link = true;

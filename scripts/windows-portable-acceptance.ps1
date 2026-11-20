@@ -87,6 +87,12 @@ $again = Start-Process -FilePath $exe -PassThru
 ExitApp $again
 if ((ReadDevice) -ne $id) { throw 'Second icon launch opened a different profile' }
 if (-not (Test-Path -LiteralPath (Join-Path $folder 'Open Sesshuttle.cmd'))) { throw 'Missing data folder shortcut' }
+$relocated = Join-Path $work ('App ' + [char]0x4e2d + [char]0x6587 + ' 100%')
+Move-Item -LiteralPath $program -Destination $relocated
+$program = $relocated
+$third = Start-Process -FilePath (Join-Path $program 'Sesshuttle.exe') -PassThru
+ExitApp $third
+if ((ReadDevice) -ne $id) { throw 'Moving the program changed the profile' }
 Remove-Item -LiteralPath $program,$folder -Recurse -Force
 if ((Get-Content -LiteralPath $pointer -Encoding UTF8 -Raw | ConvertFrom-Json).id -ne $marker.id) { throw 'Location ownership changed' }
 Remove-Item -LiteralPath $pointer
@@ -97,4 +103,4 @@ foreach ($stage in 'cancel','first','after') {
   if ($LASTEXITCODE) { throw 'Inventory comparison failed' }
   Set-Content -LiteralPath (Join-Path $work ($stage + '-diff.json')) -Value $diff -Encoding UTF8
 }
-[pscustomobject]@{ archiveSHA256=(Get-FileHash -Algorithm SHA256 $Archive).Hash; account=$identity.Name; build=[Environment]::OSVersion.Version.ToString(); architecture=$env:PROCESSOR_ARCHITECTURE; device=$id; profile=$folder; audit=$work; cancel=$true; twoLaunches=$true; uninstalled=$true } | ConvertTo-Json -Compress
+[pscustomobject]@{ archiveSHA256=(Get-FileHash -Algorithm SHA256 $Archive).Hash; account=$identity.Name; build=[Environment]::OSVersion.Version.ToString(); architecture=$env:PROCESSOR_ARCHITECTURE; device=$id; profile=$folder; audit=$work; cancel=$true; twoLaunches=$true; relocatedExecutable=$true; uninstalled=$true } | ConvertTo-Json -Compress
