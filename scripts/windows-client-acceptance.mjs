@@ -19,7 +19,11 @@ import { id } from '../core/util.mjs';
 assert.equal(process.platform, 'win32');
 assert.equal(os.hostname().toUpperCase(), 'SESSHUTTLE-QA');
 assert.equal(os.userInfo().username, 'SesshuttleQA');
-const [exchange, port] = process.argv.slice(2);
+const [exchange, port, windowProbe] = process.argv.slice(2);
+assert.ok(
+  windowProbe && path.isAbsolute(windowProbe),
+  'Provide the native window acceptance helper',
+);
 const info = JSON.parse(await fs.readFile(exchange));
 const cli = await fs.realpath(process.env.SESSHUTTLE_FIXTURE_CODEX);
 const lab = await Lab.create();
@@ -28,32 +32,6 @@ const home = await lab.directory('codex'),
 const fixture = await startFixtureProvider();
 const defaultHome = path.join(os.homedir(), '.codex');
 const previousHome = path.join(lab.root, 'preinstalled-client-home');
-async function checkClientWindows() {
-  const script = `$until=(Get-Date).AddMinutes(2)
-    do {
-      $windows=@(Get-Process -Name ChatGPT,Codex,Code -ErrorAction SilentlyContinue |
-        Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object Path,MainWindowTitle)
-      $desktop=$windows | Where-Object { $_.Path -like '*\\WindowsApps\\OpenAI.*\\*' }
-      $editor=$windows | Where-Object { $_.Path -like '*\\Microsoft VS Code\\*' }
-      if ($desktop -and $editor) {
-        @($desktop[0],$editor[0]) | ConvertTo-Json -Compress
-        exit 0
-      }
-      Start-Sleep -Seconds 2
-    } until ((Get-Date) -gt $until)
-    $windows | ConvertTo-Json -Compress
-    exit 1`;
-  const ps = path.join(process.env.SystemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe');
-  const { stdout } = await promisify(execFile)(
-    ps,
-    ['-NoProfile', '-NonInteractive', '-Command', script],
-    {
-      windowsHide: true,
-      timeout: 180000,
-    },
-  );
-  console.log('Visible client windows', stdout.trim());
-}
 async function detectInstalled() {
   const account = os.homedir();
   assert.equal(await readFolderLocation(account), null);
@@ -219,7 +197,8 @@ try {
     }
   }
   assert.deepEqual(problems, []);
-  await checkClientWindows();
+  const { stdout } = await promisify(execFile)(windowProbe, { windowsHide: true, timeout: 360000 });
+  console.log('Visible client windows', stdout.trim());
 } finally {
   try {
     try {
