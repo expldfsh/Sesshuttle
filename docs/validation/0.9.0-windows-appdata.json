@@ -181,6 +181,65 @@
       "after": 7438
     }
   },
+  "afterOpeningInstalledClients": {
+    "removedDuringAppChecks": {
+      "cancel": [
+        "Local/Temp/BIT9CE8.tmp"
+      ],
+      "first": [
+        "Local/Temp/BIT9CE8.tmp"
+      ],
+      "after": [
+        "Local/Temp/BIT9CE8.tmp"
+      ],
+      "after-workflow": [
+        "Local/Microsoft/OneDrive/logs/Common/OneDriveLauncher-2026-11-20.0223.2340.2.aodl",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/BrowserMetrics-spare.pma",
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Default/blob_storage/bdb849fb-afdf-43d0-9843-af6f5ceadbcb",
+        "Local/Temp/BIT9CE8.tmp"
+      ]
+    },
+    "unlabelledWorkflowTemp": {
+      "Local/Temp/b0e65275-3e79-4f36-a86d-fc81644f8808.tmp": {
+        "present": true,
+        "bytes": 0,
+        "createdUtc": "2026-11-20T03:07:21.594Z",
+        "holders": "owner=System;image=;pid=4\r\nresult=0,count=1"
+      }
+    },
+    "before": 7438,
+    "after": 8452,
+    "added": 1017,
+    "changed": 17,
+    "newByParent": {
+      "Roaming/Code": 185,
+      "Roaming/Microsoft/Windows": 1,
+      "Local/D3DSCache": 4,
+      "Local/Microsoft/TokenBroker": 1,
+      "Local/OpenAI": 1,
+      "Local/Packages/cr.sb.odm658684D938D046962C4EE647441271941AA72F0E": 3,
+      "Local/Packages/OpenAI.Codex_2p2nqsd0c76g0": 821,
+      "Local/Temp": 1
+    },
+    "changedByParent": {
+      "Roaming/Microsoft/Spelling": 2,
+      "Local/Microsoft/OneDrive": 1,
+      "Local/Microsoft/Windows": 5,
+      "Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe": 1,
+      "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy": 8
+    },
+    "sesshuttleNames": [
+      "Local/ConnectedDevicesPlatform/L.SesshuttleQA",
+      "Local/ConnectedDevicesPlatform/L.SesshuttleQA/ActivitiesCache.db",
+      "Local/ConnectedDevicesPlatform/L.SesshuttleQA/ActivitiesCache.db-shm",
+      "Local/ConnectedDevicesPlatform/L.SesshuttleQA/ActivitiesCache.db-wal",
+      "Local/ConnectedDevicesPlatform/L.SesshuttleQA.cdp",
+      "Local/ConnectedDevicesPlatform/L.SesshuttleQA.cdpresource"
+    ],
+    "unreadable": [],
+    "reference": "after-workflow",
+    "nameMatchReview": "All six paths containing the disposable Windows account name belong to Windows ConnectedDevicesPlatform. They existed before launch and were unchanged in the controlled run and the separate client window check."
+  },
   "controlledRunRemoved": {
     "after": [
       "Local/Temp/BIT9CE8.tmp"
