@@ -7,7 +7,9 @@ import path from 'node:path';
 import { setTimeout as pause } from 'node:timers/promises';
 import { Lab, withClient } from './lib/native-lab.mjs';
 import { invoke, launchApp } from './lib/test-app.mjs';
-import { detectEnvironment } from '../core/discovery.mjs';
+import { createDataFolder } from '../core/data-folder.mjs';
+import { locationFile, readFolderLocation } from '../core/folder-location.mjs';
+import { readMarker } from '../core/profile-paths.mjs';
 import { assertCodexClosed } from '../core/native.mjs';
 import { startFixtureProvider, writeFixtureConfig } from '../core/fixture-provider.mjs';
 import { State } from '../core/state.mjs';
@@ -25,6 +27,42 @@ const home = await lab.directory('codex'),
 const fixture = await startFixtureProvider();
 const defaultHome = path.join(os.homedir(), '.codex');
 const previousHome = path.join(lab.root, 'preinstalled-client-home');
+async function detectInstalled() {
+  const account = os.homedir();
+  assert.equal(await readFolderLocation(account), null);
+  const folder = await createDataFolder(await lab.directory('desktop detection'));
+  const marker = readMarker(folder);
+  let detector;
+  try {
+    const ui = await launchApp(lab.root, {
+      executablePath: process.env.SESSHUTTLE_ACCEPTANCE_APP,
+      args: [
+        '--sesshuttle-folder=' + folder,
+        '--user-data-dir=' + path.join(folder, 'runtime', 'profile'),
+      ],
+      env: {
+        SESSHUTTLE_TEST_ROOT: '',
+        PATH: path.dirname(cli) + path.delimiter + process.env.PATH,
+      },
+    });
+    detector = ui.app;
+    await ui.page.waitForSelector('.shell');
+    const result = await invoke(ui.page, 'detectPaths');
+    assert.ok(result.ok, JSON.stringify(result.error));
+    return result.data;
+  } finally {
+    try {
+      if (detector) await detector.close();
+    } finally {
+      const location = await readFolderLocation(account);
+      if (location) {
+        assert.equal(location.id, marker.id);
+        assert.equal(location.folder, folder);
+        await fs.unlink(locationFile(account));
+      }
+    }
+  }
+}
 let app,
   movedHome = false,
   link = false;
@@ -70,9 +108,7 @@ try {
   }
   await fs.symlink(home, defaultHome, 'junction');
   link = true;
-  const detected = await detectEnvironment({
-    env: { ...process.env, PATH: path.dirname(cli) + path.delimiter + process.env.PATH },
-  });
+  const detected = await detectInstalled();
   const targets = {};
   for (const key of ['cli', 'desktop', 'ide']) {
     const found = detected.candidates.find(
