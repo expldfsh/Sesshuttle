@@ -6,7 +6,7 @@ Terms used here and in the app: an **app** is the GPT desktop app, the CLI or th
 
 ## Install or upgrade
 
-- On Windows 11 x64, extract all of `sesshuttle-0.9.0-win-x64.zip` into a folder you can keep. Double-click **Sesshuttle.exe**. Keep the files together. You may create a shortcut to that executable. The local build is unsigned.
+- On Windows 11 x64, extract all of `sesshuttle-0.9.0-win-x64.zip` into a folder you can keep. Double-click **Sesshuttle.exe**. Keep the files together. You may create a shortcut to that executable. `sesshuttle-runtime.exe` in the same folder is a component and is not opened on its own. The package is not code-signed; see [Opening it on Windows for the first time](#opening-it-on-windows-for-the-first-time).
 - On Apple Silicon, open `sesshuttle-0.9.0-mac-arm64.dmg` and drag Sesshuttle into Applications. This local build has no Developer ID signature or notarization.
 - On Arch Linux x86_64, run the commands below from the download folder in your graphical desktop session. Keep the extracted folder intact.
 - On Debian or Ubuntu x86_64, install `sesshuttle-0.9.0-linux-amd64.deb` with your software installer or `sudo apt install ./sesshuttle-0.9.0-linux-amd64.deb`.
@@ -16,7 +16,16 @@ tar -xzf sesshuttle-0.9.0-linux-x64.tar.gz
 ./sesshuttle-0.9.0-linux-x64/sesshuttle
 ```
 
-On Windows, select the native Windows `codex.exe` or the official npm `codex.cmd` for the CLI. The desktop and VS Code Continue actions open the conversation through their registered links. If Windows has no VS Code link association, Sesshuttle passes the same link to VS Code in its standard per-user or system install folder. For a separately configured Codex home, open that client directly using the path shown in Sesshuttle.
+On Windows, select the native Windows `codex.exe` or the official npm `codex.cmd` for the CLI. **Continue** for the CLI opens a terminal window that runs Codex; if Codex cannot start, the window stays on the error until you press a key. The desktop and VS Code Continue actions open the conversation through their registered links. If Windows has no VS Code link association, Sesshuttle passes the same link to VS Code in its standard per-user or system install folder. For a separately configured Codex home, open that client directly using the path shown in Sesshuttle.
+
+Every update of the Store version of the GPT desktop app installs its Codex runtime in a new folder. Chats you already imported are unaffected and still open with **Continue**. Before the next import, use **Detect local Codex apps** on **Apps & projects** to apply the new path and run one quick check. A path copied with **Copy as path** can be pasted with its quotes.
+
+### Opening it on Windows for the first time
+
+- **“Windows protected your PC”.** SmartScreen shows this for a downloaded program without a code signature. After checking that the ZIP came from this project's Releases page, choose **More info**, then **Run anyway**. The same program opens without the notice afterwards.
+- **The program is blocked with no “Run anyway”.** Smart App Control is on and does not allow unsigned programs. Sesshuttle only runs after it is turned off in **Windows Security → App & browser control → Smart App Control**. On some Windows versions it cannot be turned on again, so read what that page says before deciding.
+- **“Sesshuttle could not start”.** The ZIP was not extracted completely, or security software removed the file named in the message. Extract the whole ZIP again, or restore that file first.
+- **Codex inside WSL.** Sesshuttle only finds Codex apps installed on Windows itself. A Codex installed in WSL keeps its program and data folder on the Linux side and cannot be detected, imported into or continued yet.
 
 Install and sign in to the Codex apps you want to use on each computer. Bring project files to each computer yourself, for example with Git. Fonts are bundled.
 
@@ -28,14 +37,14 @@ The **Getting started** list at the top of Conversations shows four steps: detec
 2. Quit the old version before upgrading. If the previous installation is found, choose **Copy previous data**. Open **Settings → Local settings** and check your device, backups, trash and new location. If a connection was saved, choose **Migrate saved credentials…**, set a local password and authorize access to the previous credentials.
 3. Choose **Review old files…** when ready. The confirmation shows the previous path, the items to remove and the new location. Cancel to keep the originals. A change to the old data, an incomplete copy or unverified credentials stops cleanup. Personal files left alongside app files stay in place and the app shows their location.
 4. Reopen from the app icon. Sesshuttle can find `Sesshuttle Data` directly in your home folder. For other locations, a visible `Sesshuttle Location.json` in your home folder stores only the path and folder ID. **Settings → Local settings** shows both paths. If you used a custom folder with the previous preview build, select it once after updating, or open it once with `Open Sesshuttle.command` (Mac) or `Open Sesshuttle.sh` (Linux) inside that folder.
-5. Connect external drives before opening the app. If the app asks for the drive, reconnect it and press OK to retry. If you moved the folder manually, you can select the original folder at its new location in the next window. To move it from Settings, choose **Move data folder…**, verify the new location and review cleanup of the old one. If you deliberately deleted your custom data folder and want to start over, quit, delete the location file from your home folder and open the app again.
+5. Connect external drives before opening the app. If the app asks for the drive, reconnect it and press OK to retry. If you moved the folder manually, you can select the original folder at its new location in the next window. To move it from Settings, choose **Move data folder…**, verify the new location and review cleanup of the old one. If your data folder was deleted and you want to start over, cancel the window that asks for the original folder. The app then asks whether to start with a new, empty data folder; confirm and choose where to save it.
    On Windows the shortcut inside a data folder is `Open Sesshuttle.cmd`. You can use it to reopen that folder after moving it.
 6. Before uninstalling, keep any device backups or recycled copies you still need. Quit the app and remove the application, your data folder and, for custom locations, `Sesshuttle Location.json` in your home folder. You can check the full paths in **Settings → Local settings**. For Windows, remove the entire extracted ZIP folder and any shortcut you created. For a Debian installation use the software manager to remove the program. Exported connection files, project folders, native Codex conversations and your cloud space are managed separately. The operating system manages its own recent items and installation records.
 
 ## Connect both computers
 
 1. In Cloudflare, create a private R2 bucket. Generate R2 credentials with **Object Read & Write** access scoped to that bucket. Save the Access Key ID and Secret Access Key and copy the S3 endpoint shown for your bucket. [Cloudflare setup](https://developers.cloudflare.com/r2/get-started/s3/) · [R2 credentials](https://developers.cloudflare.com/r2/api/tokens/)
-2. On the first computer, open Settings and choose **This is my first computer: create a sync space**. The endpoint looks like `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`; each field is checked as you leave it. **Test connection** shows its result next to the button.
+2. On the first computer, open Settings and choose **This is my first computer: create a sync space**. The endpoint looks like `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`; each field is checked as you leave it. **Test connection** shows its result next to the button. Storage requests follow the system proxy settings: with an HTTP proxy the encrypted connection is tunnelled through it, and with only a SOCKS proxy set the app still connects directly.
 3. After the space is created, the **Next: export the connection file** card stays until you choose **Export connection file**. The file holds the space decryption key and the Access Key ID. Keep it safe.
 4. On the second computer, choose **I already have a sync space: import its connection file**. The endpoint, bucket, space and Access Key ID are filled in; enter the R2 Secret Access Key to join. **Enter connection details manually** is also available.
 5. **Connected to your sync space** means the connection succeeded, and the top bar shows the connection with the first characters of the space ID. **View cloud chats** opens the list.
@@ -67,7 +76,7 @@ After you confirm, the dialog closes and the task indicator in the top bar shows
 
 Use **Import to this computer…** to continue in Codex. **Download a cloud copy to a folder** in the **⋯** menu only exports files.
 
-1. **Apps.** Select **GPT desktop**, CLI, VS Code or several apps. If paths are missing, use **Detect local Codex apps** in this step. Opening the Codex part of your GPT desktop app first helps detection find its running runtime and history database. Review the evidence and apply the paths you want. **Next** checks the chosen apps; if a step cannot continue, the reason is shown next to the button.
+1. **Apps.** Select **GPT desktop**, CLI, VS Code or several apps. If paths are missing, use **Detect local Codex apps** in this step. On Linux, opening the Codex part of your GPT desktop app first helps detection find its running runtime and history database. On Windows and macOS, make sure the desktop app is installed and choose **Detect again**, or choose its Codex runtime manually. Review the evidence and apply the paths you want. **Next** checks the chosen apps; if a step cannot continue, the reason is shown next to the button.
 2. **Projects and folders.** Choose the project in the destination app, even if it has no chats yet, or **Import history only (no native project)**. Choose your project folder or **Create a dedicated project folder**.
 3. **Review.** Check the destination app and project, close Codex processes that use the history, then choose **Confirm import to …**. The task reports cloud and per-app results separately. Use **Fix and retry** or **Retry this app** for a target that did not succeed.
 4. Once an app is verified, choose **Continue** to open the chat there. If a native link is unavailable, open the app yourself and look for the title. Check the old messages and send the first new turn yourself. You can tell Codex you changed computers and give it the new folder. Sesshuttle sets the working directory without adding a model-facing message.
@@ -94,10 +103,12 @@ If an upload, import or removal cannot start, the task indicator in the top bar 
 | What you see | What to do |
 | --- | --- |
 | Connected, credentials kept only in memory | You can view and import now. Choose **Settings → Remember connection…** to set a local password. Use **Unlock and connect…** next time. |
-| An app is detected but its data folder or runtime is missing | Edit the paths for that app in the import dialog or on **Apps & projects**, then check again. Opening the destination app's Codex page helps detection. |
+| An app is detected but its data folder or runtime is missing | Edit the paths for that app in the import dialog or on **Apps & projects**, then check again. On Linux, opening the destination app's Codex page helps detection. |
 | An app shows “Choose a Codex runtime” | The path is a launcher script that cannot be resolved. Select **Choose Codex runtime…** in the notice, pick the actual executable of that installation, then select **Start quick check**. |
 | The cloud chat does not appear | Make sure both computers joined the same space, check the task result on the uploading computer, refresh and **Clear filters**. A failed cloud check keeps the previous list. |
 | Codex is using the history, or the review is out of date | Save your work and quit Codex, or refresh, then review again. Nothing is imported before you confirm. If the review went out of date before you confirmed, the task does not start; choose **Refresh and preview again** in the task panel to get a new review list. |
+| **Continue** says this app's settings changed | The app's Codex data folder, the project folder or the CLI's Codex runtime was changed after the import. Check the settings on **Apps & projects**. To use the new settings, import the chat into this app again. |
+| Only a notice that the file is a component of Sesshuttle appears | You opened `sesshuttle-runtime.exe`. Open the **Sesshuttle.exe** named in the notice instead. |
 | One app failed | Open the task and choose **Fix and retry** for that app. Uploaded and verified targets are listed separately. If recovery is needed, open **Backups & recovery**. |
 | Both computers continued the chat | Choose **Compare versions**, then pick the version and target. Local versions that need protection are kept before importing. |
 

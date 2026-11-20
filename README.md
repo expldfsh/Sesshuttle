@@ -17,7 +17,7 @@ Local 0.9.0 builds are in `release/`. Published builds are available on [GitHub 
 | Arch and other x86_64 Linux distributions | `sesshuttle-0.9.0-linux-x64.tar.gz` |
 | Debian / Ubuntu x86_64 | `sesshuttle-0.9.0-linux-amd64.deb` |
 
-On Windows, choose **Extract All** and double-click **Sesshuttle.exe** inside the extracted folder.
+On Windows, choose **Extract All** and double-click **Sesshuttle.exe** inside the extracted folder. The package is not code-signed: if “Windows protected your PC” appears the first time, choose **More info**, then **Run anyway**. [Other first-start situations on Windows](docs/guides/en/quick-start.md#opening-it-on-windows-for-the-first-time)
 
 Choose a data folder once, then reopen it from the app icon. For a custom location, a visible `Sesshuttle Location.json` file in your home folder remembers the path. When upgrading, you can copy existing data and credentials, check them and approve cleanup in Settings. [Choose, move or remove your data folder](docs/guides/en/quick-start.md#your-sesshuttle-data-folder)
 

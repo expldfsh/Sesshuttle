@@ -17,7 +17,7 @@
 | Arch 等 x86_64 Linux | `sesshuttle-0.9.0-linux-x64.tar.gz` |
 | Debian / Ubuntu x86_64 | `sesshuttle-0.9.0-linux-amd64.deb` |
 
-Windows 上先右键 ZIP 选择「全部解压缩」，再双击解压目录里的 **Sesshuttle.exe**。
+Windows 上先右键 ZIP 选择「全部解压缩」，再双击解压目录里的 **Sesshuttle.exe**。安装包没有代码签名，第一次打开时如果看到「Windows 已保护你的电脑」，点「更多信息 → 仍要运行」。[Windows 第一次打开时的其他情况](docs/guides/zh-CN/quick-start.md#windows-第一次打开)
 
 首次打开时选择数据文件夹，以后直接点应用图标即可打开。选用 `~/Sesshuttle Data` 以外的位置时，应用会在个人主目录中用可见的 `Sesshuttle Location.json` 记住路径。升级时可迁移旧版数据和凭据，核对后再从设置清理旧位置。[选择位置、迁移和卸载](docs/guides/zh-CN/quick-start.md#你的-sesshuttle-数据文件夹)
 
