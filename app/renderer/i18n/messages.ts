@@ -1422,8 +1422,8 @@ export const messages = {
     'This space has a writer. Wait for it to finish. If it was interrupted, reopen Sesshuttle on the initiating device and retry.',
   ],
   codex_running: [
-    '无法确认目标 Codex 数据目录空闲。请退出使用该目录的 Codex 桌面端、CLI 或编辑器扩展，再重试此次写入。上传和下载到普通文件夹仍可用。',
-    'The destination Codex data folder may be in use. Close the Codex app, CLI or extension using it, then retry this write. Uploads and downloads to an ordinary folder remain available.',
+    '无法确认目标 Codex 数据目录空闲。请退出使用该目录的 Codex 桌面端、CLI 或编辑器扩展，再重试此次写入。只关闭窗口时应用可能仍在后台运行，需要从菜单栏或托盘图标退出。上传和下载到普通文件夹仍可用。',
+    'The destination Codex data folder may be in use. Quit the Codex app, CLI or extension using it, then retry this write. An app can keep running after its window is closed; quit it from its menu bar or tray icon. Uploads and downloads to an ordinary folder remain available.',
   ],
   concurrent_update: [
     '其他设备正在更新云端，请刷新后重试。',
