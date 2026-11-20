@@ -1,0 +1,102 @@
+{
+  "release": "0.9.0",
+  "file": "sesshuttle-0.9.0-win-x64.zip",
+  "sha256": "1c135f584021158704e5d266532aa7239b854b69949617c7c485f604d4a85c99",
+  "operatingSystem": "Windows 11 Enterprise Evaluation",
+  "windowsBuild": "10.0.26300.0",
+  "architecture": "AMD64",
+  "elevated": false,
+  "programDrive": "C:",
+  "dataDrive": "D:",
+  "dataDirectoryName": "Chat 中文 100%/Sesshuttle Data",
+  "observations": {
+    "cancel": true,
+    "twoLaunches": true,
+    "relocatedExecutable": true,
+    "closeDuringLoad": true,
+    "uninstalled": true
+  },
+  "inventoryScope": [
+    "AppData/Roaming",
+    "AppData/Local",
+    "AppData/LocalLow",
+    "other present AppData directories"
+  ],
+  "comparisons": {
+    "cancel": {
+      "added": [],
+      "changed": [
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0042.7840.1.aodl",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnWebGPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/GPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/GrShaderCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/ShaderCache/data_1"
+      ],
+      "candidates": [],
+      "unreadable": [],
+      "before": 3358,
+      "after": 3358
+    },
+    "first": {
+      "added": [],
+      "changed": [
+        "Roaming/Microsoft/Spelling/en-US/default.acl",
+        "Roaming/Microsoft/Spelling/en-US/default.exc",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0042.7840.1.aodl",
+        "Local/Microsoft/Windows/UsrClass.dat.LOG1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnWebGPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/GPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/GrShaderCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/ShaderCache/data_1"
+      ],
+      "candidates": [],
+      "unreadable": [],
+      "before": 3358,
+      "after": 3358
+    },
+    "after": {
+      "added": [],
+      "changed": [
+        "Roaming/Microsoft/Spelling/en-US/default.acl",
+        "Roaming/Microsoft/Spelling/en-US/default.exc",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0042.7840.1.aodl",
+        "Local/Microsoft/Windows/Explorer/iconcache_idx.db",
+        "Local/Microsoft/Windows/UsrClass.dat.LOG1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/Cache/Cache_Data/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnWebGPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/GPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/GrShaderCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/ShaderCache/data_1"
+      ],
+      "candidates": [],
+      "unreadable": [],
+      "before": 3358,
+      "after": 3358
+    },
+    "after-workflow": {
+      "added": [
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Crashpad/watson_metadata"
+      ],
+      "changed": [
+        "Roaming/Microsoft/Spelling/en-US/default.acl",
+        "Roaming/Microsoft/Spelling/en-US/default.exc",
+        "Local/Microsoft/OneDrive/logs/Personal/SyncEngine-2026-11-20.0042.7840.1.aodl",
+        "Local/Microsoft/Windows/Explorer/iconcache_idx.db",
+        "Local/Microsoft/Windows/UsrClass.dat.LOG1",
+        "Local/Microsoft/Windows/UsrClass.dat.LOG2",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/Cache/Cache_Data/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnGraphiteCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/DawnWebGPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/Default/GPUCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/GrShaderCache/data_1",
+        "Local/Packages/MicrosoftWindows.Client.CBS_cw5n1h2txyewy/LocalState/EBWebView/ShaderCache/data_1"
+      ],
+      "candidates": [
+        "Local/Packages/MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy/LocalState/EBWebView/Crashpad/watson_metadata"
+      ],
+      "unreadable": [],
+      "before": 3358,
+      "after": 3359
+    }
+  }
+}

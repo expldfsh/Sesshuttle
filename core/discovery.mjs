@@ -123,7 +123,8 @@ async function windowsAppRoots(env) {
     const { stdout } = await promisify(execFile)(
       powershell,
       ['-NoProfile', '-NonInteractive', '-Command', script],
-      { windowsHide: true, timeout: 8000, maxBuffer: 65536 },
+      // A cold Appx module on Windows 11 can take tens of seconds to load.
+      { windowsHide: true, timeout: 90000, maxBuffer: 65536 },
     );
     for (const base of stdout.split(/\r?\n/).filter((p) => path.isAbsolute(p))) {
       roots.push(path.join(base, 'app', 'resources'), path.join(base, 'resources'));

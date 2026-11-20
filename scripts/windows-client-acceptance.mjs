@@ -24,7 +24,9 @@ const home = await lab.directory('codex'),
   project = await lab.directory('project');
 const fixture = await startFixtureProvider();
 const defaultHome = path.join(os.homedir(), '.codex');
+const previousHome = path.join(lab.root, 'preinstalled-client-home');
 let app,
+  movedHome = false,
   link = false;
 try {
   await writeFixtureConfig(home, fixture.port);
@@ -45,6 +47,27 @@ try {
       ).project.id;
     },
   );
+  const existing = await fs.lstat(defaultHome).catch((error) => {
+    if (error.code !== 'ENOENT') throw error;
+  });
+  if (existing) {
+    assert.ok(existing.isDirectory() && !existing.isSymbolicLink());
+    const files = await fs.readdir(defaultHome);
+    assert.ok(!files.includes('auth.json'), 'The disposable account must be signed out');
+    const sessions = await fs.readdir(path.join(defaultHome, 'sessions')).catch((error) => {
+      if (error.code !== 'ENOENT') throw error;
+      return [];
+    });
+    assert.equal(
+      sessions.length,
+      0,
+      'The disposable account must have no existing conversation history',
+    );
+    // The official Windows installer can initialize its default home at sign-in.
+    // Preserve it while the registered clients open our synthetic conversation.
+    await fs.rename(defaultHome, previousHome);
+    movedHome = true;
+  }
   await fs.symlink(home, defaultHome, 'junction');
   link = true;
   const detected = await detectEnvironment({
@@ -134,12 +157,18 @@ try {
   await pause(8000);
   assert.deepEqual(problems, []);
 } finally {
-  if (app) await app.close();
-  await fixture.close();
-  if (
-    link &&
-    (await fs.lstat(defaultHome)).isSymbolicLink() &&
-    (await fs.realpath(defaultHome)) === home
-  )
-    await fs.unlink(defaultHome);
+  try {
+    try {
+      if (app) await app.close();
+    } finally {
+      await fixture.close();
+    }
+  } finally {
+    if (link) {
+      assert.ok((await fs.lstat(defaultHome)).isSymbolicLink());
+      assert.equal(await fs.realpath(defaultHome), home);
+      await fs.unlink(defaultHome);
+    }
+    if (movedHome) await fs.rename(previousHome, defaultHome);
+  }
 }
