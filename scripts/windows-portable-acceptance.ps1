@@ -118,8 +118,10 @@ ExitApp $again
 if ((ReadDevice) -ne $id) { throw 'Second icon launch opened a different profile' }
 if ($OnStep) { & $OnStep 'Original icon reopened the selected database' }
 if (-not (Test-Path -LiteralPath (Join-Path $folder 'Open Sesshuttle.cmd'))) { throw 'Missing data folder shortcut' }
-# Characters that a file address escapes; a percent sign alone once kept the app from answering.
-$relocated = Join-Path $work ('App ' + [char]0x4e2d + [char]0x6587 + ' 100% [x] ~ #1 %41')
+# Characters that a file address escapes; a percent sign alone once kept the app from
+# answering. Square brackets are left to the workflow's check: PowerShell reads them
+# as a pattern in some of the commands below.
+$relocated = Join-Path $work ('App ' + [char]0x4e2d + [char]0x6587 + ' 100% ~ #1 %41')
 Move-Item -LiteralPath $program -Destination $relocated
 $program = $relocated
 $third = Start-Process -FilePath (Join-Path $program 'Sesshuttle.exe') -PassThru
