@@ -201,6 +201,7 @@ tests/core/          node:test 单元测试；tests/helpers 为测试数据与 M
 - 更新 `package.json` 版本号、README（中英文）、用户指南中的版本与链接。
 - 新建 `docs/validation/<版本号>.md`，删除上一版的验收记录，并更新所有指向它的链接。
 - `npm run package:mac`、`npm run package:linux` 和 `npm run package:win` 打包，生成 `release/SHA256SUMS-<版本号>.txt`。`release/` 中只保留当前版本和上一版的安装包，并删除 electron-builder 的中间产物（`linux-unpacked/`、`mac-arm64/`、`win-unpacked/`、`*.yml`）。
+- 构建 Windows x64 启动器时，`x86_64-w64-mingw32-g++` 和 `x86_64-w64-mingw32-windres` 需要在 PATH 中，也可以用 `SESSHUTTLE_MINGW_BIN` 指定两者所在的目录。构建结束后解压 ZIP，以普通账户双击 `Sesshuttle.exe` 核对首次选择和重开。
 - 用 `scripts/smoke.mjs <安装包中的程序> --ui` 做冒烟检查。
 - 在对话中给用户一份验收报告：完成内容、偏差、测试结果、安装包位置、需要用户亲自验收的步骤。
 
