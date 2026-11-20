@@ -820,10 +820,15 @@ button.choice-card {
 .more-menu .menu {
   right: 0;
   top: calc(100% + 6px);
+  /* Wide enough that longer English entries need fewer lines. */
+  width: max-content;
   min-width: 220px;
+  max-width: 300px;
   padding: 6px;
   display: grid;
   gap: 2px;
+  /* Its height is limited to the room below it when it opens (MoreMenu). */
+  overflow-y: auto;
 }
 .more-menu .menu button {
   display: flex;

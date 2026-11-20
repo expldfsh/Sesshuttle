@@ -721,10 +721,21 @@ function MoreMenu({ items, disabled }: { items: any[]; disabled: boolean }) {
   const { t } = useI18n();
   const ref = useRef<HTMLDetailsElement>(null);
   const close = () => ref.current?.removeAttribute('open');
+  // The menu opens inside the details panel, which cuts off what runs past its lower
+  // edge. A menu taller than the room below it scrolls inside itself, so that its last
+  // entry can always be reached.
+  function fit() {
+    const menu = ref.current?.querySelector<HTMLElement>('.menu');
+    if (!menu || !ref.current?.open) return;
+    const panel = ref.current.closest('.detail');
+    const bottom = panel?.getBoundingClientRect().bottom ?? window.innerHeight;
+    menu.style.maxHeight = Math.max(96, bottom - menu.getBoundingClientRect().top - 8) + 'px';
+  }
   return (
     <details
       className="more-menu"
       ref={ref}
+      onToggle={fit}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && ref.current?.open) {
           e.stopPropagation();
