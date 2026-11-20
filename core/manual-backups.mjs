@@ -1,7 +1,17 @@
 import { ensureFreeSpace, pendingImports } from './guards.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { atomic, canonical, hash, id, inside, requireThat, walk } from './util.mjs';
+import {
+  atomic,
+  canonical,
+  hash,
+  id,
+  inside,
+  requireThat,
+  walk,
+  removeFolder,
+  discardFolder,
+} from './util.mjs';
 import { copyVerified, digestFile } from './stream.mjs';
 
 export async function inventory(home) {
@@ -57,7 +67,7 @@ export async function createBackup(importer, home) {
     await atomic(path.join(root, 'manifest.json'), JSON.stringify(info));
     return state.set('backup/' + backupId, info);
   } catch (e) {
-    await fs.rm(root, { recursive: true, force: true });
+    await discardFolder(root);
     throw e;
   }
 }
@@ -84,7 +94,7 @@ export async function deleteBackup(state, backupId) {
   const pending = pendingImports(state).some(([, task]) => task.backup === backupId);
   requireThat(!pending && state.get('restore/' + backupId)?.status !== 'prepared', 'backup_in_use');
   const root = await inside(state.root, path.join(state.root, 'backups', backupId));
-  await fs.rm(root, { recursive: true, force: true });
+  await removeFolder(root);
   state.remove('backup/' + backupId);
 }
 export async function restoreReview(info) {

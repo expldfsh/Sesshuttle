@@ -133,6 +133,38 @@ export async function stableRead(file, limit = LIMIT) {
     await handle.close();
   }
 }
+// The value of a promise, or `fallback` when it has not settled after `ms`. The work
+// behind the promise goes on.
+export function within(promise, ms, fallback) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      timer = setTimeout(() => resolve(fallback), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+// On Windows a scanner or indexer can hold a file for a moment after it was written.
+// Renaming that file, or a folder that contains it, is refused meanwhile, so the
+// rename is tried again for about two seconds. Elsewhere these errors are final.
+export async function rename(from, to, tries = process.platform === 'win32' ? 6 : 1) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fs.rename(from, to);
+    } catch (e) {
+      if (attempt >= tries || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+      await new Promise((resolve) => setTimeout(resolve, 100 * attempt));
+    }
+  }
+}
+// Removes a folder as a step of an operation, which fails if the folder stays. A file
+// that is busy for a moment is waited for.
+export const removeFolder = (dir) =>
+  fs.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+// Discards a private working folder that is no longer needed. One that cannot be
+// removed now is left to the cleanup at the next start (or to the next attempt that
+// reuses its place) instead of turning work that already finished into a failure.
+export const discardFolder = (dir) => removeFolder(dir).catch(() => {});
 export async function atomic(file, data) {
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   const tmp = file + '.tmp-' + id();
@@ -143,7 +175,7 @@ export async function atomic(file, data) {
   } finally {
     await h.close();
   }
-  await fs.rename(tmp, file);
+  await rename(tmp, file);
 }
 export async function walk(root) {
   const files = [];

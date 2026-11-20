@@ -9,7 +9,7 @@ import { State } from './state.mjs';
 import { Importer } from './importer.mjs';
 import { scan } from './codex.mjs';
 import { captureBundle } from './bundle.mjs';
-import { Fault, id, requireThat } from './util.mjs';
+import { Fault, discardFolder, id, requireThat } from './util.mjs';
 import { FIXTURE_REPLY, setupHome, startFixtureProvider } from './fixture-provider.mjs';
 
 export async function verifyRuntime(
@@ -246,6 +246,6 @@ export async function verifyRuntime(
     signal?.removeEventListener('abort', abort);
     tempState?.close();
     if (service) await service.close();
-    if (root) await fs.rm(root, { recursive: true, force: true });
+    if (root) await discardFolder(root);
   }
 }

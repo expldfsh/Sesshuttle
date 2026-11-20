@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import { constants } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { requireThat, id } from './util.mjs';
+import { requireThat, id, rename } from './util.mjs';
 export const CHUNK = 4 * 1024 * 1024;
 const RECORD_LIMIT = 128 * 1024 * 1024;
 export async function* readBlocks(file, size = CHUNK) {
@@ -121,7 +121,7 @@ export async function writeStream(file, source) {
     for await (const b of source) await h.writeFile(b);
     await h.sync();
     await h.close();
-    await fs.rename(tmp, file);
+    await rename(tmp, file);
     ok = true;
   } finally {
     if (!ok) {

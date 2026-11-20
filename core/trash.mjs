@@ -8,7 +8,7 @@ import { scan } from './codex.mjs';
 import { openCatalog, dbPaths, tableColumns } from './catalog.mjs';
 import { referencesFor, inspectAttachment } from './attachments.mjs';
 import { copyVerified, digestFile, writeStream, records, recordLines } from './stream.mjs';
-import { id, hash, requireThat, inside, exists, atomic, Fault } from './util.mjs';
+import { id, hash, requireThat, inside, exists, atomic, Fault, removeFolder } from './util.mjs';
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const signature = (rows) =>
   hash(
@@ -492,7 +492,7 @@ export class Trash {
   async eraseCopy(info) {
     requireThat(/^[a-f0-9-]{36}$/i.test(info.id), 'unsafe_path');
     const root = await inside(this.state.root, path.join(this.state.root, 'trash', info.id));
-    await fs.rm(root, { recursive: true, force: true });
+    await removeFolder(root);
     this.state.set('trash/' + info.id, null);
   }
   async purge(trashId) {

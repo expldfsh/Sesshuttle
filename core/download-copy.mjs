@@ -2,7 +2,7 @@ import { ensureFreeSpace } from './guards.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { bundleBytes, materialize } from './bundle.mjs';
-import { requireThat } from './util.mjs';
+import { discardFolder, requireThat } from './util.mjs';
 
 // The folder is chosen by the native picker. Stage privately on the same volume
 // so a failed download never appears as a completed export.
@@ -24,7 +24,7 @@ export async function downloadCopy(vault, logical, version, folder) {
     });
     return dest;
   } catch (e) {
-    await fs.rm(dest, { force: true, recursive: true });
+    await discardFolder(dest);
     throw e;
   }
 }

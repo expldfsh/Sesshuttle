@@ -14,7 +14,15 @@ import { Engine } from '../../core/engine.mjs';
 import { Importer } from '../../core/importer.mjs';
 import { Trash } from '../../core/trash.mjs';
 import { Removals } from '../../core/removals.mjs';
-import { requireThat, publicError, exists, canonical, inside, hash } from '../../core/util.mjs';
+import {
+  requireThat,
+  publicError,
+  exists,
+  canonical,
+  inside,
+  hash,
+  discardFolder,
+} from '../../core/util.mjs';
 import { DEFAULT_THEME_ID } from '../shared/themes';
 import { applyAppearance } from './menu';
 import { createWindow, rendererUrl } from './window';
@@ -96,10 +104,7 @@ async function recoverLocalState(state: any, trash: any) {
         if (
           (name === 'temp' ? /^sesshuttle-runtime-[A-Za-z0-9]{6}$/ : /^[0-9a-f-]{36}$/).test(entry)
         )
-          await fs.rm(await inside(state.root, path.join(root, entry)), {
-            recursive: true,
-            force: true,
-          });
+          await discardFolder(await inside(state.root, path.join(root, entry)));
     }
   }
   for (const k of state.keys('job/')) {

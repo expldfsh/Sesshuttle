@@ -4,7 +4,18 @@ import path from 'node:path';
 import os from 'node:os';
 import { createHash } from 'node:crypto';
 import { DatabaseSync, backup } from 'node:sqlite';
-import { Fault, atomic, exists, hash, id, inside, requireThat } from './util.mjs';
+import {
+  Fault,
+  atomic,
+  exists,
+  hash,
+  id,
+  inside,
+  requireThat,
+  rename,
+  removeFolder,
+  discardFolder,
+} from './util.mjs';
 import { copyVerified, digestFile } from './stream.mjs';
 import { State } from './state.mjs';
 import { readMarker, markerName } from './profile-paths.mjs';
@@ -247,7 +258,7 @@ export async function migrateData(source, target, { portable = false, ownedState
     const stage = path.join(target, '.incoming-' + marker.id);
     if (marker.staging === marker.id) {
       await inside(target, stage);
-      await fs.rm(stage, { recursive: true, force: true });
+      await removeFolder(stage);
     } else {
       requireThat(!(await exists(stage)), 'folder_not_empty');
       await atomic(
@@ -329,14 +340,15 @@ export async function migrateData(source, target, { portable = false, ownedState
       next = null;
       db.close();
       db = null;
-      await fs.rename(stage, path.join(target, 'data'));
+      await rename(stage, path.join(target, 'data'));
       const ready = readMarker(target);
       delete ready.staging;
       await atomic(path.join(target, markerName), JSON.stringify(ready));
     } finally {
       next?.close();
       db?.close();
-      await fs.rm(stage, { recursive: true, force: true });
+      // A stage that stays is removed by the next attempt in this destination.
+      await discardFolder(stage);
     }
   };
   if (ownedState) {
@@ -574,7 +586,7 @@ export async function cleanMigration(state, legacy, token, forget = async (_migr
         } finally {
           db.close();
         }
-        await fs.rename(original, retired);
+        await rename(original, retired);
       }
       await removeReviewed(
         m.source,

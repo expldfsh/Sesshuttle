@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { folderName } from './data-folder.mjs';
 import { readMarker } from './profile-paths.mjs';
-import { Fault, id, stableRead, requireThat } from './util.mjs';
+import { Fault, id, stableRead, requireThat, rename } from './util.mjs';
 
 export const locationFile = (home) => path.join(home, 'Sesshuttle Location.json');
 const format = 'sesshuttle-folder-location-v1';
@@ -57,7 +57,7 @@ export async function rememberFolderLocation(home, folder) {
         'folder_location_invalid',
         file,
       );
-      await fs.rename(temporary, file);
+      await rename(temporary, file);
     } else {
       // First publication must never replace an unrelated file with the same name.
       await fs.link(temporary, file);

@@ -8,7 +8,17 @@ import path from 'node:path';
 import os from 'node:os';
 import { scan } from './codex.mjs';
 import { Importer } from './importer.mjs';
-import { id, hash, requireThat, publicError, canonical, indexBy, afterStart } from './util.mjs';
+import {
+  id,
+  hash,
+  requireThat,
+  publicError,
+  canonical,
+  indexBy,
+  afterStart,
+  removeFolder,
+  discardFolder,
+} from './util.mjs';
 const UPLOAD_ACTIONS = ['upload', 'upload_import', 'preserve_conflict'];
 const ATTENTION = [
   'excluded',
@@ -117,7 +127,7 @@ export class Engine {
     for (const k of keys) {
       const dir = this.downloads.get(k);
       if (!dir) continue;
-      await fs.rm(dir, { recursive: true, force: true });
+      await removeFolder(dir);
       this.downloads.delete(k);
     }
   }
@@ -299,8 +309,7 @@ export class Engine {
       Number.isFinite(uploadLimitMiB) && uploadLimitMiB >= 1 && uploadLimitMiB <= 1048576,
       'invalid_settings',
     );
-    for (const old of this.plans.values())
-      if (old.stage) await fs.rm(old.stage, { recursive: true, force: true });
+    for (const old of this.plans.values()) if (old.stage) await discardFolder(old.stage);
     this.plans.clear();
     this.vault.staged = new Map();
     const token = id(),
@@ -491,7 +500,7 @@ export class Engine {
     const plan = this.plans.get(token);
     if (plan) {
       this.plans.delete(token);
-      await fs.rm(plan.stage, { recursive: true, force: true });
+      await discardFolder(plan.stage);
     }
   }
   cancel() {
@@ -603,7 +612,7 @@ export class Engine {
   async finishJob(plan, job) {
     this.vault.endTransfer();
     delete job.progress;
-    await fs.rm(plan.stage, { recursive: true, force: true }).catch(() => {});
+    await discardFolder(plan.stage);
     this.running = false;
     job.finishedAt = new Date().toISOString();
     this.state.set('job/' + job.id, job);
@@ -943,8 +952,10 @@ export class Engine {
     const key = 'entries/' + this.scope() + '/' + item.id;
     this.state.set(key, { ...this.state.get(key, {}), ...result.targets });
     const values = Object.values(result.targets);
+    // The import is finished and recorded: a download that cannot be removed now is
+    // removed at the next start.
     if (cache && values.length && values.every((x) => x.status === 'verified'))
-      await this.clearDownloads([cache.cacheKey]);
+      await this.clearDownloads([cache.cacheKey]).catch(() => {});
     result.status = values.every((x) => ['verified', 'imported'].includes(x.status))
       ? 'downloaded'
       : values.some((x) => ['verified', 'imported'].includes(x.status))

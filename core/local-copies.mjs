@@ -4,7 +4,7 @@ import path from 'node:path';
 import { digestFile, copyVerified } from './stream.mjs';
 import { ensureFreeSpace } from './guards.mjs';
 import { scan } from './codex.mjs';
-import { hash, id, inside, requireThat } from './util.mjs';
+import { hash, id, inside, requireThat, rename } from './util.mjs';
 import { checkScope } from './scan-scope.mjs';
 
 export function copiesOf(rows, logical) {
@@ -119,7 +119,7 @@ export async function keepLocalCopy(engine, { logical, token, file, entry }) {
         );
         await fs.mkdir(path.dirname(dest), { recursive: true, mode: 0o700 });
         try {
-          await fs.rename(copy.file, dest);
+          await rename(copy.file, dest);
         } catch (error) {
           if (error.code !== 'EXDEV') throw error;
           const snapshot = await digestFile(copy.file);

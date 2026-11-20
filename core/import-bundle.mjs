@@ -9,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { validateBundle, bundleIdentity, bundleBytes, materialize } from './bundle.mjs';
 import { dbPaths, tableColumns, TABLES } from './catalog.mjs';
 import { records, copyVerified } from './stream.mjs';
-import { id, hash, requireThat, inside, exists, indexBy } from './util.mjs';
+import { id, hash, requireThat, inside, exists, indexBy, discardFolder } from './util.mjs';
 import { receiptMatchesRuntime } from './runtime.mjs';
 import { scan } from './codex.mjs';
 import { NativeClient, checkSourceProviders } from './native.mjs';
@@ -84,7 +84,7 @@ async function initialize(binary, home, project, root, fixture) {
     const dest = await inside(home, path.join(home, path.basename(p)));
     requireThat(!(await exists(dest)), 'stale_plan');
     await copyVerified(p, dest);
-    await fs.rm(scratch, { recursive: true, force: true });
+    await discardFolder(scratch);
   }
 }
 function validateRow(record, tid) {
@@ -360,6 +360,6 @@ export async function importBundle(
     }
     throw e;
   } finally {
-    await fs.rm(temp, { recursive: true, force: true });
+    await discardFolder(temp);
   }
 }
