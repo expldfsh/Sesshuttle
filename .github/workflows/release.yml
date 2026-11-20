@@ -1,0 +1,130 @@
+name: Build and release
+
+on:
+  push:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.package.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - id: package
+        name: Read the release version
+        run: |
+          version=$(jq -er '.version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"))' package.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run check:links
+
+  build:
+    needs: check
+    name: Package ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: win
+            runner: windows-2025
+            suffixes: win-x64.zip
+          - platform: mac
+            runner: macos-15
+            suffixes: mac-arm64.dmg
+          - platform: linux
+            runner: ubuntu-24.04
+            suffixes: linux-amd64.deb linux-x64.tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install the Windows launcher compiler
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $name = 'llvm-mingw-20261117-ucrt-x86_64'
+          $archive = Join-Path $env:RUNNER_TEMP "$name.zip"
+          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/20261117/$name.zip"
+          curl.exe --fail --location --retry 3 --output $archive $url
+          if ($LASTEXITCODE -ne 0) { throw "Could not download $name" }
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash
+          if ($hash -ne '4d002e330a0f703625aa5ccbc37e96f8f824413e163bfc7336774aabd2c3a412') { throw 'Compiler checksum mismatch' }
+          7z x $archive "-o$env:RUNNER_TEMP" -y -bso0
+          if ($LASTEXITCODE -ne 0) { throw "Could not extract $name" }
+          $bin = Join-Path $env:RUNNER_TEMP "$name\bin"
+          "SESSHUTTLE_MINGW_BIN=$bin" >> $env:GITHUB_ENV
+          $bin >> $env:GITHUB_PATH
+      - run: npm ci
+      - run: npm run package:${{ matrix.platform }}
+      - name: Collect installers and their checksums
+        shell: bash
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+          SUFFIXES: ${{ matrix.suffixes }}
+        run: |
+          mkdir installers
+          read -ra suffixes <<< "$SUFFIXES"
+          for suffix in "${suffixes[@]}"; do
+            file="release/sesshuttle-$VERSION-$suffix"
+            test -s "$file" || { echo "Missing installer: $file" >&2; exit 1; }
+            cp "$file" installers/
+          done
+          cd installers
+          if [[ "$RUNNER_OS" == macOS ]]; then hash=(shasum -a 256); else hash=(sha256sum); fi
+          "${hash[@]}" -b sesshuttle-* > "checksums-$PLATFORM.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installers-${{ matrix.platform }}
+          path: installers/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: true
+
+  publish:
+    needs: [check, build]
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ needs.check.outputs.version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: installers-*
+          path: installers
+          merge-multiple: true
+      - name: Publish the verified installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.check.outputs.version }}
+        working-directory: installers
+        run: bash ../.github/scripts/publish-release.sh
